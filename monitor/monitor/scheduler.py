@@ -51,7 +51,6 @@ def sincronizar_jobs(scheduler: BackgroundScheduler, db: Database, settings: Set
                 id=jid,
                 name=f"{r.nombre} ({r.intervalo_segundos}s)",
                 replace_existing=True,
-                next_run_time=None,
             )
             log.info("Job alta: %s cada %ss", r.nombre, r.intervalo_segundos)
         else:
