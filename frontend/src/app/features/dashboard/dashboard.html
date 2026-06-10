@@ -1,8 +1,8 @@
 <div class="head">
   <h1>Dashboard</h1>
-  <span class="live" [class.on]="enVivo()">
+  <span class="live" [class.on]="enVivo()" [title]="'Refresco automático cada ' + intervaloSeg + 's'">
     <span class="dot" [class.bg-up]="enVivo()" [class.bg-unknown]="!enVivo()"></span>
-    {{ enVivo() ? 'En vivo' : 'Sin conexión' }}
+    {{ enVivo() ? 'En vivo · ' + intervaloSeg + 's' : 'Sin conexión' }}
   </span>
 </div>
 

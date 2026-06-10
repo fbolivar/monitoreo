@@ -1,9 +1,10 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { Subscription, interval } from 'rxjs';
+import { environment } from '../../../environments/environment';
 import { AuthService } from '../../core/auth.service';
 import { Estado, ESTADO_LABEL, ESTADOS, Recurso } from '../../core/models';
-import { RealtimeService } from '../../core/realtime.service';
 import { RecursosService } from '../../core/recursos.service';
 
 interface GrupoTipo { tipo: string; recursos: Recurso[]; }
@@ -18,7 +19,6 @@ interface GrupoSitio { sitio: string; total: number; tipos: GrupoTipo[]; }
 })
 export class Dashboard implements OnInit, OnDestroy {
   private recursosSvc = inject(RecursosService);
-  private realtime = inject(RealtimeService);
   auth = inject(AuthService);
 
   readonly estados = ESTADOS;
@@ -38,7 +38,8 @@ export class Dashboard implements OnInit, OnDestroy {
     return e ? ESTADO_LABEL[e] : '';
   });
 
-  private desuscribir?: () => void;
+  private pollSub?: Subscription;
+  readonly intervaloSeg = Math.round(environment.refreshMs / 1000);
 
   /** Conteo por estado (sobre todos los recursos, sin filtrar). */
   resumen = computed(() => {
@@ -85,12 +86,13 @@ export class Dashboard implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.cargar();
-    this.desuscribir = this.realtime.onRecursos((r) => this.aplicarCambio(r));
+    // Opción B: refresco por POLLING (la BD es local; no hay Supabase Realtime).
+    this.pollSub = interval(environment.refreshMs).subscribe(() => this.refrescar());
     this.enVivo.set(true);
   }
 
   ngOnDestroy(): void {
-    this.desuscribir?.();
+    this.pollSub?.unsubscribe();
   }
 
   private cargar(): void {
@@ -107,16 +109,15 @@ export class Dashboard implements OnInit, OnDestroy {
     });
   }
 
-  /** Aplica un cambio recibido por Realtime sobre el recurso correspondiente. */
-  private aplicarCambio(cambio: Recurso): void {
-    if (!cambio?.id) return;
-    this.recursos.update((lista) =>
-      lista.map((x) =>
-        x.id === cambio.id
-          ? { ...x, estado_actual: cambio.estado_actual, ultimo_chequeo_at: cambio.ultimo_chequeo_at }
-          : x,
-      ),
-    );
+  /** Refresco silencioso (sin spinner) ejecutado por el polling. */
+  private refrescar(): void {
+    this.recursosSvc.listar().subscribe({
+      next: (page) => {
+        this.recursos.set(page.data);
+        this.enVivo.set(true);
+      },
+      error: () => this.enVivo.set(false),
+    });
   }
 
   hace(ts?: string | null): string {
