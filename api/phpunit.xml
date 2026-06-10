@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
+         bootstrap="vendor/autoload.php"
+         colors="true">
+    <testsuites>
+        <testsuite name="Feature">
+            <directory>tests/Feature</directory>
+        </testsuite>
+        <testsuite name="Unit">
+            <directory>tests/Unit</directory>
+        </testsuite>
+    </testsuites>
+    <source>
+        <include>
+            <directory>app</directory>
+        </include>
+    </source>
+    <php>
+        <env name="APP_ENV" value="testing"/>
+        <env name="APP_KEY" value="base64:AckfSECRETKEYFORTESTINGONLYxxxxxxxxxxxxxxxxx="/>
+        <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+        <env name="BCRYPT_ROUNDS" value="4"/>
+        <env name="CACHE_STORE" value="array"/>
+        <env name="SESSION_DRIVER" value="array"/>
+        <env name="QUEUE_CONNECTION" value="sync"/>
+        <env name="MAIL_MAILER" value="array"/>
+
+        <!-- Cifrado de secretos (debe coincidir entre cifrar/descifrar en los tests). -->
+        <env name="APP_CRYPTO_KEY" value="test-crypto-key-monitoreo"/>
+
+        <!-- Secreto JWT usado para FIRMAR tokens de prueba y VALIDARLOS. -->
+        <env name="SUPABASE_JWT_SECRET" value="test-jwt-secret-monitoreo"/>
+        <env name="SUPABASE_JWT_AUDIENCE" value="authenticated"/>
+
+        <!-- Base de datos de pruebas: Postgres con el esquema YA migrado
+             (db/migrations 0001 + 0002). Los tests usan transacciones y revierten. -->
+        <env name="DB_CONNECTION" value="pgsql"/>
+        <env name="DB_HOST" value="127.0.0.1"/>
+        <env name="DB_PORT" value="5432"/>
+        <env name="DB_DATABASE" value="monitoreo_test"/>
+        <env name="DB_USERNAME" value="monitoreo"/>
+        <env name="DB_PASSWORD" value="monitoreo_dev"/>
+    </php>
+</phpunit>

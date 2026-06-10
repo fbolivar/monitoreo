@@ -1,0 +1,12 @@
+.head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+h1 { font-size: 18px; margin: 0; }
+.tabs { display: flex; gap: 4px; }
+.filtros { display: flex; gap: 8px; margin-bottom: 12px; }
+
+.sev { text-transform: uppercase; font-size: 11px; font-weight: 700; }
+.sev-info { color: var(--sev-info); }
+.sev-warning { color: var(--sev-warning); }
+.sev-critical { color: var(--sev-critical); }
+
+.estado { color: var(--text-dim); }
+.estado.abierta { color: var(--estado-down); font-weight: 600; }

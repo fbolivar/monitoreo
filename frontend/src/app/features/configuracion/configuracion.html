@@ -1,0 +1,189 @@
+<div class="head">
+  <h1>Configuración</h1>
+  <div class="tabs">
+    <button class="btn" [class.btn-primary]="tab() === 'umbrales'" (click)="cambiarTab('umbrales')">Umbrales</button>
+    <button class="btn" [class.btn-primary]="tab() === 'mantenimientos'" (click)="cambiarTab('mantenimientos')">Mantenimientos</button>
+    <button class="btn" [class.btn-primary]="tab() === 'canales'" (click)="cambiarTab('canales')">Canales</button>
+  </div>
+</div>
+
+@if (!auth.puedeEditar()) { <p class="text-dim">Rol {{ auth.rol() }} · solo lectura.</p> }
+@if (error()) { <p class="err">{{ error() }}</p> }
+
+<!-- ════════ UMBRALES ════════ -->
+@if (tab() === 'umbrales') {
+  @if (auth.puedeEditar()) { <button class="btn btn-primary mb" (click)="nuevoUmbral()">+ Nuevo umbral</button> }
+
+  @if (creando() || editId() !== null) {
+    <form class="card form" (ngSubmit)="guardarUmbral()">
+      <div class="grid">
+        <label>Ámbito
+          <select name="ambito" [(ngModel)]="fUmbral.ambito">
+            <option value="tipo">Por tipo</option>
+            <option value="recurso">Por recurso</option>
+          </select>
+        </label>
+        @if (fUmbral.ambito === 'tipo') {
+          <label>Tipo
+            <select name="tipo_id" [(ngModel)]="fUmbral.tipo_id">
+              <option [ngValue]="null" disabled>Seleccionar…</option>
+              @for (t of tipos(); track t.id) { <option [ngValue]="t.id">{{ t.nombre }}</option> }
+            </select>
+          </label>
+        } @else {
+          <label>Recurso
+            <select name="recurso_id" [(ngModel)]="fUmbral.recurso_id">
+              <option [ngValue]="null" disabled>Seleccionar…</option>
+              @for (r of recursos(); track r.id) { <option [ngValue]="r.id">{{ r.nombre }}</option> }
+            </select>
+          </label>
+        }
+        <label>Métrica <input name="metrica" [(ngModel)]="fUmbral.metrica" required /></label>
+        <label>Operador
+          <select name="operador" [(ngModel)]="fUmbral.operador">
+            @for (o of operadores; track o) { <option [value]="o">{{ o }}</option> }
+          </select>
+        </label>
+        <label>Warning <input type="number" name="vw" [(ngModel)]="fUmbral.valor_warning" /></label>
+        <label>Critical <input type="number" name="vc" [(ngModel)]="fUmbral.valor_critical" /></label>
+        <label>Duración (s) <input type="number" name="dur" [(ngModel)]="fUmbral.duracion_segundos" min="0" /></label>
+        <label class="check"><input type="checkbox" name="act" [(ngModel)]="fUmbral.activo" /> Activo</label>
+      </div>
+      <div class="acciones">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <button type="button" class="btn" (click)="cancelar()">Cancelar</button>
+      </div>
+    </form>
+  }
+
+  <table>
+    <thead><tr><th>Ámbito</th><th>Métrica</th><th>Op</th><th>Warn</th><th>Crít</th><th>Dur</th><th>Activo</th><th></th></tr></thead>
+    <tbody>
+      @for (u of umbrales(); track u.id) {
+        <tr>
+          <td>{{ u.recurso_id ? nombreRecurso(u.recurso_id) : nombreTipo(u.tipo_id) }}</td>
+          <td>{{ u.metrica }}</td><td>{{ u.operador }}</td>
+          <td>{{ u.valor_warning ?? '—' }}</td><td>{{ u.valor_critical ?? '—' }}</td>
+          <td>{{ u.duracion_segundos }}s</td><td>{{ u.activo ? 'Sí' : 'No' }}</td>
+          <td class="acc">
+            @if (auth.puedeEditar()) {
+              <button class="btn" (click)="editarUmbral(u)">Editar</button>
+              <button class="btn" (click)="eliminarUmbral(u)">Eliminar</button>
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}
+
+<!-- ════════ MANTENIMIENTOS ════════ -->
+@if (tab() === 'mantenimientos') {
+  @if (auth.puedeEditar()) { <button class="btn btn-primary mb" (click)="nuevoMant()">+ Nueva ventana</button> }
+
+  @if (creando() || editId() !== null) {
+    <form class="card form" (ngSubmit)="guardarMant()">
+      <div class="grid">
+        <label>Ámbito
+          <select name="ambito" [(ngModel)]="fMant.ambito">
+            <option value="recurso">Recurso</option>
+            <option value="sitio">Sitio</option>
+            <option value="global">Global</option>
+          </select>
+        </label>
+        @if (fMant.ambito === 'recurso') {
+          <label>Recurso
+            <select name="recurso_id" [(ngModel)]="fMant.recurso_id">
+              <option [ngValue]="null" disabled>Seleccionar…</option>
+              @for (r of recursos(); track r.id) { <option [ngValue]="r.id">{{ r.nombre }}</option> }
+            </select>
+          </label>
+        }
+        @if (fMant.ambito === 'sitio') {
+          <label>Sitio
+            <select name="sitio_id" [(ngModel)]="fMant.sitio_id">
+              <option [ngValue]="null" disabled>Seleccionar…</option>
+              @for (s of sitios(); track s.id) { <option [ngValue]="s.id">{{ s.nombre }}</option> }
+            </select>
+          </label>
+        }
+        <label>Inicio <input type="datetime-local" name="inicio" [(ngModel)]="fMant.inicio" required /></label>
+        <label>Fin <input type="datetime-local" name="fin" [(ngModel)]="fMant.fin" required /></label>
+        <label class="wide">Motivo <input name="motivo" [(ngModel)]="fMant.motivo" required /></label>
+      </div>
+      <div class="acciones">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <button type="button" class="btn" (click)="cancelar()">Cancelar</button>
+      </div>
+    </form>
+  }
+
+  <table>
+    <thead><tr><th>Ámbito</th><th>Inicio</th><th>Fin</th><th>Motivo</th><th></th></tr></thead>
+    <tbody>
+      @for (m of mantenimientos(); track m.id) {
+        <tr>
+          <td>{{ m.recurso_id ? nombreRecurso(m.recurso_id) : (m.sitio_id ? nombreSitio(m.sitio_id) : 'Global') }}</td>
+          <td class="text-dim">{{ fecha(m.inicio) }}</td>
+          <td class="text-dim">{{ fecha(m.fin) }}</td>
+          <td>{{ m.motivo }}</td>
+          <td class="acc">
+            @if (auth.puedeEditar()) {
+              <button class="btn" (click)="editarMant(m)">Editar</button>
+              <button class="btn" (click)="eliminarMant(m)">Eliminar</button>
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}
+
+<!-- ════════ CANALES ════════ -->
+@if (tab() === 'canales') {
+  @if (auth.puedeEditar()) { <button class="btn btn-primary mb" (click)="nuevoCanal()">+ Nuevo canal</button> }
+
+  @if (creando() || editId() !== null) {
+    <form class="card form" (ngSubmit)="guardarCanal()">
+      <div class="grid">
+        <label>Tipo
+          <select name="tipo" [(ngModel)]="fCanal.tipo">
+            @for (t of tiposCanal; track t) { <option [value]="t">{{ t }}</option> }
+          </select>
+        </label>
+        <label>Nombre <input name="nombre" [(ngModel)]="fCanal.nombre" required /></label>
+        <label class="check"><input type="checkbox" name="act" [(ngModel)]="fCanal.activo" /> Activo</label>
+      </div>
+      <label>Config (JSON, no sensible)
+        <textarea name="config" rows="3" [(ngModel)]="fCanal.configTexto"></textarea>
+      </label>
+      <label>Secretos (JSON, cifrado — nunca se muestra)
+        <textarea name="secretos" rows="2" [(ngModel)]="fCanal.secretosTexto"
+                  placeholder='{ "token": "..." }  (vacío = sin cambios)'></textarea>
+      </label>
+      <div class="acciones">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <button type="button" class="btn" (click)="cancelar()">Cancelar</button>
+      </div>
+    </form>
+  }
+
+  <table>
+    <thead><tr><th>Tipo</th><th>Nombre</th><th>Secretos</th><th>Activo</th><th></th></tr></thead>
+    <tbody>
+      @for (c of canales(); track c.id) {
+        <tr>
+          <td>{{ c.tipo }}</td><td>{{ c.nombre }}</td>
+          <td>{{ c.tiene_secretos ? '🔒' : '—' }}</td>
+          <td>{{ c.activo ? 'Sí' : 'No' }}</td>
+          <td class="acc">
+            @if (auth.puedeEditar()) {
+              <button class="btn" (click)="editarCanal(c)">Editar</button>
+              <button class="btn" (click)="eliminarCanal(c)">Eliminar</button>
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

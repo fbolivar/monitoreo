@@ -1,0 +1,102 @@
+<div class="head">
+  <h1>Recursos</h1>
+  @if (auth.puedeEditar()) {
+    <button class="btn btn-primary" (click)="nuevo()">+ Nuevo recurso</button>
+  } @else {
+    <span class="text-dim">Rol {{ auth.rol() }} · solo lectura</span>
+  }
+</div>
+
+<!-- Filtros -->
+<div class="filtros">
+  <input type="search" placeholder="Buscar…" [ngModel]="busqueda()" (ngModelChange)="busqueda.set($event)" />
+  <select [ngModel]="fTipo()" (ngModelChange)="fTipo.set($event)">
+    <option value="">Todos los tipos</option>
+    @for (t of tipos(); track t.id) { <option [ngValue]="t.id">{{ t.nombre }}</option> }
+  </select>
+  <select [ngModel]="fSitio()" (ngModelChange)="fSitio.set($event)">
+    <option value="">Todos los sitios</option>
+    @for (s of sitios(); track s.id) { <option [ngValue]="s.id">{{ s.nombre }}</option> }
+  </select>
+</div>
+
+@if (error()) { <p class="err">{{ error() }}</p> }
+
+<!-- Formulario alta/edición -->
+@if (creando() || editandoId() !== null) {
+  <form class="card form" (ngSubmit)="guardar()">
+    <h2>{{ editandoId() ? 'Editar recurso' : 'Nuevo recurso' }}</h2>
+    <div class="grid">
+      <label>Nombre
+        <input name="nombre" [(ngModel)]="form.nombre" required />
+      </label>
+      <label>Tipo
+        <select name="tipo_id" [(ngModel)]="form.tipo_id" required>
+          <option [ngValue]="null" disabled>Seleccionar…</option>
+          @for (t of tipos(); track t.id) { <option [ngValue]="t.id">{{ t.nombre }}</option> }
+        </select>
+      </label>
+      <label>Sitio
+        <select name="sitio_id" [(ngModel)]="form.sitio_id">
+          <option [ngValue]="null">— Sin sitio —</option>
+          @for (s of sitios(); track s.id) { <option [ngValue]="s.id">{{ s.nombre }}</option> }
+        </select>
+      </label>
+      <label>Host / IP / URL
+        <input name="hostname" [(ngModel)]="form.hostname" />
+      </label>
+      <label>Intervalo (s)
+        <input type="number" name="intervalo" [(ngModel)]="form.intervalo_segundos" min="5" max="86400" />
+      </label>
+      <label class="check">
+        <input type="checkbox" name="activo" [(ngModel)]="form.activo" /> Activo
+      </label>
+    </div>
+    <label>Parámetros (JSON, no sensible)
+      <textarea name="parametros" rows="4" [(ngModel)]="form.parametrosTexto"></textarea>
+    </label>
+    <label>Secretos (JSON, cifrado — se escribe, nunca se muestra)
+      <textarea name="secretos" rows="3" [(ngModel)]="form.secretosTexto"
+                placeholder='{ "snmp_community": "..." }  (dejar vacío para no cambiar)'></textarea>
+    </label>
+    <div class="acciones">
+      <button type="submit" class="btn btn-primary" [disabled]="guardando()">
+        {{ guardando() ? 'Guardando…' : 'Guardar' }}
+      </button>
+      <button type="button" class="btn" (click)="cancelar()">Cancelar</button>
+    </div>
+  </form>
+}
+
+<!-- Tabla -->
+@if (cargando()) {
+  <p class="text-dim">Cargando…</p>
+} @else {
+  <table>
+    <thead>
+      <tr>
+        <th>Estado</th><th>Nombre</th><th>Tipo</th><th>Sitio</th><th>Host</th>
+        <th>Intervalo</th><th>Activo</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (r of filtrados(); track r.id) {
+        <tr>
+          <td><app-estado-badge [estado]="r.estado_actual" [texto]="false" /></td>
+          <td><a [routerLink]="['/recursos', r.id]">{{ r.nombre }}</a></td>
+          <td>{{ r.tipo?.nombre ?? r.tipo_id }}</td>
+          <td>{{ r.sitio?.nombre ?? '—' }}</td>
+          <td class="text-dim">{{ r.hostname ?? '—' }}</td>
+          <td>{{ r.intervalo_segundos }}s</td>
+          <td>{{ r.activo ? 'Sí' : 'No' }}</td>
+          <td class="acc">
+            @if (auth.puedeEditar()) {
+              <button class="btn" (click)="editar(r)">Editar</button>
+              <button class="btn" (click)="eliminar(r)">Eliminar</button>
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

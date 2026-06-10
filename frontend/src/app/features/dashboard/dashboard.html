@@ -1,0 +1,57 @@
+<div class="head">
+  <h1>Dashboard</h1>
+  <span class="live" [class.on]="enVivo()">
+    <span class="dot" [class.bg-up]="enVivo()" [class.bg-unknown]="!enVivo()"></span>
+    {{ enVivo() ? 'En vivo' : 'Sin conexión' }}
+  </span>
+</div>
+
+<!-- Resumen semáforo -->
+<div class="resumen">
+  @for (e of estados; track e) {
+    <button class="chip card" [class.sel]="filtroEstado() === e"
+            (click)="filtroEstado.set(filtroEstado() === e ? '' : e)">
+      <span class="dot" [class]="'bg-' + e"></span>
+      <span class="n">{{ resumen()[e] }}</span>
+      <span class="text-dim">{{ estadoLabel[e] }}</span>
+    </button>
+  }
+</div>
+
+<!-- Filtros -->
+<div class="filtros">
+  <input type="search" placeholder="Buscar por nombre o IP…"
+         [ngModel]="busqueda()" (ngModelChange)="busqueda.set($event)" />
+  @if (filtroEstado()) {
+    <button class="btn" (click)="filtroEstado.set('')">Quitar filtro: {{ labelFiltro() }}</button>
+  }
+</div>
+
+@if (cargando()) {
+  <p class="text-dim">Cargando…</p>
+} @else if (error()) {
+  <p class="err">{{ error() }}</p>
+} @else if (grupos().length === 0) {
+  <p class="text-dim">Sin recursos que mostrar.</p>
+} @else {
+  @for (g of grupos(); track g.sitio) {
+    <section class="sitio">
+      <h2>{{ g.sitio }} <span class="text-dim">({{ g.total }})</span></h2>
+      @for (t of g.tipos; track t.tipo) {
+        <div class="tipo">
+          <div class="tipo-h text-dim">{{ t.tipo }}</div>
+          <div class="grid">
+            @for (r of t.recursos; track r.id) {
+              <a class="recurso card" [routerLink]="['/recursos', r.id]" [title]="r.hostname">
+                <span class="dot" [class]="'bg-' + r.estado_actual"></span>
+                <span class="nom">{{ r.nombre }}</span>
+                <span class="host text-dim">{{ r.hostname }}</span>
+                <span class="t text-dim">{{ hace(r.ultimo_chequeo_at) }}</span>
+              </a>
+            }
+          </div>
+        </div>
+      }
+    </section>
+  }
+}

@@ -1,0 +1,35 @@
+# ── Python ─────────────────────────────────────────────────────────
+# Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+ENV/
+
+# Distribución / empaquetado
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Test / cobertura
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Entorno (credenciales de BD y de SNMP/probes)
+.env
+.env.*
+!.env.example
+
+# Jupyter / sistema
+.ipynb_checkpoints/
+.DS_Store

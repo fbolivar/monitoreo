@@ -1,0 +1,41 @@
+.head { display: flex; align-items: center; gap: 12px; margin: 0 0 12px; }
+h1 { font-size: 18px; margin: 0; }
+.live { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-dim); }
+
+.resumen { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.chip {
+  display: inline-flex; align-items: center; gap: 8px; padding: 8px 12px;
+  background: var(--bg-1); cursor: pointer;
+}
+.chip.sel { outline: 1px solid var(--accent); }
+.chip .n { font-size: 16px; font-weight: 700; }
+
+.filtros { display: flex; gap: 8px; margin-bottom: 16px; }
+.filtros input { width: 280px; }
+
+.sitio { margin-bottom: 20px; }
+.sitio h2 { font-size: 14px; margin: 0 0 8px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+.tipo { margin-bottom: 10px; }
+.tipo-h { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin: 6px 0; }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
+}
+.recurso {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  grid-template-areas: 'dot nom t' 'dot host t';
+  align-items: center;
+  gap: 1px 8px;
+  padding: 8px 10px;
+  color: var(--text);
+}
+.recurso:hover { background: var(--bg-2); text-decoration: none; }
+.recurso .dot { grid-area: dot; align-self: center; }
+.recurso .nom { grid-area: nom; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recurso .host { grid-area: host; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recurso .t { grid-area: t; font-size: 11px; }
+
+.err { color: var(--sev-critical); }

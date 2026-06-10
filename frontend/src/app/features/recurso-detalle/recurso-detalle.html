@@ -1,0 +1,80 @@
+<a routerLink="/" class="text-dim">← Dashboard</a>
+
+@if (recurso(); as r) {
+  <div class="head">
+    <h1>{{ r.nombre }}</h1>
+    <app-estado-badge [estado]="r.estado_actual" />
+  </div>
+
+  <div class="meta card">
+    <div><span class="text-dim">Tipo</span><b>{{ r.tipo?.nombre ?? r.tipo_id }}</b></div>
+    <div><span class="text-dim">Sitio</span><b>{{ r.sitio?.nombre ?? '—' }}</b></div>
+    <div><span class="text-dim">Host</span><b>{{ r.hostname ?? '—' }}</b></div>
+    <div><span class="text-dim">Intervalo</span><b>{{ r.intervalo_segundos }}s</b></div>
+    <div><span class="text-dim">Último chequeo</span><b>{{ hace(r.ultimo_chequeo_at) }}</b></div>
+    <div><span class="text-dim">Activo</span><b>{{ r.activo ? 'Sí' : 'No' }}</b></div>
+  </div>
+
+  <!-- Último chequeo -->
+  @if (ultimoChequeo(); as c) {
+    <section>
+      <h2>Último chequeo</h2>
+      <div class="chequeo card">
+        <app-estado-badge [estado]="c.estado" />
+        <span class="text-dim">{{ fecha(c.ts) }}</span>
+        @if (c.latencia_ms != null) { <span>{{ c.latencia_ms }} ms</span> }
+        <pre class="detalle">{{ c.detalle | json }}</pre>
+      </div>
+    </section>
+  }
+
+  <!-- Métricas -->
+  <section>
+    <div class="sec-h">
+      <h2>Métricas</h2>
+      <div class="rango">
+        @for (rg of ['1h', '24h', '7d']; track rg) {
+          <button class="btn" [class.btn-primary]="rango() === rg" (click)="cambiarRango($any(rg))">{{ rg }}</button>
+        }
+      </div>
+    </div>
+    @if (cargando()) {
+      <p class="text-dim">Cargando métricas…</p>
+    } @else if (series().length === 0) {
+      <p class="text-dim">Sin métricas en el rango seleccionado.</p>
+    } @else {
+      <div class="charts">
+        @for (s of series(); track s.metrica) {
+          <app-line-chart [data]="s.puntos" [label]="s.metrica" [unidad]="s.unidad" />
+        }
+      </div>
+    }
+  </section>
+
+  <!-- Incidencias -->
+  <section>
+    <h2>Incidencias</h2>
+    @if (incidencias().length === 0) {
+      <p class="text-dim">Sin incidencias registradas.</p>
+    } @else {
+      <table>
+        <thead>
+          <tr><th>Severidad</th><th>Título</th><th>Estado</th><th>Abierta</th><th>Duración</th></tr>
+        </thead>
+        <tbody>
+          @for (i of incidencias(); track i.id) {
+            <tr>
+              <td><span class="sev" [class]="'sev-' + i.severidad">{{ i.severidad }}</span></td>
+              <td>{{ i.titulo }}</td>
+              <td>{{ i.estado }}</td>
+              <td class="text-dim">{{ fecha(i.abierta_at) }}</td>
+              <td>{{ duracion(i.abierta_at, i.resuelta_at) }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    }
+  </section>
+} @else {
+  <p class="text-dim">Cargando recurso…</p>
+}

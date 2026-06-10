@@ -1,0 +1,2 @@
+# El esquema lo gestionan las migraciones SQL de /db (no Laravel).
+# Carpeta presente por convención de Laravel; vacía a propósito.

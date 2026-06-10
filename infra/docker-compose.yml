@@ -1,0 +1,56 @@
+# Postgres local para desarrollo del esquema (independiente de Supabase).
+# Postgres 16 "vanilla": sin extensiones propietarias, solo contrib estándar
+# (pgcrypto), de modo que el esquema es 100% portable a un Postgres en VM.
+#
+# Arranque:   docker compose --env-file .env up -d
+# Logs:       docker compose logs -f db
+# psql:       docker compose exec db psql -U $POSTGRES_USER -d $POSTGRES_DB
+# Reset total (borra datos + re-aplica migraciones y seed):
+#             docker compose down -v && docker compose up -d
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: monitoreo_pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-monitoreo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-monitoreo_dev}
+      POSTGRES_DB: ${POSTGRES_DB:-monitoreo}
+      # Clave maestra de cifrado de secretos, expuesta al script de seed.
+      # En producción la posee la API (Laravel), NO la base de datos.
+      APP_CRYPTO_KEY: ${APP_CRYPTO_KEY:-dev_crypto_key_change_me}
+      TZ: ${TZ:-America/Bogota}
+      PGTZ: ${TZ:-America/Bogota}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # Datos persistentes
+      - pgdata:/var/lib/postgresql/data
+      # Migraciones y seed (solo lectura) montados para el initdb y para psql
+      - ../db:/db:ro
+      # Scripts de auto-inicialización (se ejecutan SOLO en primer arranque,
+      # cuando el volumen pgdata está vacío)
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-monitoreo} -d ${POSTGRES_DB:-monitoreo}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # (Opcional) Adminer: explorador web ligero de la BD en http://localhost:8080
+  adminer:
+    image: adminer:4
+    container_name: monitoreo_adminer
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "${ADMINER_PORT:-8080}:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: db
+
+volumes:
+  pgdata:
+    name: monitoreo_pgdata

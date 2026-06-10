@@ -1,0 +1,30 @@
+# ── PHP / Laravel ──────────────────────────────────────────────────
+/vendor/
+/node_modules/
+/public/build
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/bootstrap/cache/*.php
+
+# Entorno (la clave maestra de cifrado APP_CRYPTO_KEY vive aquí)
+.env
+.env.backup
+.env.production
+.env.*
+!.env.example
+.phpunit.result.cache
+.phpunit.cache
+
+# Logs
+/storage/logs/*.log
+
+# Herramientas
+Homestead.json
+Homestead.yaml
+auth.json
+.fleet
+.idea
+.vscode
+.DS_Store

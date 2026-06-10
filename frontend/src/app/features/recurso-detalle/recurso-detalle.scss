@@ -1,0 +1,28 @@
+.head { display: flex; align-items: center; gap: 12px; margin: 8px 0 14px; }
+h1 { font-size: 18px; margin: 0; }
+h2 { font-size: 14px; margin: 18px 0 8px; }
+section { margin-top: 8px; }
+
+.meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px 16px;
+  padding: 12px 14px;
+}
+.meta > div { display: flex; flex-direction: column; gap: 2px; }
+.meta .text-dim { font-size: 11px; text-transform: uppercase; }
+
+.sec-h { display: flex; align-items: center; justify-content: space-between; }
+.rango { display: flex; gap: 4px; }
+.rango .btn { padding: 4px 10px; }
+
+.chequeo { display: flex; align-items: center; gap: 12px; padding: 10px 12px; flex-wrap: wrap; }
+.detalle { margin: 0; flex-basis: 100%; background: var(--bg); padding: 8px; border-radius: var(--radius);
+           font-size: 11px; max-height: 120px; overflow: auto; color: var(--text-dim); }
+
+.charts { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; }
+
+.sev { text-transform: uppercase; font-size: 11px; font-weight: 700; }
+.sev-info { color: var(--sev-info); }
+.sev-warning { color: var(--sev-warning); }
+.sev-critical { color: var(--sev-critical); }

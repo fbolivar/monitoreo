@@ -1,0 +1,41 @@
+# ── Monorepo de monitoreo ──────────────────────────────────────────
+# Secretos por capa (cada subproyecto versiona solo su .env.example)
+**/.env
+!**/.env.example
+*.env.local
+
+# Sistema operativo / editores
+.DS_Store
+Thumbs.db
+desktop.ini
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*~
+
+# Logs / temporales
+*.log
+tmp/
+temp/
+
+# Datos locales del Postgres de desarrollo (volumen docker)
+infra/pgdata/
+infra/data/
+
+# ── Restos de la plantilla Next.js/SaaS Factory (NO forman parte de la app) ──
+/.next/
+/node_modules/
+/src/
+/.claude/
+/.mcp.json
+/components.json
+/GEMINI.md
+/next-env.d.ts
+/next.config.ts
+/package.json
+/package-lock.json
+/postcss.config.js
+/tailwind.config.ts
+/tsconfig.json
+/.env.local.example

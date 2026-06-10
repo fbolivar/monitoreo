@@ -1,0 +1,96 @@
+/* ──────────────────────────────────────────────────────────────────
+   Tema NOC: oscuro, denso, orientado a operación. Variables de estado
+   (semáforo) reutilizadas por toda la app.
+   ────────────────────────────────────────────────────────────────── */
+:root {
+  --bg: #0e1116;
+  --bg-1: #161b22;
+  --bg-2: #1c232c;
+  --bg-3: #232b36;
+  --border: #2b333d;
+  --text: #d7dee6;
+  --text-dim: #8b97a3;
+  --accent: #3b82f6;
+
+  /* Semáforo de estados */
+  --estado-up: #2ea043;
+  --estado-degraded: #d29922;
+  --estado-down: #f85149;
+  --estado-unknown: #6e7681;
+  --estado-maintenance: #58a6ff;
+
+  --sev-info: #58a6ff;
+  --sev-warning: #d29922;
+  --sev-critical: #f85149;
+
+  --radius: 6px;
+  --gap: 10px;
+  --font: 13px;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', Roboto, system-ui, -apple-system, sans-serif;
+  font-size: var(--font);
+  line-height: 1.4;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+button { font-family: inherit; font-size: inherit; cursor: pointer; }
+
+/* Colores utilitarios por estado */
+.dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.bg-up { background: var(--estado-up); }
+.bg-degraded { background: var(--estado-degraded); }
+.bg-down { background: var(--estado-down); }
+.bg-unknown { background: var(--estado-unknown); }
+.bg-maintenance { background: var(--estado-maintenance); }
+
+.text-dim { color: var(--text-dim); }
+
+/* Botones */
+.btn {
+  background: var(--bg-3);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 12px;
+}
+.btn:hover { background: var(--bg-2); }
+.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn-primary:hover { filter: brightness(1.1); }
+.btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+/* Inputs */
+input, select, textarea {
+  background: var(--bg);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 7px 9px;
+  font-family: inherit;
+  font-size: inherit;
+}
+input:focus, select:focus { outline: 1px solid var(--accent); }
+
+/* Tablas densas */
+table { width: 100%; border-collapse: collapse; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+th { color: var(--text-dim); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
+tr:hover td { background: var(--bg-1); }
+
+/* Tarjetas */
+.card { background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius); }

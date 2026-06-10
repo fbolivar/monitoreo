@@ -1,0 +1,12 @@
+# Workers de monitoreo — dependencias (Python 3.11+)
+APScheduler==3.10.4          # planificación de chequeos por intervalo
+psycopg[binary,pool]==3.2.3  # PostgreSQL (driver + pool de conexiones)
+httpx==0.27.2                # cliente HTTP/HTTPS para el probe web
+icmplib==3.0.4               # ping ICMP (RTT + pérdida)
+pysnmp==6.2.6                # SNMP v2c/v3 (FASE 3b: switches, servidores, NAS, SAN, UPS)
+grpcio==1.66.2               # gRPC para el dish Starlink (FASE 3b paso 2)
+yagrc==1.1.2                 # reflexión gRPC (llamar al dish sin compilar protos)
+python-dotenv==1.0.1         # carga de .env
+
+# Desarrollo / tests
+pytest==8.3.3

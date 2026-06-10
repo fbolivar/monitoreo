@@ -1,0 +1,50 @@
+<div class="head">
+  <h1>Incidencias</h1>
+  <div class="tabs">
+    <button class="btn" [class.btn-primary]="vista() === 'activas'" (click)="vista.set('activas')">Activas</button>
+    <button class="btn" [class.btn-primary]="vista() === 'historico'" (click)="vista.set('historico')">Histórico</button>
+  </div>
+</div>
+
+<div class="filtros">
+  <select [ngModel]="fSeveridad()" (ngModelChange)="fSeveridad.set($event)">
+    <option value="">Toda severidad</option>
+    <option value="critical">Critical</option>
+    <option value="warning">Warning</option>
+    <option value="info">Info</option>
+  </select>
+  <button class="btn" (click)="cargar()">Refrescar</button>
+</div>
+
+@if (cargando()) {
+  <p class="text-dim">Cargando…</p>
+} @else if (filtradas().length === 0) {
+  <p class="text-dim">Sin incidencias {{ vista() === 'activas' ? 'activas' : '' }}.</p>
+} @else {
+  <table>
+    <thead>
+      <tr>
+        <th>Sev.</th><th>Recurso</th><th>Título</th><th>Estado</th>
+        <th>Abierta</th><th>Resuelta</th><th>Duración</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (i of filtradas(); track i.id) {
+        <tr>
+          <td><span class="sev" [class]="'sev-' + i.severidad">{{ i.severidad }}</span></td>
+          <td>
+            @if (i.recurso) { <a [routerLink]="['/recursos', i.recurso_id]">{{ i.recurso.nombre }}</a> }
+            @else { #{{ i.recurso_id }} }
+          </td>
+          <td>{{ i.titulo }}</td>
+          <td>
+            <span class="estado" [class.abierta]="i.estado === 'abierta'">{{ estadoLabel(i.estado) }}</span>
+          </td>
+          <td class="text-dim">{{ fecha(i.abierta_at) }}</td>
+          <td class="text-dim">{{ i.resuelta_at ? fecha(i.resuelta_at) : '—' }}</td>
+          <td>{{ duracion(i.abierta_at, i.resuelta_at) }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}
