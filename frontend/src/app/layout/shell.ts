@@ -16,6 +16,9 @@ import { AuthService } from '../core/auth.service';
           <a routerLink="/recursos" routerLinkActive="active">Recursos</a>
           <a routerLink="/incidencias" routerLinkActive="active">Incidencias</a>
           <a routerLink="/configuracion" routerLinkActive="active">Configuración</a>
+          @if (auth.esAdmin()) {
+            <a routerLink="/usuarios" routerLinkActive="active">Usuarios</a>
+          }
         </nav>
       </aside>
 
