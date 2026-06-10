@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Perfil;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 /**
@@ -39,19 +41,29 @@ class PerfilController extends Controller
     }
 
     /**
-     * Crea un perfil. El `id` debe ser el uuid del usuario en Supabase Auth.
+     * Crea un perfil con contraseña (auth local). El `id` (uuid) se genera aquí.
      */
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'id'     => ['required', 'uuid', 'unique:perfiles,id'],
-            'email'  => ['required', 'email', 'unique:perfiles,email'],
-            'nombre' => ['nullable', 'string', 'max:255'],
-            'rol'    => ['required', Rule::in(Perfil::ROLES)],
-            'activo' => ['boolean'],
+            'email'    => ['required', 'email', 'unique:perfiles,email'],
+            'nombre'   => ['nullable', 'string', 'max:255'],
+            'rol'      => ['required', Rule::in(Perfil::ROLES)],
+            'activo'   => ['boolean'],
+            'password' => ['required', 'string', 'min:8'],
         ]);
 
-        return response()->json(Perfil::create($data), 201);
+        $perfil = new Perfil([
+            'id'     => (string) Str::uuid(),
+            'email'  => $data['email'],
+            'nombre' => $data['nombre'] ?? null,
+            'rol'    => $data['rol'],
+            'activo' => $data['activo'] ?? true,
+        ]);
+        $perfil->password_hash = Hash::make($data['password']);
+        $perfil->save();
+
+        return response()->json($perfil, 201);
     }
 
     public function update(Request $request, string $id): JsonResponse
@@ -59,11 +71,17 @@ class PerfilController extends Controller
         $perfil = Perfil::findOrFail($id);
 
         $data = $request->validate([
-            'email'  => ['sometimes', 'email', Rule::unique('perfiles', 'email')->ignore($perfil->id, 'id')],
-            'nombre' => ['nullable', 'string', 'max:255'],
-            'rol'    => ['sometimes', Rule::in(Perfil::ROLES)],
-            'activo' => ['boolean'],
+            'email'    => ['sometimes', 'email', Rule::unique('perfiles', 'email')->ignore($perfil->id, 'id')],
+            'nombre'   => ['nullable', 'string', 'max:255'],
+            'rol'      => ['sometimes', Rule::in(Perfil::ROLES)],
+            'activo'   => ['boolean'],
+            'password' => ['nullable', 'string', 'min:8'],
         ]);
+
+        if (! empty($data['password'])) {
+            $perfil->password_hash = Hash::make($data['password']);
+        }
+        unset($data['password']);
 
         $perfil->update($data);
 

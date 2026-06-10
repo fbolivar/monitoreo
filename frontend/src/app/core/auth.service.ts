@@ -1,65 +1,54 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { Session } from '@supabase/supabase-js';
 import { firstValueFrom } from 'rxjs';
 import { ApiService } from './api.service';
 import { Perfil, Rol } from './models';
-import { SupabaseService } from './supabase.client';
 
-/** Sesión + perfil/rol del usuario. El rol de aplicación (admin/operador/viewer)
- *  se obtiene de la API (/me), no del JWT. */
+/** Autenticación LOCAL contra la API (sin Supabase). El login devuelve un JWT
+ *  propio que se guarda en localStorage y adjunta el authInterceptor. */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private supabase = inject(SupabaseService).client;
   private api = inject(ApiService);
+  private readonly TOKEN_KEY = 'monitoreo_token';
 
-  readonly session = signal<Session | null>(null);
+  readonly token = signal<string | null>(localStorage.getItem(this.TOKEN_KEY));
   readonly perfil = signal<Perfil | null>(null);
   readonly cargando = signal(true);
 
-  readonly accessToken = computed(() => this.session()?.access_token ?? null);
-  readonly autenticado = computed(() => !!this.session());
+  readonly accessToken = computed(() => this.token());
+  readonly autenticado = computed(() => !!this.token() && !!this.perfil());
   readonly rol = computed<Rol | null>(() => this.perfil()?.rol ?? null);
-  /** viewer = solo lectura; admin/operador pueden editar configuración. */
+  /** viewer = solo lectura; admin/operador pueden editar. */
   readonly puedeEditar = computed(() => this.rol() === 'admin' || this.rol() === 'operador');
   readonly esAdmin = computed(() => this.rol() === 'admin');
 
-  /** Llamado una vez al arrancar la app. */
+  /** Llamado una vez al arrancar: si hay token, valida cargando el perfil. */
   async init(): Promise<void> {
-    const { data } = await this.supabase.auth.getSession();
-    await this.aplicarSesion(data.session);
-
-    this.supabase.auth.onAuthStateChange((_evt, session) => {
-      void this.aplicarSesion(session);
-    });
+    if (this.token()) {
+      try {
+        this.perfil.set(await firstValueFrom(this.api.get<Perfil>('/me')));
+      } catch {
+        this.limpiar();
+      }
+    }
     this.cargando.set(false);
   }
 
-  private async aplicarSesion(session: Session | null): Promise<void> {
-    this.session.set(session);
-    if (session) {
-      await this.cargarPerfil();
-    } else {
-      this.perfil.set(null);
-    }
-  }
-
-  private async cargarPerfil(): Promise<void> {
-    try {
-      const perfil = await firstValueFrom(this.api.get<Perfil>('/me'));
-      this.perfil.set(perfil);
-    } catch {
-      this.perfil.set(null);
-    }
-  }
-
   async iniciarSesion(email: string, password: string): Promise<void> {
-    const { error } = await this.supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
+    const r = await firstValueFrom(
+      this.api.post<{ token: string; perfil: Perfil }>('/auth/login', { email, password }),
+    );
+    localStorage.setItem(this.TOKEN_KEY, r.token);
+    this.token.set(r.token);
+    this.perfil.set(r.perfil);
   }
 
   async cerrarSesion(): Promise<void> {
-    await this.supabase.auth.signOut();
-    this.session.set(null);
+    this.limpiar();
+  }
+
+  private limpiar(): void {
+    localStorage.removeItem(this.TOKEN_KEY);
+    this.token.set(null);
     this.perfil.set(null);
   }
 }

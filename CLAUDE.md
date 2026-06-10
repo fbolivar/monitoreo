@@ -17,11 +17,16 @@ caídas, degradaciones y recuperaciones, registrar histórico, y notificar.
 - Sitios web (internos y públicos)
 
 ## Stack y separación de responsabilidades (NO mezclar capas)
-- **Frontend:** Angular (última LTS). SPA. Consume la API PHP por REST y
-  Supabase Realtime para refrescar estado en vivo. NO accede a la BD directo.
+- **Frontend:** Angular (última LTS). SPA. Consume la API PHP por REST y refresca
+  el estado por **polling** al API (no Supabase Realtime). NO accede a la BD directo.
 - **API:** PHP con Laravel. Expone REST. Responsable de: CRUD de recursos,
   autenticación/autorización, configuración, umbrales, reportes. Conecta a
-  PostgreSQL vía PDO/Eloquent. Valida el JWT emitido por Supabase Auth.
+  PostgreSQL vía PDO/Eloquent. **Autenticación LOCAL**: emite y valida su propio JWT
+  (HS256, AUTH_JWT_SECRET); contraseñas bcrypt en `perfiles`. (Sin Supabase.)
+
+> **Cambio de arquitectura (2026-06-10):** se descartó Supabase. La autenticación es
+> local (JWT propio de la API, contraseñas en `perfiles.password_hash`) y el "en vivo"
+> del dashboard es por polling. La BD es el Postgres del servidor, no Supabase.
 - **Workers de monitoreo:** Python. Procesos headless que leen los recursos
   activos, ejecutan los chequeos según su intervalo, y escriben resultados en
   la BD (chequeos, métricas, incidencias). Usan APScheduler para la

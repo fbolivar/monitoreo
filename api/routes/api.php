@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CanalNotificacionController;
 use App\Http\Controllers\ChequeoController;
 use App\Http\Controllers\IncidenciaController;
@@ -20,10 +21,14 @@ use Illuminate\Support\Facades\Route;
 | resuelve el perfil/rol local. Autorización por rol con 'role:...'.
 |
 | Matriz de permisos:
+|   - POST /api/auth/login     -> público (autenticación local: email + contraseña)
 |   - GET (lectura)            -> cualquier rol autenticado (admin/operador/viewer)
 |   - POST/PUT/PATCH/DELETE de configuración -> admin, operador
 |   - /usuarios (gestión de perfiles)        -> solo admin
 */
+
+// Autenticación local (pública): devuelve un JWT propio.
+Route::post('auth/login', [AuthController::class, 'login']);
 
 // Recursos de configuración con CRUD completo.
 $crud = [
@@ -35,7 +40,7 @@ $crud = [
     'canales-notificacion' => CanalNotificacionController::class,
 ];
 
-Route::middleware('supabase.jwt')->group(function () use ($crud) {
+Route::middleware('auth.jwt')->group(function () use ($crud) {
 
     // Perfil propio (cualquier rol).
     Route::get('me', [PerfilController::class, 'me']);

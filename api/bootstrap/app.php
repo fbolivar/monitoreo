@@ -1,7 +1,7 @@
 <?php
 
 use App\Http\Middleware\EnsureRole;
-use App\Http\Middleware\VerifySupabaseJwt;
+use App\Http\Middleware\VerifyJwt;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -19,8 +19,8 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware) {
         // Alias de middleware usados en routes/api.php
         $middleware->alias([
-            'supabase.jwt' => VerifySupabaseJwt::class,
-            'role'         => EnsureRole::class,
+            'auth.jwt' => VerifyJwt::class,
+            'role'     => EnsureRole::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {

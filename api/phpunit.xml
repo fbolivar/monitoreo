@@ -29,9 +29,8 @@
         <!-- Cifrado de secretos (debe coincidir entre cifrar/descifrar en los tests). -->
         <env name="APP_CRYPTO_KEY" value="test-crypto-key-monitoreo"/>
 
-        <!-- Secreto JWT usado para FIRMAR tokens de prueba y VALIDARLOS. -->
-        <env name="SUPABASE_JWT_SECRET" value="test-jwt-secret-monitoreo"/>
-        <env name="SUPABASE_JWT_AUDIENCE" value="authenticated"/>
+        <!-- Secreto JWT local usado para FIRMAR tokens de prueba y VALIDARLOS. -->
+        <env name="AUTH_JWT_SECRET" value="test-jwt-secret-monitoreo"/>
 
         <!-- Base de datos de pruebas: Postgres con el esquema YA migrado
              (db/migrations 0001 + 0002). Los tests usan transacciones y revierten. -->

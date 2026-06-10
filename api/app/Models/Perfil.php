@@ -18,6 +18,9 @@ class Perfil extends Authenticatable
 
     protected $fillable = ['id', 'email', 'nombre', 'rol', 'activo'];
 
+    // El hash de contraseña nunca se serializa en respuestas JSON.
+    protected $hidden = ['password_hash'];
+
     protected $casts = [
         'activo' => 'boolean',
     ];

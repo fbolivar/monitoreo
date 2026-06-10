@@ -25,19 +25,18 @@ trait CreaUsuariosYTokens
         ]);
     }
 
-    /** Genera el header Authorization para un perfil dado. */
+    /** Genera el header Authorization (JWT local) para un perfil dado. */
     protected function authHeader(Perfil $perfil): array
     {
         $payload = [
-            'sub'  => $perfil->id,
-            'aud'  => 'authenticated',
-            'role' => 'authenticated',
+            'sub'   => $perfil->id,
             'email' => $perfil->email,
-            'iat'  => time() - 5,
-            'exp'  => time() + 3600,
+            'rol'   => $perfil->rol,
+            'iat'   => time() - 5,
+            'exp'   => time() + 3600,
         ];
 
-        $jwt = JWT::encode($payload, config('supabase.jwt_secret'), 'HS256');
+        $jwt = JWT::encode($payload, config('auth_local.jwt_secret'), 'HS256');
 
         return ['Authorization' => 'Bearer '.$jwt];
     }
@@ -45,7 +44,7 @@ trait CreaUsuariosYTokens
     /** Token firmado con un secreto incorrecto (para probar rechazo). */
     protected function authHeaderInvalido(): array
     {
-        $jwt = JWT::encode(['sub' => (string) Str::uuid(), 'aud' => 'authenticated', 'exp' => time() + 3600], 'secreto-erroneo', 'HS256');
+        $jwt = JWT::encode(['sub' => (string) Str::uuid(), 'exp' => time() + 3600], 'secreto-erroneo', 'HS256');
 
         return ['Authorization' => 'Bearer '.$jwt];
     }
