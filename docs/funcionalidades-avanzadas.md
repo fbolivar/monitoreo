@@ -16,6 +16,10 @@ https://192.168.50.54/. Esta guía resume **qué hacen** y **cómo operarlas**.
 | Grafana | — | infra |
 | Receptor de SNMP traps | 0009 | BD · worker (servicio) · API · frontend |
 | SSO AD/LDAP + 2FA TOTP | 0010 | BD · API · frontend |
+| Traps → incidencias (tiempo real) | — | worker (simon-traps) |
+| Dead-man's switch | — | worker |
+| Pollers distribuidos (base) | — | worker |
+| Respaldo de configuración (FortiGate) | 0012 | BD · worker · API · frontend |
 
 ---
 
@@ -140,6 +144,49 @@ El login intenta primero la contraseña local (el admin local siempre funciona) 
 primer ingreso por LDAP se crea el perfil con `origen='ldap'` y rol por defecto (ajustable luego en
 Usuarios). Requiere la extensión `php8.2-ldap` (ya instalada). Los usuarios LDAP usan el 2FA del
 directorio, no el de la app.
+
+## 12. Traps → incidencias (tiempo real)
+
+El receptor `simon-traps` (ver §10) ahora **convierte ciertos traps en incidencias** al instante,
+sin esperar al siguiente sondeo:
+
+- **linkDown** (con su `ifIndex`) de un equipo conocido → abre una **incidencia de interfaz**
+  ("puerto X caído (trap)") y notifica.
+- **linkUp** del mismo puerto → **cierra** la incidencia y notifica recuperación.
+
+Reusa el modelo de incidencias por interfaz (no duplica con el sondeo: el índice único por
+`(recurso, if_index)` garantiza una sola incidencia por puerto, la abra el trap o el sondeo).
+
+## 13. Dead-man's switch (auto-monitoreo)
+
+"¿Quién vigila al vigilante?" El worker envía un **latido** a una URL externa cada
+`DEADMAN_INTERVAL_SEG`, **solo si la BD responde**. Si SIMON o el servidor se cae (o la BD no
+responde), el latido se detiene y el **servicio externo alerta**.
+
+Configura en `monitor/.env`:
+```
+DEADMAN_URL=https://hc-ping.com/<tu-uuid>     # healthchecks.io, UptimeRobot heartbeat, etc.
+DEADMAN_INTERVAL_SEG=60
+```
+En el servicio externo, define que alerte si no recibe el latido en ~3–5 min.
+
+## 14. Pollers distribuidos (worker por sede)
+
+Para parques remotos detrás de NAT/Starlink que el central no alcanza: despliega un worker en la
+sede con `WORKER_SITIOS="3"` (solo atiende esos sitios) apuntando a la BD central. Detalle completo
+en [`pollers-distribuidos.md`](pollers-distribuidos.md).
+
+## 15. Respaldo de configuración (FortiGate)
+
+Job diario (02:00) que descarga la configuración del FortiGate y **guarda una versión solo cuando
+cambia** (compara hash). Cada versión nueva trae el **diff** de qué cambió, y el cambio se **notifica**
+por los canales activos. Estilo Oxidized/RANCID.
+
+- **Dónde verlo:** detalle del recurso (firewall) → sección **"Respaldos de configuración"**: lista de
+  versiones (fecha, tamaño, ● si cambió) y, al pulsar "Ver", el **diff** o la **config completa**.
+- **API:** `GET /api/recursos/{id}/respaldos` (lista) y `/respaldos/{rid}` (contenido + diff).
+- **Nota técnica:** en FortiOS 7.6 el backup es **POST** `/api/v2/monitor/system/config/backup?scope=global`
+  (GET devuelve 405). El backup de **switches** (vía SSH) queda como mejora futura.
 
 ---
 

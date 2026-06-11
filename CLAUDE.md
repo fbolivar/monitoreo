@@ -168,6 +168,23 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
     `{requiere_2fa:true}` si falta; pantalla "Seguridad". Solo cuentas locales (LDAP usa el 2FA del AD).
   Guía operativa de todo en `docs/funcionalidades-avanzadas.md`.
 
+- ✅ MEJORAS 3ª OLA (mercado, 2026-06-11) — en producción y verificadas (commits 337797e, 324a65f):
+  - **Traps → incidencias (tiempo real)**: el receptor `simon-traps` ya no solo registra; un trap
+    **linkDown** abre una incidencia de interfaz (reusa el modelo de incidencias por `if_index`) y
+    notifica; **linkUp** la cierra. Más rápido que el sondeo.
+  - **Dead-man's switch**: `runner.latido_externo` + job; envs `DEADMAN_URL` (vacío=off),
+    `DEADMAN_INTERVAL_SEG`. Hace `db.ping()` y un GET a la URL; si el worker/BD cae, el servicio
+    externo (healthchecks.io/UptimeRobot…) alerta. "¿Quién vigila al vigilante?".
+  - **Pollers distribuidos (base)**: env `WORKER_SITIOS="3,7"` → el worker solo atiende esos sitios.
+    Permite un worker por sede/parque remoto (tras NAT/Starlink) que escribe en la BD central.
+    Guía: `docs/pollers-distribuidos.md`. Fleet mgmt completo = follow-up.
+  - **Respaldo de configuración** [migr. 0012 `config_respaldos`]: job diario (02:00)
+    `respaldar_configuraciones`; baja la config del FortiGate (POST `/api/v2/monitor/system/config/backup`
+    — OJO POST, GET da 405 en FortiOS 7.6). Guarda **solo si cambió** (hash sha256) con **diff**
+    unificado y **avisa** del cambio (`motor.notificar_simple`, sin incidencia). API
+    `GET /recursos/{id}/respaldos[/{rid}]`; UI: sección "Respaldos de configuración" en el detalle.
+    Backup de switches por SSH = follow-up.
+
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.
 

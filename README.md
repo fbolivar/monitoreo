@@ -42,8 +42,10 @@ notificaciones → despliegue) y las **mejoras de operación** del roadmap:
 - ✅ Escalado por tiempo (on-call) y Tablero NOC a pantalla completa.
 - ✅ Grafana (dashboards sobre el mismo Postgres, solo lectura).
 - ✅ Receptor de SNMP traps (eventos en tiempo real, servicio `simon-traps`).
-- ✅ 2FA (TOTP) y SSO AD/LDAP (env-gated).
-- ⏳ Pendiente: configurar canal Telegram y Microsoft Teams; activar LDAP cuando haya datos del AD.
+- ✅ 2FA (TOTP) y SSO AD/LDAP (con control de acceso por grupo/lista blanca).
+- ✅ Traps → incidencias en tiempo real; dead-man's switch (auto-monitoreo).
+- ✅ Pollers distribuidos (worker por sede) y respaldo de configuración de FortiGate (con diff).
+- ⏳ Pendiente/follow-up: canal Telegram/Teams; respaldo de switches por SSH; HA; flota de pollers.
 
 Detalle operativo de cada una en [`docs/funcionalidades-avanzadas.md`](docs/funcionalidades-avanzadas.md).
 El detalle por fases vive en [`CLAUDE.md`](CLAUDE.md).

@@ -186,6 +186,9 @@ Migraciones 0004–0007 (ver `db/migrations/` y `docs/funcionalidades-avanzadas.
 - **0009 `traps`** — SNMP traps recibidos: `source_ip`, `recurso_id`, `trap_oid`, `nombre`,
   `severidad`, `descripcion`, `varbinds` (jsonb). Lo escribe el servicio `simon-traps`.
 - **0010 `perfiles`** — `totp_secret`/`totp_activo` (2FA TOTP) y `origen` (`local` | `ldap` para SSO AD).
+- **0011 `app_config`** — ajustes editables por UI (clave/jsonb). Primer uso: configuración LDAP.
+- **0012 `config_respaldos`** — versiones de configuración de equipos: `hash`, `bytes`, `cambio`,
+  `diff` (unificado vs versión previa), `contenido`. Se guarda solo al cambiar (estilo Oxidized).
 
 > El catálogo de estados y la política de retención son **propuestas** de esta
 > fase: la sección correspondiente de `CLAUDE.md` estaba vacía.
