@@ -118,8 +118,37 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
   envío se registra en `notificaciones` (enviada/fallida/intentos/error) con job de reintentos.
   E/S de red (SMTP/httpx) NO validada contra servicios reales (solo compileall + funciones puras).
 
+- ✅ FASE 6 (Despliegue en servidor 192.168.50.54, Debian 12) — en PRODUCCIÓN. nginx
+  (HTTPS autofirmado + redirección HTTP→443, SPA en / y /api → php8.2-fpm), worker como
+  servicio systemd, ufw, backups diarios (pg_dump, ~02:30). Auth LOCAL (JWT propio, sin
+  Supabase) y "en vivo" del dashboard por polling. Monitorea 3 equipos reales: FortiGate-Principal
+  (HA), SW-CORE-01 (Dell OS9), PNNCSRVNCFHV2 (Windows). Notificaciones por correo (Gmail/Workspace)
+  ACTIVAS. Rebranding a SIMON / Parques Nacionales. Pantallas añadidas: Sitios (CRUD),
+  reconocer/resolver incidencias.
+
+- ✅ MEJORAS DE OPERACIÓN (roadmap de mercado, 2026-06-11) — todas en producción y verificadas:
+  - **Interfaces SNMP (IF-MIB)** [migr. 0004]: snapshot por puerto (estado oper/admin, Mbps in/out
+    por delta de contadores HC64, util %, errores, velocidad). Opt-in `parametros.interfaces=true`;
+    filtra a tipos físicos (ethernet/lag). Tabla `interfaces`; GET /recursos/{id}/interfaces; sección
+    "Interfaces" en el detalle.
+  - **Dependencias padre→hijo (anti-tormenta)** [migr. 0005]: `recursos.depende_de_id` (self-FK).
+    Si un ancestro (CTE recursivo) está down, el worker suprime incidencia+notificación del hijo
+    (registra `dependencia_caida`). API valida ciclos/autodependencia. UI: selector "Depende de".
+  - **Mapa + reportes SLA**: GET /reportes/disponibilidad?rango=24h|7d|30d (disponibilidad =
+    (up+degraded)/evaluables). Pantalla "Reportes" (tabla + KPIs + CSV) y pantalla "Mapa" (contorno
+    SVG de Colombia embebido, offline sin tiles, marcadores por sede según peor estado).
+  - **Bitácora de auditoría** [migr. 0006]: tabla `auditoria`; AuditObserver de Eloquent en el CRUD
+    de 8 entidades (con diff antes/después) + login; GET /auditoria (solo admin); pantalla "Auditoría".
+  - **Interfaces Fase 2** [migr. 0007]: `interfaces_historico` (serie temporal Mbps, solo oper-up,
+    purga 7 días), `interfaces.monitorear`, incidencias por interfaz (`if_index`/`if_nombre`, índice
+    único ampliado a (recurso, COALESCE(if_index,-1))). Worker abre/cierra incidencia "puerto X caído"
+    + notifica para interfaces monitoreadas (respeta mantenimiento y supresión por dependencia).
+    API: PUT /recursos/{id}/interfaces/{ifIndex} (monitorear) y GET .../historico. UI: checkbox
+    "Monitorear" + gráficas entrada/salida por puerto.
+  - PENDIENTE del roadmap: canal Telegram (construido en Fase 5, falta configurar/probar) y Teams.
+
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
-Orden real ejecutado: estructura → datos → API → workers.
+Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.
 
 ## Entorno de desarrollo (esta máquina)
 - Windows + PowerShell. **NO** hay instalados: `docker`, `psql`, `php`, `composer`, `laravel`.
