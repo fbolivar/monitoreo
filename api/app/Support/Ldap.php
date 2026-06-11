@@ -24,6 +24,8 @@ class Ldap
             'bind_pattern' => (string) config('ldap.bind_pattern', '{user}'),
             'rol_default'  => (string) config('ldap.rol_default', 'viewer'),
             'base_dn'      => (string) config('ldap.base_dn', ''),
+            'group_dn'     => (string) config('ldap.group_dn', ''),
+            'auto_create'  => (bool) config('ldap.auto_create', true),
         ];
 
         try {
@@ -91,16 +93,45 @@ class Ldap
             return null;
         }
 
-        $nombre = self::buscarNombre($conn, $a, $usuario, $dn);
+        $base = trim((string) ($a['base_dn'] ?? '')) ?: self::baseDnDesdePatron($patron);
+
+        // Restricción por grupo de AD (si está configurada): debe ser miembro.
+        $grupo = trim((string) ($a['group_dn'] ?? ''));
+        if ($grupo !== '') {
+            if (! $base || ! self::esMiembro($conn, $base, $usuario, $dn, $grupo)) {
+                @ldap_unbind($conn);
+
+                return null; // credenciales válidas pero NO autorizado
+            }
+        }
+
+        $nombre = self::buscarNombre($conn, $base, $usuario, $dn);
         @ldap_unbind($conn);
 
         return ['nombre' => $nombre];
     }
 
-    /** Busca displayName/cn del usuario en el directorio (best-effort). */
-    private static function buscarNombre($conn, array $a, string $usuario, string $dn): ?string
+    /** ¿El usuario es miembro (incl. grupos anidados) del grupo DN dado? */
+    private static function esMiembro($conn, string $base, string $usuario, string $dn, string $grupoDn): bool
     {
-        $base = trim((string) ($a['base_dn'] ?? '')) ?: self::baseDnDesdePatron((string) ($a['bind_pattern'] ?? ''));
+        $upn = ldap_escape($dn, '', LDAP_ESCAPE_FILTER);
+        $sam = ldap_escape($usuario, '', LDAP_ESCAPE_FILTER);
+        $g = ldap_escape($grupoDn, '', LDAP_ESCAPE_FILTER);
+        // 1.2.840.113556.1.4.1941 = LDAP_MATCHING_RULE_IN_CHAIN (membresía recursiva en AD).
+        $filtro = "(&(|(userPrincipalName=$upn)(sAMAccountName=$sam))(memberOf:1.2.840.113556.1.4.1941:=$g))";
+
+        $sr = @ldap_search($conn, $base, $filtro, ['cn']);
+        if (! $sr) {
+            return false;
+        }
+        $e = @ldap_get_entries($conn, $sr);
+
+        return ! empty($e['count']);
+    }
+
+    /** Busca displayName/cn del usuario en el directorio (best-effort). */
+    private static function buscarNombre($conn, ?string $base, string $usuario, string $dn): ?string
+    {
         if (! $base) {
             return null;
         }

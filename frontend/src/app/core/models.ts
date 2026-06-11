@@ -194,6 +194,8 @@ export interface LdapConfig {
   use_tls: boolean;
   bind_pattern: string;
   rol_default: string;
+  group_dn?: string;
+  auto_create?: boolean;
 }
 
 export const OPERADORES = ['>', '>=', '<', '<=', '==', '!='];

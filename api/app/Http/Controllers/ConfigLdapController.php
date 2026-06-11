@@ -28,6 +28,8 @@ class ConfigLdapController extends Controller
             'use_tls'      => ['boolean'],
             'bind_pattern' => ['nullable', 'string', 'max:255'],
             'rol_default'  => ['nullable', 'in:admin,operador,viewer'],
+            'group_dn'     => ['nullable', 'string', 'max:512'],
+            'auto_create'  => ['boolean'],
         ]);
 
         if ($data['enabled'] && empty($data['host'])) {
@@ -41,6 +43,8 @@ class ConfigLdapController extends Controller
             'use_tls'      => (bool) ($data['use_tls'] ?? false),
             'bind_pattern' => $data['bind_pattern'] ?? '{user}',
             'rol_default'  => $data['rol_default'] ?? 'viewer',
+            'group_dn'     => $data['group_dn'] ?? '',
+            'auto_create'  => (bool) ($data['auto_create'] ?? true),
         ];
 
         DB::table('app_config')->updateOrInsert(

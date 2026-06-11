@@ -41,7 +41,9 @@ class AuthController extends Controller
             && (! $perfil || $perfil->origen === 'ldap' || ! $perfil->password_hash)) {
             $ajustes = Ldap::ajustes();
             $datos = Ldap::autenticarConDatos($ajustes, $data['email'], $data['password']);
-            if ($datos !== null) {
+            // $datos !== null  => credenciales válidas Y autorizado (grupo, si aplica).
+            // Si auto_create=false, solo entran usuarios ya provisionados en SIMON.
+            if ($datos !== null && ($perfil || ($ajustes['auto_create'] ?? true))) {
                 $autenticado = true;
                 $nombre = $datos['nombre'] ?: $data['email'];
                 if (! $perfil) {

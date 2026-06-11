@@ -219,7 +219,16 @@
           <option value="admin">admin</option>
         </select>
       </label>
+      <label class="wide">Restringir a grupo de AD (DN completo) — opcional
+        <input name="gdn" [(ngModel)]="fLdap.group_dn"
+               placeholder="CN=SIMON_Usuarios,OU=Grupos,DC=pnnc,DC=local" />
+      </label>
+      <label class="check"><input type="checkbox" name="ac" [(ngModel)]="fLdap.auto_create" />
+        Crear usuarios automáticamente al primer ingreso</label>
     </div>
+    <p class="text-dim hint2">Control de acceso: deja el <b>grupo</b> vacío y <b>desmarca</b> "crear
+      automáticamente" para que solo entren los usuarios que ya creaste en SIMON (lista blanca).
+      O indica un <b>grupo de AD</b> para permitir solo a sus miembros.</p>
     <div class="acciones">
       <button type="submit" class="btn btn-primary">Guardar</button>
       @if (ldapGuardado()) { <span class="ok">✓ Guardado</span> }

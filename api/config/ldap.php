@@ -13,4 +13,10 @@ return [
     'bind_pattern' => env('AUTH_LDAP_BIND_PATTERN', '{user}'),
     // Rol asignado a un usuario LDAP nuevo (la primera vez que entra).
     'rol_default'  => env('AUTH_LDAP_ROL_DEFAULT', 'viewer'),
+    // Restringir el acceso a los miembros de este grupo de AD (DN completo).
+    // Vacío = cualquier usuario válido del directorio.
+    'group_dn'     => env('AUTH_LDAP_GROUP_DN', ''),
+    // Si es false, NO se crean perfiles automáticamente: solo entran los usuarios
+    // que un administrador ya creó en SIMON (lista blanca manual).
+    'auto_create'  => env('AUTH_LDAP_AUTOCREATE', true),
 ];
