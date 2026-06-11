@@ -75,11 +75,16 @@ def chequear(db: Database, settings: Settings, recurso: Recurso) -> str:
     repo.guardar_metricas(db, recurso.id, resultado.muestras_tuplas(), ahora)
     if resultado.interfaces:
         repo.guardar_interfaces(db, recurso.id, resultado.interfaces)
+        repo.guardar_interfaces_historico(db, recurso.id, resultado.interfaces)
     repo.actualizar_estado_recurso(db, recurso.id, estado_persistido, ahora)
 
     # 7. Incidencias + notificaciones (silenciadas durante mantenimiento)
     if not en_mant:
         _gestionar_incidencia(db, settings, recurso, ev, umbrales, chequeo_id, ahora, dep_caida)
+        # Incidencias por interfaz monitoreada (uplinks/WAN). Se suprimen si un
+        # ancestro está caído (la causa raíz ya alerta).
+        if resultado.interfaces and not dep_caida:
+            _gestionar_incidencias_interfaces(db, settings, recurso, ahora)
 
     return estado_persistido
 
@@ -120,6 +125,31 @@ def _detectar_failover(db: Database, recurso: Recurso, resultado: ResultadoProbe
             return Evaluacion("degraded", "warning", [motivo])
         ev.motivos.append(motivo)
     return ev
+
+
+def _gestionar_incidencias_interfaces(db: Database, settings: Settings, recurso: Recurso,
+                                      ahora: datetime) -> None:
+    """Abre/cierra incidencias por interfaz monitoreada según su estado oper."""
+    for itf in repo.interfaces_monitoreadas(db, recurso.id):
+        idx, nombre, oper = itf["if_index"], itf["if_name"], itf["oper_estado"]
+        if oper == "down":
+            titulo = f"{recurso.nombre}: puerto {nombre} caído"
+            nueva = repo.abrir_incidencia_interfaz(
+                db, recurso.id, idx, nombre, "warning", titulo,
+                f"La interfaz monitoreada {nombre} está oper-down.", ahora)
+            if nueva:
+                log.warning("Incidencia interfaz %s ABIERTA (recurso %s, puerto %s)",
+                            nueva, recurso.id, nombre)
+                notificar(db, settings, incidencia_id=nueva, recurso=recurso,
+                          severidad="warning", evento="apertura", titulo=titulo)
+        elif oper == "up":
+            ab = repo.incidencia_interfaz_abierta(db, recurso.id, idx)
+            if ab:
+                repo.cerrar_incidencia(db, ab["id"], ahora)
+                log.info("Incidencia interfaz %s resuelta (puerto %s recuperado).", ab["id"], nombre)
+                notificar(db, settings, incidencia_id=ab["id"], recurso=recurso,
+                          severidad=ab.get("severidad", "warning"), evento="cierre",
+                          titulo=f"{recurso.nombre}: puerto {nombre} recuperado")
 
 
 def _gestionar_incidencia(db: Database, settings: Settings, recurso: Recurso, ev: Evaluacion,

@@ -71,12 +71,13 @@
             <th class="num">↓ Mbps</th><th class="num">↑ Mbps</th>
             <th class="num">Util.</th><th class="num">Vel.</th>
             <th class="num">Err ↓/↑</th>
+            <th class="cen">Monitorear</th>
           </tr>
         </thead>
         <tbody>
           @for (x of interfaces(); track x.if_index) {
-            <tr [class.if-down]="x.oper_estado === 'down'">
-              <td><b>{{ x.if_name }}</b></td>
+            <tr [class.if-down]="x.oper_estado === 'down'" class="if-fila" (click)="toggleInterfaz(x.if_index)">
+              <td><b>{{ x.if_name }}</b> <span class="ver-g">{{ ifExpandida() === x.if_index ? '▾' : '▸' }}</span></td>
               <td><app-estado-badge [estado]="$any(x.oper_estado)" /></td>
               <td class="num">{{ x.in_mbps != null ? x.in_mbps : '—' }}</td>
               <td class="num">{{ x.out_mbps != null ? x.out_mbps : '—' }}</td>
@@ -85,7 +86,36 @@
               <td class="num" [class.err]="(x.in_err || 0) + (x.out_err || 0) > 0">
                 {{ (x.in_err ?? 0) }}/{{ (x.out_err ?? 0) }}
               </td>
+              <td class="cen" (click)="$event.stopPropagation()">
+                @if (auth.puedeEditar()) {
+                  <input type="checkbox" [checked]="x.monitorear" (change)="toggleMonitorear(x)" />
+                } @else {
+                  {{ x.monitorear ? 'Sí' : '—' }}
+                }
+              </td>
             </tr>
+            @if (ifExpandida() === x.if_index) {
+              <tr class="if-grafica">
+                <td colspan="8">
+                  <div class="rango">
+                    @for (rg of ['1h', '24h', '7d']; track rg) {
+                      <button class="btn" [class.btn-primary]="ifRango() === rg"
+                              (click)="cambiarRangoIf($any(rg))">{{ rg }}</button>
+                    }
+                  </div>
+                  @if (ifCargandoHist()) {
+                    <p class="text-dim">Cargando histórico…</p>
+                  } @else if (serieIn().length === 0) {
+                    <p class="text-dim">Sin histórico para el rango (se acumula con cada chequeo oper-up).</p>
+                  } @else {
+                    <div class="charts">
+                      <app-line-chart [data]="serieIn()" label="Entrada" unidad="Mbps" />
+                      <app-line-chart [data]="serieOut()" label="Salida" unidad="Mbps" />
+                    </div>
+                  }
+                </td>
+              </tr>
+            }
           }
         </tbody>
       </table>

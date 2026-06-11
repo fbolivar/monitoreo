@@ -84,7 +84,14 @@ export interface Interfaz {
   util_out?: number | null;
   in_err?: number | null;
   out_err?: number | null;
+  monitorear?: boolean;
   ts: string;
+}
+
+export interface MuestraInterfaz {
+  ts: string;
+  in_mbps: number | null;
+  out_mbps: number | null;
 }
 
 export interface FilaDisponibilidad {

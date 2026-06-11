@@ -55,6 +55,8 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
 
     // Interfaces de red (IF-MIB) de un recurso (lectura).
     Route::get('recursos/{id}/interfaces', [RecursoController::class, 'interfaces'])->whereNumber('id');
+    Route::get('recursos/{id}/interfaces/{ifIndex}/historico',
+        [RecursoController::class, 'interfazHistorico'])->whereNumber('id')->whereNumber('ifIndex');
 
     // Reportes (lectura): disponibilidad/SLA por recurso en un periodo.
     Route::get('reportes/disponibilidad', [ReporteController::class, 'disponibilidad']);
@@ -73,6 +75,10 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
             Route::match(['put', 'patch'], $uri.'/{id}', [$controller, 'update'])->whereNumber('id');
             Route::delete($uri.'/{id}', [$controller, 'destroy'])->whereNumber('id');
         }
+
+        // Marcar interfaz como monitoreada (alertar si cae).
+        Route::match(['put', 'patch'], 'recursos/{id}/interfaces/{ifIndex}',
+            [RecursoController::class, 'actualizarInterfaz'])->whereNumber('id')->whereNumber('ifIndex');
 
         // Gestión de incidencias (reconocer / resolver).
         Route::post('incidencias/{id}/reconocer', [IncidenciaController::class, 'reconocer'])->whereNumber('id');

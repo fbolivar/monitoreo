@@ -208,6 +208,61 @@ def guardar_interfaces(db: Database, recurso_id: int, interfaces: list[dict]) ->
         )
 
 
+def guardar_interfaces_historico(db: Database, recurso_id: int, interfaces: list[dict]) -> None:
+    """Inserta el throughput de las interfaces oper-up (con dato) para histórico/gráficas."""
+    filas = [(recurso_id, i["if_index"], i["in_mbps"], i["out_mbps"])
+             for i in interfaces
+             if i["oper_estado"] == "up" and (i["in_mbps"] is not None or i["out_mbps"] is not None)]
+    if not filas:
+        return
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.executemany(
+            "INSERT INTO interfaces_historico (recurso_id, if_index, in_mbps, out_mbps, ts) "
+            "VALUES (%s, %s, %s, %s, now())",
+            filas,
+        )
+
+
+def interfaces_monitoreadas(db: Database, recurso_id: int) -> list[dict[str, Any]]:
+    """Interfaces marcadas para alertar (monitorear=true) con su estado oper actual."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT if_index, if_name, oper_estado FROM interfaces "
+            "WHERE recurso_id = %s AND monitorear = true",
+            (recurso_id,),
+        )
+        return cur.fetchall()
+
+
+def incidencia_interfaz_abierta(db: Database, recurso_id: int, if_index: int) -> dict[str, Any] | None:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, severidad FROM incidencias "
+            "WHERE recurso_id = %s AND if_index = %s AND estado <> 'resuelta' LIMIT 1",
+            (recurso_id, if_index),
+        )
+        return cur.fetchone()
+
+
+def abrir_incidencia_interfaz(db: Database, recurso_id: int, if_index: int, if_nombre: str,
+                              severidad: str, titulo: str, descripcion: str | None,
+                              ahora: datetime) -> int | None:
+    """Abre una incidencia de interfaz. El índice único (recurso, if_index) evita duplicados."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO incidencias
+                (recurso_id, if_index, if_nombre, estado, severidad, titulo, descripcion, abierta_at)
+            VALUES (%s, %s, %s, 'abierta', %s, %s, %s, %s)
+            ON CONFLICT DO NOTHING
+            RETURNING id
+            """,
+            (recurso_id, if_index, if_nombre, severidad, titulo, descripcion, ahora),
+        )
+        row = cur.fetchone()
+        return row["id"] if row else None
+
+
 def actualizar_estado_recurso(db: Database, recurso_id: int, estado: str, ts: datetime) -> None:
     with db.connection() as conn, conn.cursor() as cur:
         cur.execute(
@@ -218,10 +273,11 @@ def actualizar_estado_recurso(db: Database, recurso_id: int, estado: str, ts: da
 
 # ── Incidencias ───────────────────────────────────────────────────────
 def incidencia_abierta(db: Database, recurso_id: int) -> dict[str, Any] | None:
+    """Incidencia abierta DEL RECURSO (no las de interfaz, que llevan if_index)."""
     with db.connection() as conn, conn.cursor() as cur:
         cur.execute(
             "SELECT id, severidad, estado FROM incidencias "
-            "WHERE recurso_id = %s AND estado <> 'resuelta' LIMIT 1",
+            "WHERE recurso_id = %s AND if_index IS NULL AND estado <> 'resuelta' LIMIT 1",
             (recurso_id,),
         )
         return cur.fetchone()
@@ -416,4 +472,7 @@ def rollup_diario(db: Database) -> None:
 def purgar_datos(db: Database) -> dict[str, Any]:
     with db.connection() as conn, conn.cursor() as cur:
         cur.execute("SELECT fn_purgar_datos() AS r")
-        return cur.fetchone()["r"]
+        r = cur.fetchone()["r"]
+        # Histórico de interfaces: retención corta (7 días).
+        cur.execute("DELETE FROM interfaces_historico WHERE ts < now() - interval '7 days'")
+        return r

@@ -60,6 +60,39 @@ class RecursoController extends Controller
         return response()->json($rows);
     }
 
+    /** Marca/desmarca una interfaz para alertar si cae (admin/operador). */
+    public function actualizarInterfaz(Request $request, int $id, int $ifIndex): JsonResponse
+    {
+        $data = $request->validate(['monitorear' => ['required', 'boolean']]);
+        Recurso::findOrFail($id);
+
+        $afectadas = DB::table('interfaces')
+            ->where('recurso_id', $id)->where('if_index', $ifIndex)
+            ->update(['monitorear' => $data['monitorear']]);
+
+        if ($afectadas === 0) {
+            return response()->json(['message' => 'Interfaz no encontrada.'], 404);
+        }
+
+        return response()->json(['monitorear' => $data['monitorear']]);
+    }
+
+    /** Histórico de throughput (Mbps in/out) de una interfaz para graficar. */
+    public function interfazHistorico(Request $request, int $id, int $ifIndex): JsonResponse
+    {
+        $rango = $request->query('rango', '24h');
+        $segundos = ['1h' => 3600, '24h' => 86400, '7d' => 604800][$rango] ?? 86400;
+        $desde = now()->subSeconds($segundos)->toDateTimeString();
+
+        $rows = DB::table('interfaces_historico')
+            ->where('recurso_id', $id)->where('if_index', $ifIndex)
+            ->where('ts', '>=', $desde)
+            ->orderBy('ts')
+            ->get(['ts', 'in_mbps', 'out_mbps']);
+
+        return response()->json($rows);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate($this->rules());

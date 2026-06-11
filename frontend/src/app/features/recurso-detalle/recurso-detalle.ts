@@ -2,7 +2,8 @@ import { JsonPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Chequeo, Incidencia, Interfaz, Metrica, Recurso } from '../../core/models';
+import { Chequeo, Incidencia, Interfaz, Metrica, MuestraInterfaz, Recurso } from '../../core/models';
+import { AuthService } from '../../core/auth.service';
 import { RecursosService } from '../../core/recursos.service';
 import { TelemetriaService } from '../../core/telemetria.service';
 import { EstadoBadge } from '../../shared/estado-badge';
@@ -22,6 +23,7 @@ export class RecursoDetalle {
   private route = inject(ActivatedRoute);
   private recursosSvc = inject(RecursosService);
   private tele = inject(TelemetriaService);
+  auth = inject(AuthService);
 
   id = 0;
   recurso = signal<Recurso | null>(null);
@@ -31,6 +33,15 @@ export class RecursoDetalle {
   interfaces = signal<Interfaz[]>([]);
   rango = signal<'1h' | '24h' | '7d'>('24h');
   cargando = signal(true);
+
+  // Histórico por interfaz (gráfica expandible)
+  ifExpandida = signal<number | null>(null);
+  ifRango = signal<'1h' | '24h' | '7d'>('24h');
+  ifHist = signal<MuestraInterfaz[]>([]);
+  ifCargandoHist = signal(false);
+
+  serieIn = computed<Punto[]>(() => this.ifHist().map((m) => ({ ts: m.ts, valor: m.in_mbps ?? 0 })));
+  serieOut = computed<Punto[]>(() => this.ifHist().map((m) => ({ ts: m.ts, valor: m.out_mbps ?? 0 })));
 
   fecha = fecha;
   hace = hace;
@@ -86,6 +97,36 @@ export class RecursoDetalle {
   cambiarRango(r: '1h' | '24h' | '7d'): void {
     this.rango.set(r);
     this.cargarMetricas();
+  }
+
+  toggleInterfaz(idx: number): void {
+    if (this.ifExpandida() === idx) { this.ifExpandida.set(null); return; }
+    this.ifExpandida.set(idx);
+    this.cargarHistIf();
+  }
+
+  cambiarRangoIf(r: '1h' | '24h' | '7d'): void {
+    this.ifRango.set(r);
+    this.cargarHistIf();
+  }
+
+  private cargarHistIf(): void {
+    const idx = this.ifExpandida();
+    if (idx == null) return;
+    this.ifCargandoHist.set(true);
+    this.ifHist.set([]);
+    this.recursosSvc.interfazHistorico(this.id, idx, this.ifRango()).subscribe({
+      next: (h) => { this.ifHist.set(h); this.ifCargandoHist.set(false); },
+      error: () => this.ifCargandoHist.set(false),
+    });
+  }
+
+  toggleMonitorear(x: Interfaz): void {
+    const nuevo = !x.monitorear;
+    this.recursosSvc.interfazMonitorear(this.id, x.if_index, nuevo).subscribe({
+      next: () => this.interfaces.update((xs) =>
+        xs.map((i) => (i.if_index === x.if_index ? { ...i, monitorear: nuevo } : i))),
+    });
   }
 
   private cargarMetricas(): void {

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { Interfaz, Paginated, Recurso, Sitio, TipoRecurso } from './models';
+import { Interfaz, MuestraInterfaz, Paginated, Recurso, Sitio, TipoRecurso } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class RecursosService {
@@ -25,6 +25,12 @@ export class RecursosService {
 
   interfaces(id: number): Observable<Interfaz[]> {
     return this.api.get<Interfaz[]>(`/recursos/${id}/interfaces`);
+  }
+  interfazMonitorear(id: number, ifIndex: number, monitorear: boolean): Observable<unknown> {
+    return this.api.put(`/recursos/${id}/interfaces/${ifIndex}`, { monitorear });
+  }
+  interfazHistorico(id: number, ifIndex: number, rango: '1h' | '24h' | '7d'): Observable<MuestraInterfaz[]> {
+    return this.api.get<MuestraInterfaz[]>(`/recursos/${id}/interfaces/${ifIndex}/historico`, { rango });
   }
 
   tipos(): Observable<Paginated<TipoRecurso>> {
