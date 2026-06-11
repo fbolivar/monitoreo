@@ -29,7 +29,16 @@ if [ -z "${GPW:-}" ]; then
   echo "GRAFANA_RO_PW=$GPW" >> /root/monitoreo-secrets.env
   echo "  generada GRAFANA_RO_PW (guardada en monitoreo-secrets.env)"
 fi
-$PSQL -v gpw="$GPW" -f infra/grafana/grafana_ro.sql
+if [ "$($PSQL -tAc "SELECT 1 FROM pg_roles WHERE rolname='grafana_ro'")" = "1" ]; then
+  $PSQL -c "ALTER ROLE grafana_ro LOGIN PASSWORD '$GPW'"
+else
+  $PSQL -c "CREATE ROLE grafana_ro LOGIN PASSWORD '$GPW'"
+fi
+$PSQL -c "GRANT CONNECT ON DATABASE monitoreo TO grafana_ro"
+$PSQL -c "GRANT USAGE ON SCHEMA public TO grafana_ro"
+$PSQL -c "GRANT SELECT ON ALL TABLES IN SCHEMA public TO grafana_ro"
+$PSQL -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO grafana_ro"
+$PSQL -c "REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA public FROM grafana_ro" >/dev/null 2>&1 || true
 
 echo "== 3) Provisionar datasource + dashboards =="
 install -d /etc/grafana/provisioning/datasources /etc/grafana/provisioning/dashboards /var/lib/grafana/dashboards
@@ -41,8 +50,9 @@ chown -R grafana:grafana /var/lib/grafana/dashboards 2>/dev/null || true
 
 echo "== 4) Firewall + arranque =="
 ufw allow 3000/tcp >/dev/null 2>&1 || true
-systemctl enable --now grafana-server >/dev/null 2>&1 || systemctl restart grafana-server
-sleep 5
+systemctl enable --now grafana-server >/dev/null 2>&1 || true
+systemctl restart grafana-server
+sleep 12
 systemctl is-active grafana-server
 echo "  Datasource RO:"; $PSQL -tAc "SELECT rolname FROM pg_roles WHERE rolname='grafana_ro'"
 curl -s -o /dev/null -w '  GET :3000 -> %{http_code}\n' http://127.0.0.1:3000/login || true
