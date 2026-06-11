@@ -14,8 +14,8 @@ import { AuthService } from '../../core/auth.service';
         <h1>SIMON</h1>
         <p class="sub">Sistema Integral de Monitoreo</p>
 
-        <label>Correo</label>
-        <input type="email" name="email" [(ngModel)]="email" autocomplete="username" required />
+        <label>Usuario o correo</label>
+        <input type="text" name="email" [(ngModel)]="email" autocomplete="username" required />
 
         <label>Contraseña</label>
         <input type="password" name="password" [(ngModel)]="password"

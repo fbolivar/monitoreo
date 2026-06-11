@@ -21,7 +21,8 @@ class AuthController extends Controller
     public function login(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'email'    => ['required', 'email'],
+            // Acepta correo (cuentas locales) o usuario corto (SSO LDAP/AD).
+            'email'    => ['required', 'string', 'max:255'],
             'password' => ['required', 'string'],
             'codigo'   => ['nullable', 'string'],   // código TOTP (2FA)
         ]);
