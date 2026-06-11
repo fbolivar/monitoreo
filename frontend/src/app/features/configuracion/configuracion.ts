@@ -3,12 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth.service';
 import { ConfigService } from '../../core/config.service';
 import {
-  Canal, Mantenimiento, OPERADORES, Recurso, Sitio, TIPOS_CANAL, TipoRecurso, Umbral,
+  Canal, LdapConfig, Mantenimiento, OPERADORES, Recurso, Sitio, TIPOS_CANAL, TipoRecurso, Umbral,
 } from '../../core/models';
 import { RecursosService } from '../../core/recursos.service';
 import { fecha } from '../../shared/tiempo';
 
-type Tab = 'umbrales' | 'mantenimientos' | 'canales';
+type Tab = 'umbrales' | 'mantenimientos' | 'canales' | 'autenticacion';
 
 @Component({
   selector: 'app-configuracion',
@@ -47,6 +47,14 @@ export class Configuracion implements OnInit {
   fMant = this.mantVacio();
   fCanal = this.canalVacio();
 
+  // LDAP / SSO
+  fLdap: LdapConfig = { enabled: false, host: '', port: 389, use_tls: false, bind_pattern: '{user}', rol_default: 'viewer' };
+  ldapDisponible = signal(true);
+  ldapGuardado = signal(false);
+  ldapTest = { test_usuario: '', test_password: '' };
+  ldapResultado = signal<{ ok: boolean; mensaje: string } | null>(null);
+  ldapProbando = signal(false);
+
   ngOnInit(): void {
     this.recSvc.listar({ per_page: 200 }).subscribe((p) => this.recursos.set(p.data));
     this.recSvc.tipos().subscribe((p) => this.tipos.set(p.data));
@@ -65,6 +73,30 @@ export class Configuracion implements OnInit {
     if (this.tab() === 'umbrales') this.cfg.umbrales().subscribe((p) => this.umbrales.set(p.data));
     if (this.tab() === 'mantenimientos') this.cfg.mantenimientos().subscribe((p) => this.mantenimientos.set(p.data));
     if (this.tab() === 'canales') this.cfg.canales().subscribe((p) => this.canales.set(p.data));
+    if (this.tab() === 'autenticacion') {
+      this.ldapResultado.set(null); this.ldapGuardado.set(false);
+      this.cfg.ldapObtener().subscribe((r) => { this.fLdap = r.config; this.ldapDisponible.set(r.disponible); });
+    }
+  }
+
+  guardarLdap(): void {
+    this.error.set(null); this.ldapGuardado.set(false);
+    this.cfg.ldapGuardar(this.fLdap).subscribe({
+      next: () => this.ldapGuardado.set(true),
+      error: (e) => this.error.set(this.msg(e)),
+    });
+  }
+
+  probarLdap(): void {
+    this.ldapResultado.set(null); this.ldapProbando.set(true);
+    this.cfg.ldapProbar({
+      host: this.fLdap.host, port: this.fLdap.port, use_tls: this.fLdap.use_tls,
+      bind_pattern: this.fLdap.bind_pattern,
+      test_usuario: this.ldapTest.test_usuario, test_password: this.ldapTest.test_password,
+    }).subscribe({
+      next: (r) => { this.ldapResultado.set(r); this.ldapProbando.set(false); },
+      error: (e) => { this.ldapResultado.set({ ok: false, mensaje: this.msg(e) }); this.ldapProbando.set(false); },
+    });
   }
 
   cancelar(): void {

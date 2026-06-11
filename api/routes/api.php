@@ -4,6 +4,7 @@ use App\Http\Controllers\AuditoriaController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CanalNotificacionController;
 use App\Http\Controllers\ChequeoController;
+use App\Http\Controllers\ConfigLdapController;
 use App\Http\Controllers\DosFactorController;
 use App\Http\Controllers\IncidenciaController;
 use App\Http\Controllers\MantenimientoController;
@@ -98,6 +99,12 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
     // ── USUARIOS (perfiles) y AUDITORÍA: solo admin ──────────────────
     Route::middleware('role:admin')->group(function () {
         Route::get('auditoria', [AuditoriaController::class, 'index']);
+
+        // Configuración de SSO LDAP/AD.
+        Route::get('config/ldap', [ConfigLdapController::class, 'mostrar']);
+        Route::match(['put', 'patch'], 'config/ldap', [ConfigLdapController::class, 'guardar']);
+        Route::post('config/ldap/probar', [ConfigLdapController::class, 'probar']);
+
         Route::get('usuarios', [PerfilController::class, 'index']);
         Route::get('usuarios/{id}', [PerfilController::class, 'show']);
         Route::post('usuarios', [PerfilController::class, 'store']);

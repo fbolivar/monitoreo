@@ -14,3 +14,7 @@ h1 { font-size: 18px; margin: 0; }
 .acc { display: flex; gap: 6px; }
 .acc .btn { padding: 4px 10px; }
 .err { color: var(--sev-critical); }
+.acciones .ok { color: #1b8a3a; align-self: center; font-size: 13px; }
+.acciones .err { align-self: center; font-size: 13px; }
+.form h3 { margin: 0; font-size: 14px; }
+.hint { background: var(--bg-2, #f1f4f1); padding: 0 4px; border-radius: 4px; font-size: 11px; }

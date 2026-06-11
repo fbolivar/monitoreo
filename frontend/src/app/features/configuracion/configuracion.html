@@ -4,6 +4,9 @@
     <button class="btn" [class.btn-primary]="tab() === 'umbrales'" (click)="cambiarTab('umbrales')">Umbrales</button>
     <button class="btn" [class.btn-primary]="tab() === 'mantenimientos'" (click)="cambiarTab('mantenimientos')">Mantenimientos</button>
     <button class="btn" [class.btn-primary]="tab() === 'canales'" (click)="cambiarTab('canales')">Canales</button>
+    @if (auth.esAdmin()) {
+      <button class="btn" [class.btn-primary]="tab() === 'autenticacion'" (click)="cambiarTab('autenticacion')">Autenticación</button>
+    }
   </div>
 </div>
 
@@ -186,4 +189,55 @@
       }
     </tbody>
   </table>
+}
+
+<!-- ════════ AUTENTICACIÓN (LDAP/AD) — solo admin ════════ -->
+@if (tab() === 'autenticacion' && auth.esAdmin()) {
+  @if (!ldapDisponible()) {
+    <p class="err">La extensión <code>php-ldap</code> no está instalada en el servidor; el SSO no funcionará hasta instalarla.</p>
+  }
+  <p class="text-dim mb">SSO con Active Directory / LDAP. El administrador local
+    (<b>admin@entidad.gov.co</b>) sigue funcionando siempre, aunque LDAP falle.</p>
+
+  <form class="card form" (ngSubmit)="guardarLdap()">
+    <div class="grid">
+      <label class="check"><input type="checkbox" name="en" [(ngModel)]="fLdap.enabled" /> Activar SSO LDAP/AD</label>
+      <label>Host / URL del servidor
+        <input name="host" [(ngModel)]="fLdap.host" placeholder="ldap://dc.dominio.gov.co" />
+      </label>
+      <label>Puerto
+        <input type="number" name="port" [(ngModel)]="fLdap.port" placeholder="389 (LDAP) / 636 (LDAPS)" />
+      </label>
+      <label class="check"><input type="checkbox" name="tls" [(ngModel)]="fLdap.use_tls" /> Usar STARTTLS</label>
+      <label class="wide">Patrón de bind <code class="hint">&#123;user&#125;</code> = lo que escribe el usuario en "Correo"
+        <input name="bp" [(ngModel)]="fLdap.bind_pattern" placeholder="&#123;user&#125;&#64;parques.gov.co" />
+      </label>
+      <label>Rol por defecto (usuarios nuevos)
+        <select name="rd" [(ngModel)]="fLdap.rol_default">
+          <option value="viewer">viewer</option>
+          <option value="operador">operador</option>
+          <option value="admin">admin</option>
+        </select>
+      </label>
+    </div>
+    <div class="acciones">
+      <button type="submit" class="btn btn-primary">Guardar</button>
+      @if (ldapGuardado()) { <span class="ok">✓ Guardado</span> }
+    </div>
+  </form>
+
+  <form class="card form" (ngSubmit)="probarLdap()">
+    <h3>Probar conexión</h3>
+    <p class="text-dim">Verifica con un usuario real de AD antes de activar (no guarda nada).</p>
+    <div class="grid">
+      <label>Usuario de prueba <input name="tu" [(ngModel)]="ldapTest.test_usuario" placeholder="correo o usuario" /></label>
+      <label>Contraseña <input type="password" name="tp" [(ngModel)]="ldapTest.test_password" /></label>
+    </div>
+    <div class="acciones">
+      <button type="submit" class="btn" [disabled]="ldapProbando()">{{ ldapProbando() ? 'Probando…' : 'Probar conexión' }}</button>
+      @if (ldapResultado(); as r) {
+        <span [class.ok]="r.ok" [class.err]="!r.ok">{{ r.ok ? '✓' : '✗' }} {{ r.mensaje }}</span>
+      }
+    </div>
+  </form>
 }

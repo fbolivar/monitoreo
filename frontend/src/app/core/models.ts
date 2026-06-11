@@ -187,6 +187,15 @@ export interface Canal {
   tiene_secretos?: boolean;
 }
 
+export interface LdapConfig {
+  enabled: boolean;
+  host: string | null;
+  port: number;
+  use_tls: boolean;
+  bind_pattern: string;
+  rol_default: string;
+}
+
 export const OPERADORES = ['>', '>=', '<', '<=', '==', '!='];
 export const TIPOS_CANAL = ['email', 'sms', 'webhook', 'slack', 'telegram', 'teams'];
 export const ROLES: Rol[] = ['admin', 'operador', 'viewer'];

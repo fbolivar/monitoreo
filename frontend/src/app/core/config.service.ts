@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { Canal, Mantenimiento, Paginated, Umbral } from './models';
+import { Canal, LdapConfig, Mantenimiento, Paginated, Umbral } from './models';
 
 /** CRUD de configuración: umbrales, mantenimientos y canales de notificación. */
 @Injectable({ providedIn: 'root' })
@@ -48,5 +48,16 @@ export class ConfigService {
   }
   eliminarCanal(id: number): Observable<void> {
     return this.api.delete<void>(`/canales-notificacion/${id}`);
+  }
+
+  // ── LDAP / SSO ──
+  ldapObtener(): Observable<{ config: LdapConfig; disponible: boolean }> {
+    return this.api.get<{ config: LdapConfig; disponible: boolean }>('/config/ldap');
+  }
+  ldapGuardar(b: LdapConfig): Observable<LdapConfig> {
+    return this.api.put<LdapConfig>('/config/ldap', b);
+  }
+  ldapProbar(b: Record<string, unknown>): Observable<{ ok: boolean; mensaje: string }> {
+    return this.api.post<{ ok: boolean; mensaje: string }>('/config/ldap/probar', b);
   }
 }
