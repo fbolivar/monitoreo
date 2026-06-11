@@ -23,7 +23,7 @@ else
 fi
 
 echo "== 2) Rol Postgres de solo lectura =="
-GPW=$(grep -E '^GRAFANA_RO_PW=' /root/monitoreo-secrets.env | cut -d= -f2-)
+GPW=$(grep -E '^GRAFANA_RO_PW=' /root/monitoreo-secrets.env 2>/dev/null | cut -d= -f2- || true)
 if [ -z "${GPW:-}" ]; then
   GPW=$(openssl rand -base64 24 | tr -d '/+=' | head -c 28)
   echo "GRAFANA_RO_PW=$GPW" >> /root/monitoreo-secrets.env
