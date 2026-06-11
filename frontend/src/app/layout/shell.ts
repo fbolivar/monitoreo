@@ -1,6 +1,7 @@
-import { Component, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../core/auth.service';
+import { IdleService } from '../core/idle.service';
 
 /** Marco principal: barra lateral institucional + topbar. */
 @Component({
@@ -95,11 +96,21 @@ import { AuthService } from '../core/auth.service';
     `,
   ],
 })
-export class Shell {
+export class Shell implements OnInit, OnDestroy {
   auth = inject(AuthService);
   private router = inject(Router);
+  private idle = inject(IdleService);
+
+  ngOnInit(): void {
+    this.idle.iniciar();
+  }
+
+  ngOnDestroy(): void {
+    this.idle.detener();
+  }
 
   async salir(): Promise<void> {
+    this.idle.detener();
     await this.auth.cerrarSesion();
     await this.router.navigate(['/login']);
   }

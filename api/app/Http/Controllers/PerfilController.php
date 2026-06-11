@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rules\Password;
 
 /**
  * Gestión de usuarios (perfiles). Solo accesible por rol admin (ver rutas).
@@ -50,7 +51,7 @@ class PerfilController extends Controller
             'nombre'   => ['nullable', 'string', 'max:255'],
             'rol'      => ['required', Rule::in(Perfil::ROLES)],
             'activo'   => ['boolean'],
-            'password' => ['required', 'string', 'min:8'],
+            'password' => ['required', Password::min(12)->mixedCase()->numbers()->symbols()],
         ]);
 
         $perfil = new Perfil([
@@ -75,7 +76,7 @@ class PerfilController extends Controller
             'nombre'   => ['nullable', 'string', 'max:255'],
             'rol'      => ['sometimes', Rule::in(Perfil::ROLES)],
             'activo'   => ['boolean'],
-            'password' => ['nullable', 'string', 'min:8'],
+            'password' => ['nullable', Password::min(12)->mixedCase()->numbers()->symbols()],
         ]);
 
         // Evitar que un admin se bloquee a sí mismo (auto-degradación/desactivación).

@@ -1,6 +1,6 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 
 @Component({
@@ -27,6 +27,7 @@ import { AuthService } from '../../core/auth.service';
                  placeholder="6 dígitos" maxlength="6" autofocus />
         }
 
+        @if (aviso()) { <div class="aviso">{{ aviso() }}</div> }
         @if (error()) { <div class="err">{{ error() }}</div> }
 
         <button class="btn btn-primary" type="submit" [disabled]="cargando()">
@@ -49,6 +50,7 @@ import { AuthService } from '../../core/auth.service';
       .sub { margin: 0 0 14px; text-align: center; color: var(--text-dim); }
       label { color: var(--text-dim); font-size: 12px; margin-top: 6px; }
       .err { color: var(--sev-critical); font-size: 12.5px; }
+      .aviso { color: var(--sev-warning); font-size: 12.5px; }
       button { margin-top: 16px; padding: 10px; font-weight: 600; }
       .pie { text-align: center; font-size: 11px; margin: 16px 0 0; }
     `,
@@ -57,6 +59,13 @@ import { AuthService } from '../../core/auth.service';
 export class Login {
   private auth = inject(AuthService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
+
+  aviso = signal<string | null>(
+    this.route.snapshot.queryParamMap.get('motivo') === 'inactividad'
+      ? 'Tu sesión se cerró por inactividad. Ingresa de nuevo.'
+      : null,
+  );
 
   email = '';
   password = '';

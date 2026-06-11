@@ -7,4 +7,6 @@ export const environment = {
   production: false,
   apiUrl: '/api',
   refreshMs: 15000,
+  // Minutos de inactividad antes de cerrar sesión automáticamente.
+  idleMinutes: 30,
 };

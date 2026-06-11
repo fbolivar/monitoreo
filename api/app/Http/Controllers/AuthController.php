@@ -27,6 +27,14 @@ class AuthController extends Controller
             'codigo'   => ['nullable', 'string'],   // código TOTP (2FA)
         ]);
 
+        // Bloqueo por fuerza bruta: demasiados fallos recientes para este usuario.
+        $lockoutMin = (int) config('auth_local.lockout_min', 15);
+        if ($this->intentosFallidos($data['email'], $lockoutMin) >= (int) config('auth_local.max_intentos', 5)) {
+            return response()->json([
+                'message' => "Demasiados intentos fallidos. Intenta de nuevo en {$lockoutMin} minutos.",
+            ], 429);
+        }
+
         $perfil = Perfil::where('email', $data['email'])->first();
 
         // 1) Autenticación local (contraseña en perfiles).
@@ -101,6 +109,16 @@ class AuthController extends Controller
             'token'  => $token,
             'perfil' => $perfil,
         ]);
+    }
+
+    /** Cuenta los login_fallido de un usuario en los últimos N minutos (anti fuerza bruta). */
+    private function intentosFallidos(string $email, int $minutos): int
+    {
+        return (int) \Illuminate\Support\Facades\DB::table('auditoria')
+            ->where('accion', 'login_fallido')
+            ->where('descripcion', $email)
+            ->where('ts', '>=', now()->subMinutes($minutos))
+            ->count();
     }
 
     /** Normaliza la lista blanca de usuarios (coma/; /salto de línea) a minúsculas. */
