@@ -45,7 +45,8 @@ notificaciones → despliegue) y las **mejoras de operación** del roadmap:
 - ✅ 2FA (TOTP) y SSO AD/LDAP (con control de acceso por grupo/lista blanca).
 - ✅ Traps → incidencias en tiempo real; dead-man's switch (auto-monitoreo).
 - ✅ Pollers distribuidos (worker por sede) y respaldo de configuración de FortiGate (con diff).
-- ⏳ Pendiente/follow-up: canal Telegram/Teams; respaldo de switches por SSH; HA; flota de pollers.
+- ✅ Endurecimiento: bloqueo por fuerza bruta, política de contraseñas, cierre por inactividad, cert de CA interna (guiado).
+- ⏳ Pendiente/follow-up: canal Telegram/Teams; respaldo de switches por SSH; syslog; HA; flota de pollers.
 
 Detalle operativo de cada una en [`docs/funcionalidades-avanzadas.md`](docs/funcionalidades-avanzadas.md).
 El detalle por fases vive en [`CLAUDE.md`](CLAUDE.md).

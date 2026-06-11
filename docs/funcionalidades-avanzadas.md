@@ -20,6 +20,7 @@ https://192.168.50.54/. Esta guía resume **qué hacen** y **cómo operarlas**.
 | Dead-man's switch | — | worker |
 | Pollers distribuidos (base) | — | worker |
 | Respaldo de configuración (FortiGate) | 0012 | BD · worker · API · frontend |
+| Endurecimiento de seguridad | — | API · frontend · infra |
 
 ---
 
@@ -187,6 +188,27 @@ por los canales activos. Estilo Oxidized/RANCID.
 - **API:** `GET /api/recursos/{id}/respaldos` (lista) y `/respaldos/{rid}` (contenido + diff).
 - **Nota técnica:** en FortiOS 7.6 el backup es **POST** `/api/v2/monitor/system/config/backup?scope=global`
   (GET devuelve 405). El backup de **switches** (vía SSH) queda como mejora futura.
+
+## 16. Endurecimiento de seguridad / cumplimiento
+
+Controles de seguridad para entorno de entidad pública:
+
+- **Bloqueo por fuerza bruta:** tras varios intentos fallidos del mismo usuario en una ventana de
+  tiempo, el login se rechaza temporalmente (HTTP 429). Por usuario y auto-liberable.
+  Variables (`api/.env`): `AUTH_MAX_INTENTOS` (def 5), `AUTH_LOCKOUT_MIN` (def 15).
+- **Política de contraseñas** (cuentas locales): mínimo **12 caracteres** con mayúsculas, minúsculas,
+  números y símbolos, al crear o cambiar usuarios. Los usuarios **LDAP** usan la política del AD.
+- **Cierre de sesión por inactividad:** a los **30 min** sin actividad se cierra la sesión y se vuelve
+  al login con aviso. El **Tablero NOC (wallboard) queda excluido** (es una pantalla siempre activa).
+  Ajustable en `frontend/src/environments/environment.ts` (`idleMinutes`).
+- **Certificado de CA interna (quita el aviso de HTTPS):** el aviso "no seguro" aparece porque el
+  certificado es autofirmado. Con un certificado emitido por tu **CA de Active Directory** (que los
+  PCs del dominio ya confían por GPO) desaparece. Pasos:
+  ```bash
+  FQDN=bc360.pnnc.local bash /opt/monitoreo/infra/deploy/cert_csr.sh   # genera clave + CSR
+  # firma el CSR con AD Certificate Services (plantilla "Web Server"),
+  # guarda el .crt en /etc/ssl/monitoreo/, ajusta nginx (ssl_certificate, server_name) y recarga.
+  ```
 
 ---
 

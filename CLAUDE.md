@@ -185,6 +185,19 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
     `GET /recursos/{id}/respaldos[/{rid}]`; UI: sección "Respaldos de configuración" en el detalle.
     Backup de switches por SSH = follow-up.
 
+- ✅ MEJORAS 4ª OLA — Endurecimiento de seguridad/cumplimiento (2026-06-11, commit 5b0e254), verificado:
+  - **Bloqueo por fuerza bruta**: tras `AUTH_MAX_INTENTOS` (def 5) login_fallido del mismo usuario en
+    `AUTH_LOCKOUT_MIN` (def 15) min, el login responde **429** (temporal, por usuario). Reusa la tabla
+    `auditoria` (no hay tabla nueva). AuthController::intentosFallidos.
+  - **Política de contraseñas** (cuentas locales): `Password::min(12)->mixedCase()->numbers()->symbols()`
+    en PerfilController store/update. Los usuarios LDAP usan la política del AD.
+  - **Cierre por inactividad** (frontend): `IdleService` cierra sesión tras `environment.idleMinutes`
+    (def 30) sin actividad; activo en el `Shell` (NO en el wallboard). Login muestra aviso
+    (?motivo=inactividad).
+  - **Cert de CA interna** (quita el warning HTTPS): guiado. `infra/deploy/cert_csr.sh` genera clave+CSR
+    para firmar con la CA de AD (los PCs del dominio ya la confían por GPO); luego instalar .crt +
+    ajustar nginx (ssl_certificate, server_name bc360.pnnc.local). NO ejecutado (requiere la CA del usuario).
+
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.
 
