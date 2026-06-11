@@ -16,6 +16,7 @@ from .snmp_client import snmp_walk
 
 # IF-MIB / IF-MIB extendida (ifXTable)
 IF_DESCR = "1.3.6.1.2.1.2.2.1.2"
+IF_TYPE = "1.3.6.1.2.1.2.2.1.3"      # ifType (6=ethernet, 161=lag, 135/136=vlan, 24=loopback)
 IF_ADMIN = "1.3.6.1.2.1.2.2.1.7"     # ifAdminStatus (1=up, 2=down)
 IF_OPER = "1.3.6.1.2.1.2.2.1.8"      # ifOperStatus  (1=up, 2=down)
 IF_IN_ERR = "1.3.6.1.2.1.2.2.1.14"   # ifInErrors
@@ -26,6 +27,11 @@ IF_HC_OUT = "1.3.6.1.2.1.31.1.1.1.10"  # ifHCOutOctets
 IF_HIGHSPEED = "1.3.6.1.2.1.31.1.1.1.15"  # ifHighSpeed (Mbps)
 
 _ESTADO = {1: "up", 2: "down"}
+
+# Tipos de interfaz "reales" que interesan monitorear: ethernet físico (6) y
+# agregados/port-channel (161 lag, 53 propVirtual). Se descartan VLANs (135/136),
+# loopback (24) y demás interfaces lógicas que solo añaden ruido.
+_TIPOS_FISICOS = {6, 161, 53}
 
 # Caché de contadores previos: (recurso_id, if_index) -> {in, out, in_err, out_err, ts}
 _cache: dict[tuple[int, int], dict] = {}
@@ -57,6 +63,7 @@ def recolectar(recurso_id, cred, host, port, timeout, retries) -> list[dict]:
         return _por_indice(snmp_walk(host, port, cred, oid, timeout, retries)[0])
 
     nombre = w(IF_NAME) or w(IF_DESCR)
+    tipo = w(IF_TYPE)
     admin = w(IF_ADMIN)
     oper = w(IF_OPER)
     hc_in = w(IF_HC_IN)
@@ -70,6 +77,8 @@ def recolectar(recurso_id, cred, host, port, timeout, retries) -> list[dict]:
 
     for idx, adm in admin.items():
         if _f(adm) != 1:  # solo interfaces habilitadas (admin up)
+            continue
+        if int(_f(tipo.get(idx)) or 0) not in _TIPOS_FISICOS:  # físicas / agregados
             continue
         op = int(_f(oper.get(idx)) or 2)
         spd = _f(speed.get(idx))
