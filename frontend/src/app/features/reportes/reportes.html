@@ -1,0 +1,64 @@
+<div class="head">
+  <h1>Reportes de disponibilidad</h1>
+  <div class="acciones">
+    <div class="rango">
+      @for (r of rangos; track r) {
+        <button class="btn" [class.btn-primary]="rango() === r" (click)="cambiarRango(r)">{{ r }}</button>
+      }
+    </div>
+    <button class="btn" (click)="exportarCsv()" [disabled]="filas().length === 0">Exportar CSV</button>
+  </div>
+</div>
+
+@if (cargando()) {
+  <p class="text-dim">Calculando disponibilidad…</p>
+} @else {
+  <div class="tarjetas">
+    <div class="card kpi">
+      <span class="text-dim">Recursos</span>
+      <b>{{ filas().length }}</b>
+    </div>
+    <div class="card kpi">
+      <span class="text-dim">Disponibilidad promedio</span>
+      <b [class]="clase(promedio())">{{ promedio() != null ? (promedio() | number: '1.2-2') + '%' : '—' }}</b>
+    </div>
+    <div class="card kpi">
+      <span class="text-dim">Incidencias en el periodo</span>
+      <b>{{ totalIncidencias() }}</b>
+    </div>
+  </div>
+
+  <p class="text-dim nota">
+    Disponibilidad = (operativo + degradado) / chequeos evaluables (excluye mantenimiento y sin-dato).
+    Periodo desde {{ desde() }}.
+  </p>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Recurso</th><th>Tipo</th><th>Sitio</th><th>Estado</th>
+        <th class="num">Disponibilidad</th>
+        <th class="num">Up</th><th class="num">Degr.</th><th class="num">Caído</th>
+        <th class="num">Mant.</th><th class="num">Incid.</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (f of ordenadas(); track f.id) {
+        <tr>
+          <td><b>{{ f.nombre }}</b></td>
+          <td class="text-dim">{{ f.tipo_nombre }}</td>
+          <td class="text-dim">{{ f.sitio_nombre ?? '—' }}</td>
+          <td><app-estado-badge [estado]="f.estado_actual" [texto]="false" /></td>
+          <td class="num"><b [class]="clase(f.disponibilidad)">
+            {{ f.disponibilidad != null ? (f.disponibilidad | number: '1.2-3') + '%' : 'sin datos' }}
+          </b></td>
+          <td class="num">{{ f.up }}</td>
+          <td class="num">{{ f.degraded }}</td>
+          <td class="num" [class.malo]="f.down > 0">{{ f.down }}</td>
+          <td class="num text-dim">{{ f.mantenimiento }}</td>
+          <td class="num" [class.malo]="f.incidencias > 0">{{ f.incidencias }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

@@ -1,0 +1,23 @@
+.head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0 14px; flex-wrap: wrap; }
+h1 { font-size: 18px; margin: 0; }
+.acciones { display: flex; align-items: center; gap: 10px; }
+.rango { display: flex; gap: 4px; }
+.rango .btn { padding: 4px 10px; }
+
+.tarjetas { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.kpi { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; }
+.kpi .text-dim { font-size: 11px; text-transform: uppercase; }
+.kpi b { font-size: 22px; }
+
+.nota { font-size: 12px; margin: 12px 0 6px; }
+
+table { width: 100%; }
+.num { text-align: right; font-variant-numeric: tabular-nums; }
+td.malo { color: var(--sev-critical); font-weight: 700; }
+
+/* Semáforo de disponibilidad */
+.ok   { color: var(--estado-up, #1b8a3a); }
+.bien { color: var(--estado-up, #1b8a3a); }
+.warn { color: var(--sev-warning); }
+.mal  { color: var(--sev-critical); }
+.sd   { color: var(--text-dim); }

@@ -8,6 +8,7 @@ use App\Http\Controllers\MantenimientoController;
 use App\Http\Controllers\MetricaController;
 use App\Http\Controllers\PerfilController;
 use App\Http\Controllers\RecursoController;
+use App\Http\Controllers\ReporteController;
 use App\Http\Controllers\SitioController;
 use App\Http\Controllers\TipoRecursoController;
 use App\Http\Controllers\UmbralController;
@@ -53,6 +54,9 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
 
     // Interfaces de red (IF-MIB) de un recurso (lectura).
     Route::get('recursos/{id}/interfaces', [RecursoController::class, 'interfaces'])->whereNumber('id');
+
+    // Reportes (lectura): disponibilidad/SLA por recurso en un periodo.
+    Route::get('reportes/disponibilidad', [ReporteController::class, 'disponibilidad']);
 
     // Solo lectura (telemetría / eventos) con filtros.
     Route::get('chequeos', [ChequeoController::class, 'index']);

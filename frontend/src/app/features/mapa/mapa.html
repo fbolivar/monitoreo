@@ -1,0 +1,39 @@
+<div class="head">
+  <h1>Mapa de sedes</h1>
+  <div class="leyenda">
+    <span><i style="background:#1b8a3a"></i>Operativo</span>
+    <span><i style="background:#e0a400"></i>Degradado</span>
+    <span><i style="background:#d11d1d"></i>Caído</span>
+    <span><i style="background:#9aa0a6"></i>Sin datos</span>
+    <span><i style="background:#3b82f6"></i>Mantenimiento</span>
+  </div>
+</div>
+
+@if (cargando()) {
+  <p class="text-dim">Cargando…</p>
+} @else {
+  <div class="lienzo card">
+    <svg [attr.viewBox]="'0 0 ' + W + ' ' + H" preserveAspectRatio="xMidYMid meet">
+      <path [attr.d]="outlinePath" class="pais" />
+      @for (m of marcadores(); track m.sitio.id) {
+        <a [routerLink]="['/']">
+          <circle [attr.cx]="m.x" [attr.cy]="m.y" [attr.r]="radio(m)"
+                  [attr.fill]="color(m.estado)" class="sede">
+            <title>{{ m.sitio.nombre }} — {{ m.total }} recurso(s){{ m.caidos ? ', ' + m.caidos + ' caído(s)' : '' }}</title>
+          </circle>
+          <text [attr.x]="m.x + radio(m) + 3" [attr.y]="m.y + 4" class="etq">{{ m.sitio.nombre }}</text>
+        </a>
+      }
+    </svg>
+  </div>
+
+  @if (marcadores().length === 0) {
+    <p class="text-dim">Ningún sitio tiene coordenadas (latitud/longitud) cargadas todavía.</p>
+  }
+  @if (sinCoords().length > 0) {
+    <p class="text-dim nota">
+      Sin coordenadas (no se muestran en el mapa):
+      {{ sinCoords().length }} sitio(s) — edítalos en Sitios para ubicarlos.
+    </p>
+  }
+}

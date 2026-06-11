@@ -87,6 +87,30 @@ export interface Interfaz {
   ts: string;
 }
 
+export interface FilaDisponibilidad {
+  id: number;
+  nombre: string;
+  tipo_id: number;
+  sitio_id: number | null;
+  tipo_nombre: string;
+  sitio_nombre: string | null;
+  estado_actual: Estado;
+  evaluables_total: number;
+  up: number;
+  degraded: number;
+  down: number;
+  unknown: number;
+  mantenimiento: number;
+  incidencias: number;
+  disponibilidad: number | null;
+}
+
+export interface ReporteDisponibilidad {
+  rango: string;
+  desde: string;
+  recursos: FilaDisponibilidad[];
+}
+
 export interface Perfil {
   id: string;
   email: string;
