@@ -65,6 +65,10 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
             Route::match(['put', 'patch'], $uri.'/{id}', [$controller, 'update'])->whereNumber('id');
             Route::delete($uri.'/{id}', [$controller, 'destroy'])->whereNumber('id');
         }
+
+        // Gestión de incidencias (reconocer / resolver).
+        Route::post('incidencias/{id}/reconocer', [IncidenciaController::class, 'reconocer'])->whereNumber('id');
+        Route::post('incidencias/{id}/resolver', [IncidenciaController::class, 'resolver'])->whereNumber('id');
     });
 
     // ── USUARIOS (perfiles): solo admin ──────────────────────────────

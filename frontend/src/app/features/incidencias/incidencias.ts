@@ -1,6 +1,8 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
+import { Observable } from 'rxjs';
+import { AuthService } from '../../core/auth.service';
 import { EstadoIncidencia, Incidencia, Severidad } from '../../core/models';
 import { TelemetriaService } from '../../core/telemetria.service';
 import { duracion, fecha } from '../../shared/tiempo';
@@ -14,9 +16,12 @@ import { duracion, fecha } from '../../shared/tiempo';
 })
 export class Incidencias implements OnInit {
   private tele = inject(TelemetriaService);
+  auth = inject(AuthService);
 
   incidencias = signal<Incidencia[]>([]);
   cargando = signal(true);
+  procesando = signal<number | null>(null);
+  error = signal<string | null>(null);
 
   vista = signal<'activas' | 'historico'>('activas');
   fSeveridad = signal<Severidad | ''>('');
@@ -49,5 +54,28 @@ export class Incidencias implements OnInit {
 
   estadoLabel(e: EstadoIncidencia): string {
     return { abierta: 'Abierta', reconocida: 'Reconocida', resuelta: 'Resuelta' }[e];
+  }
+
+  reconocer(i: Incidencia): void {
+    this.accion(i.id, this.tele.reconocerIncidencia(i.id));
+  }
+
+  resolver(i: Incidencia): void {
+    if (!confirm('¿Resolver esta incidencia? Si el recurso sigue caído, el worker abrirá una nueva en el próximo chequeo.')) {
+      return;
+    }
+    this.accion(i.id, this.tele.resolverIncidencia(i.id));
+  }
+
+  private accion(id: number, obs: Observable<Incidencia>): void {
+    this.error.set(null);
+    this.procesando.set(id);
+    obs.subscribe({
+      next: () => { this.procesando.set(null); this.cargar(); },
+      error: (e) => {
+        this.procesando.set(null);
+        this.error.set((e as { error?: { message?: string } })?.error?.message ?? 'No se pudo completar la acción.');
+      },
+    });
   }
 }

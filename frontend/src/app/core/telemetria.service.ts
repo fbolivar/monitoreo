@@ -18,4 +18,12 @@ export class TelemetriaService {
   incidencias(query?: Record<string, unknown>): Observable<Paginated<Incidencia>> {
     return this.api.get<Paginated<Incidencia>>('/incidencias', query);
   }
+
+  reconocerIncidencia(id: number): Observable<Incidencia> {
+    return this.api.post<Incidencia>(`/incidencias/${id}/reconocer`, {});
+  }
+
+  resolverIncidencia(id: number): Observable<Incidencia> {
+    return this.api.post<Incidencia>(`/incidencias/${id}/resolver`, {});
+  }
 }

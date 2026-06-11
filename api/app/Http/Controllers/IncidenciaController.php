@@ -49,4 +49,36 @@ class IncidenciaController extends Controller
             Incidencia::with(['recurso', 'reconocidaPor:id,nombre,email'])->findOrFail($id)
         );
     }
+
+    /** Reconocer una incidencia (admin/operador). El worker la sigue considerando
+     *  abierta (estado <> resuelta), así que no abre una nueva. */
+    public function reconocer(Request $request, int $id): JsonResponse
+    {
+        $inc = Incidencia::findOrFail($id);
+        if ($inc->estado === 'resuelta') {
+            return response()->json(['message' => 'La incidencia ya está resuelta.'], 422);
+        }
+
+        $inc->update([
+            'estado'         => 'reconocida',
+            'reconocida_at'  => $inc->reconocida_at ?? now(),
+            'reconocida_por' => optional($request->attributes->get('perfil'))->id,
+        ]);
+
+        return response()->json($inc->load(['recurso:id,nombre', 'reconocidaPor:id,nombre,email']));
+    }
+
+    /** Resolver una incidencia manualmente (admin/operador). Si el recurso sigue
+     *  caído, el worker abrirá una nueva incidencia en el próximo chequeo. */
+    public function resolver(int $id): JsonResponse
+    {
+        $inc = Incidencia::findOrFail($id);
+        if ($inc->estado === 'resuelta') {
+            return response()->json(['message' => 'La incidencia ya está resuelta.'], 422);
+        }
+
+        $inc->update(['estado' => 'resuelta', 'resuelta_at' => now()]);
+
+        return response()->json($inc->load(['recurso:id,nombre', 'reconocidaPor:id,nombre,email']));
+    }
 }

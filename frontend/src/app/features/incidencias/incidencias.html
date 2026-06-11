@@ -16,6 +16,8 @@
   <button class="btn" (click)="cargar()">Refrescar</button>
 </div>
 
+@if (error()) { <p class="err">{{ error() }}</p> }
+
 @if (cargando()) {
   <p class="text-dim">Cargando…</p>
 } @else if (filtradas().length === 0) {
@@ -26,6 +28,7 @@
       <tr>
         <th>Sev.</th><th>Recurso</th><th>Título</th><th>Estado</th>
         <th>Abierta</th><th>Resuelta</th><th>Duración</th>
+        @if (auth.puedeEditar()) { <th>Acciones</th> }
       </tr>
     </thead>
     <tbody>
@@ -43,6 +46,16 @@
           <td class="text-dim">{{ fecha(i.abierta_at) }}</td>
           <td class="text-dim">{{ i.resuelta_at ? fecha(i.resuelta_at) : '—' }}</td>
           <td>{{ duracion(i.abierta_at, i.resuelta_at) }}</td>
+          @if (auth.puedeEditar()) {
+            <td class="acc">
+              @if (i.estado === 'abierta') {
+                <button class="btn" [disabled]="procesando() === i.id" (click)="reconocer(i)">Reconocer</button>
+              }
+              @if (i.estado !== 'resuelta') {
+                <button class="btn" [disabled]="procesando() === i.id" (click)="resolver(i)">Resolver</button>
+              }
+            </td>
+          }
         </tr>
       }
     </tbody>

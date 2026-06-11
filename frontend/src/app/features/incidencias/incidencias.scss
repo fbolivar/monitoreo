@@ -10,3 +10,7 @@ h1 { font-size: 18px; margin: 0; }
 
 .estado { color: var(--text-dim); }
 .estado.abierta { color: var(--estado-down); font-weight: 600; }
+
+.acc { display: flex; gap: 6px; }
+.acc .btn { padding: 4px 10px; }
+.err { color: var(--sev-critical); }
