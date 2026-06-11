@@ -51,6 +51,9 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
         Route::get($uri.'/{id}', [$controller, 'show'])->whereNumber('id');
     }
 
+    // Interfaces de red (IF-MIB) de un recurso (lectura).
+    Route::get('recursos/{id}/interfaces', [RecursoController::class, 'interfaces'])->whereNumber('id');
+
     // Solo lectura (telemetría / eventos) con filtros.
     Route::get('chequeos', [ChequeoController::class, 'index']);
     Route::get('chequeos/{id}', [ChequeoController::class, 'show'])->whereNumber('id');

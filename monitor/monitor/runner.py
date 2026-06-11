@@ -65,6 +65,8 @@ def chequear(db: Database, settings: Settings, recurso: Recurso) -> str:
     chequeo_id = repo.guardar_chequeo(db, recurso.id, estado_persistido,
                                       resultado.latencia_ms, detalle, ahora)
     repo.guardar_metricas(db, recurso.id, resultado.muestras_tuplas(), ahora)
+    if resultado.interfaces:
+        repo.guardar_interfaces(db, recurso.id, resultado.interfaces)
     repo.actualizar_estado_recurso(db, recurso.id, estado_persistido, ahora)
 
     # 7. Incidencias + notificaciones (silenciadas durante mantenimiento)

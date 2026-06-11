@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Recurso;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class RecursoController extends Controller
 {
@@ -41,6 +42,19 @@ class RecursoController extends Controller
         $data['tiene_secretos'] = $recurso->tieneSecretos();
 
         return response()->json($data);
+    }
+
+    /** Snapshot de interfaces de red (IF-MIB) del recurso, si las monitorea. */
+    public function interfaces(int $id): JsonResponse
+    {
+        Recurso::findOrFail($id);
+
+        $rows = DB::table('interfaces')
+            ->where('recurso_id', $id)
+            ->orderBy('if_index')
+            ->get();
+
+        return response()->json($rows);
     }
 
     public function store(Request $request): JsonResponse

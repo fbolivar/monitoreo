@@ -151,6 +151,35 @@ def guardar_metricas(db: Database, recurso_id: int,
         )
 
 
+def guardar_interfaces(db: Database, recurso_id: int, interfaces: list[dict]) -> None:
+    """Upsert del snapshot de interfaces y borrado de las que ya no aparecen."""
+    if not interfaces:
+        return
+    indices = [i["if_index"] for i in interfaces]
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.executemany(
+            """
+            INSERT INTO interfaces (recurso_id, if_index, if_name, admin_estado, oper_estado,
+                                    speed_mbps, in_mbps, out_mbps, util_in, util_out, in_err, out_err, ts)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now())
+            ON CONFLICT (recurso_id, if_index) DO UPDATE SET
+                if_name = EXCLUDED.if_name, admin_estado = EXCLUDED.admin_estado,
+                oper_estado = EXCLUDED.oper_estado, speed_mbps = EXCLUDED.speed_mbps,
+                in_mbps = EXCLUDED.in_mbps, out_mbps = EXCLUDED.out_mbps,
+                util_in = EXCLUDED.util_in, util_out = EXCLUDED.util_out,
+                in_err = EXCLUDED.in_err, out_err = EXCLUDED.out_err, ts = now()
+            """,
+            [(recurso_id, i["if_index"], i["if_name"], i["admin_estado"], i["oper_estado"],
+              i["speed_mbps"], i["in_mbps"], i["out_mbps"], i["util_in"], i["util_out"],
+              i["in_err"], i["out_err"]) for i in interfaces],
+        )
+        # Limpia interfaces que dejaron de estar admin-up (ya no se reportan).
+        cur.execute(
+            "DELETE FROM interfaces WHERE recurso_id = %s AND NOT (if_index = ANY(%s))",
+            (recurso_id, indices),
+        )
+
+
 def actualizar_estado_recurso(db: Database, recurso_id: int, estado: str, ts: datetime) -> None:
     with db.connection() as conn, conn.cursor() as cur:
         cur.execute(

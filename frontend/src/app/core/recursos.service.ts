@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { Paginated, Recurso, Sitio, TipoRecurso } from './models';
+import { Interfaz, Paginated, Recurso, Sitio, TipoRecurso } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class RecursosService {
@@ -21,6 +21,10 @@ export class RecursosService {
   }
   eliminar(id: number): Observable<void> {
     return this.api.delete<void>(`/recursos/${id}`);
+  }
+
+  interfaces(id: number): Observable<Interfaz[]> {
+    return this.api.get<Interfaz[]>(`/recursos/${id}/interfaces`);
   }
 
   tipos(): Observable<Paginated<TipoRecurso>> {

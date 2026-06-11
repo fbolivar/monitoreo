@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import time
 
+from . import interfaces as ifmib
 from .base import Muestra, ResultadoProbe
 from .snmp_client import Credenciales, snmp_get, snmp_walk
 
@@ -141,7 +142,10 @@ class SnmpProbe:
 
         # Perfil HOST-RESOURCES (Windows/Linux): CPU promedio + memoria %.
         if params.get("perfil") == "hostresources":
-            return self._run_hostresources(host, port, cred, timeout, retries)
+            res = self._run_hostresources(host, port, cred, timeout, retries)
+            if res.alcanzable and params.get("interfaces"):
+                res.interfaces = self._interfaces(recurso.id, cred, host, port, timeout, retries)
+            return res
 
         es_ups = recurso.tipo_codigo == "ups" or params.get("perfil") == "ups"
         oids_metricas = UPS_OIDS if es_ups else dict(params.get("oids", {}))
@@ -173,7 +177,18 @@ class SnmpProbe:
         if not alcanzable and "error" not in detalle:
             detalle["motivo"] = "sin respuesta SNMP"
 
-        return ResultadoProbe(alcanzable, estado_base, latencia, muestras, detalle)
+        ifaces = None
+        if alcanzable and params.get("interfaces"):
+            ifaces = self._interfaces(recurso.id, cred, host, port, timeout, retries)
+
+        return ResultadoProbe(alcanzable, estado_base, latencia, muestras, detalle, interfaces=ifaces)
+
+    def _interfaces(self, recurso_id, cred, host, port, timeout, retries) -> list[dict] | None:
+        """Recolecta el snapshot IF-MIB; si la E/S falla, no rompe el chequeo base."""
+        try:
+            return ifmib.recolectar(recurso_id, cred, host, port, timeout, retries)
+        except Exception:  # noqa: BLE001
+            return None
 
     def _run_hostresources(self, host, port, cred, timeout, retries) -> ResultadoProbe:
         """CPU (promedio de núcleos) y memoria (% físico) vía HOST-RESOURCES-MIB."""

@@ -26,6 +26,8 @@ class ResultadoProbe:
     latencia_ms: float | None
     metricas: list[Muestra] = field(default_factory=list)
     detalle: dict[str, Any] = field(default_factory=dict)
+    # Snapshot de interfaces de red (IF-MIB), si el recurso lo tiene habilitado.
+    interfaces: list[dict] | None = None
 
     def muestras_tuplas(self) -> list[tuple[str, float, str | None]]:
         return [m.as_tuple() for m in self.metricas]

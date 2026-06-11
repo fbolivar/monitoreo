@@ -2,7 +2,7 @@ import { JsonPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Chequeo, Incidencia, Metrica, Recurso } from '../../core/models';
+import { Chequeo, Incidencia, Interfaz, Metrica, Recurso } from '../../core/models';
 import { RecursosService } from '../../core/recursos.service';
 import { TelemetriaService } from '../../core/telemetria.service';
 import { EstadoBadge } from '../../shared/estado-badge';
@@ -28,12 +28,14 @@ export class RecursoDetalle {
   ultimoChequeo = signal<Chequeo | null>(null);
   metricas = signal<Metrica[]>([]);
   incidencias = signal<Incidencia[]>([]);
+  interfaces = signal<Interfaz[]>([]);
   rango = signal<'1h' | '24h' | '7d'>('24h');
   cargando = signal(true);
 
   fecha = fecha;
   hace = hace;
   duracion = duracion;
+  max = (a?: number | null, b?: number | null) => Math.max(a ?? 0, b ?? 0);
 
   series = computed<SerieMetrica[]>(() => {
     const porMetrica = new Map<string, Metrica[]>();
@@ -63,9 +65,14 @@ export class RecursoDetalle {
     this.recurso.set(null);
     this.ultimoChequeo.set(null);
     this.incidencias.set([]);
+    this.interfaces.set([]);
     this.recursosSvc.obtener(this.id).subscribe({
       next: (r) => this.recurso.set(r),
       error: () => {},
+    });
+    this.recursosSvc.interfaces(this.id).subscribe({
+      next: (xs) => this.interfaces.set(xs),
+      error: () => this.interfaces.set([]),
     });
     this.tele.chequeos({ recurso_id: this.id, per_page: 1 }).subscribe({
       next: (p) => this.ultimoChequeo.set(p.data[0] ?? null),

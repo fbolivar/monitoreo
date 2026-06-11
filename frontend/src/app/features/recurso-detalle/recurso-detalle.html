@@ -51,6 +51,38 @@
     }
   </section>
 
+  <!-- Interfaces de red (IF-MIB) -->
+  @if (interfaces().length > 0) {
+    <section>
+      <h2>Interfaces de red <span class="text-dim">({{ interfaces().length }} activas)</span></h2>
+      <table class="ifaces">
+        <thead>
+          <tr>
+            <th>Puerto</th><th>Estado</th>
+            <th class="num">↓ Mbps</th><th class="num">↑ Mbps</th>
+            <th class="num">Util.</th><th class="num">Vel.</th>
+            <th class="num">Err ↓/↑</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (x of interfaces(); track x.if_index) {
+            <tr [class.if-down]="x.oper_estado === 'down'">
+              <td><b>{{ x.if_name }}</b></td>
+              <td><app-estado-badge [estado]="$any(x.oper_estado)" /></td>
+              <td class="num">{{ x.in_mbps != null ? x.in_mbps : '—' }}</td>
+              <td class="num">{{ x.out_mbps != null ? x.out_mbps : '—' }}</td>
+              <td class="num">{{ x.util_in != null ? (max(x.util_in, x.util_out) + '%') : '—' }}</td>
+              <td class="num text-dim">{{ x.speed_mbps ? (x.speed_mbps + 'M') : '—' }}</td>
+              <td class="num" [class.err]="(x.in_err || 0) + (x.out_err || 0) > 0">
+                {{ (x.in_err ?? 0) }}/{{ (x.out_err ?? 0) }}
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  }
+
   <!-- Incidencias -->
   <section>
     <h2>Incidencias</h2>

@@ -69,6 +69,22 @@ export interface Incidencia {
   recurso?: { id: number; nombre: string };
 }
 
+export interface Interfaz {
+  recurso_id: number;
+  if_index: number;
+  if_name: string;
+  admin_estado: string;       // up | down
+  oper_estado: string;        // up | down
+  speed_mbps?: number | null;
+  in_mbps?: number | null;
+  out_mbps?: number | null;
+  util_in?: number | null;
+  util_out?: number | null;
+  in_err?: number | null;
+  out_err?: number | null;
+  ts: string;
+}
+
 export interface Perfil {
   id: string;
   email: string;
