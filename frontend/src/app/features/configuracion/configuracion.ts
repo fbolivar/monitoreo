@@ -48,7 +48,7 @@ export class Configuracion implements OnInit {
   fCanal = this.canalVacio();
 
   // LDAP / SSO
-  fLdap: LdapConfig = { enabled: false, host: '', port: 389, use_tls: false, bind_pattern: '{user}', rol_default: 'viewer', group_dn: '', auto_create: true };
+  fLdap: LdapConfig = { enabled: false, host: '', port: 389, use_tls: false, bind_pattern: '{user}', rol_default: 'viewer', group_dn: '', auto_create: true, usuarios_permitidos: '' };
   ldapDisponible = signal(true);
   ldapGuardado = signal(false);
   ldapTest = { test_usuario: '', test_password: '' };

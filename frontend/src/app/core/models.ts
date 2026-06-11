@@ -196,6 +196,7 @@ export interface LdapConfig {
   rol_default: string;
   group_dn?: string;
   auto_create?: boolean;
+  usuarios_permitidos?: string;
 }
 
 export const OPERADORES = ['>', '>=', '<', '<=', '==', '!='];

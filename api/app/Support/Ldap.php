@@ -26,6 +26,7 @@ class Ldap
             'base_dn'      => (string) config('ldap.base_dn', ''),
             'group_dn'     => (string) config('ldap.group_dn', ''),
             'auto_create'  => (bool) config('ldap.auto_create', true),
+            'usuarios_permitidos' => (string) config('ldap.usuarios_permitidos', ''),
         ];
 
         try {

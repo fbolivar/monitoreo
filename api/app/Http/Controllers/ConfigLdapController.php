@@ -30,6 +30,7 @@ class ConfigLdapController extends Controller
             'rol_default'  => ['nullable', 'in:admin,operador,viewer'],
             'group_dn'     => ['nullable', 'string', 'max:512'],
             'auto_create'  => ['boolean'],
+            'usuarios_permitidos' => ['nullable', 'string', 'max:4000'],
         ]);
 
         if ($data['enabled'] && empty($data['host'])) {
@@ -45,6 +46,7 @@ class ConfigLdapController extends Controller
             'rol_default'  => $data['rol_default'] ?? 'viewer',
             'group_dn'     => $data['group_dn'] ?? '',
             'auto_create'  => (bool) ($data['auto_create'] ?? true),
+            'usuarios_permitidos' => $data['usuarios_permitidos'] ?? '',
         ];
 
         DB::table('app_config')->updateOrInsert(

@@ -226,9 +226,15 @@
       <label class="check"><input type="checkbox" name="ac" [(ngModel)]="fLdap.auto_create" />
         Crear usuarios automáticamente al primer ingreso</label>
     </div>
-    <p class="text-dim hint2">Control de acceso: deja el <b>grupo</b> vacío y <b>desmarca</b> "crear
-      automáticamente" para que solo entren los usuarios que ya creaste en SIMON (lista blanca).
-      O indica un <b>grupo de AD</b> para permitir solo a sus miembros.</p>
+    <label>Usuarios permitidos (lista blanca por nombre) — opcional
+      <textarea name="up" rows="2" [(ngModel)]="fLdap.usuarios_permitidos"
+                placeholder="fernando.bolivar, juan.perez, maria.gomez"></textarea>
+    </label>
+    <p class="text-dim hint2">Control de acceso (combinables):
+      <b>(a)</b> grupo de AD → solo sus miembros ·
+      <b>(b)</b> lista blanca por nombre → solo los usuarios escritos arriba ·
+      <b>(c)</b> desmarcar "crear automáticamente" → solo perfiles ya existentes.
+      Si dejas todo vacío, entra cualquier usuario válido del directorio.</p>
     <div class="acciones">
       <button type="submit" class="btn btn-primary">Guardar</button>
       @if (ldapGuardado()) { <span class="ok">✓ Guardado</span> }

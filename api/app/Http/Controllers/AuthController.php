@@ -42,8 +42,11 @@ class AuthController extends Controller
             $ajustes = Ldap::ajustes();
             $datos = Ldap::autenticarConDatos($ajustes, $data['email'], $data['password']);
             // $datos !== null  => credenciales válidas Y autorizado (grupo, si aplica).
+            // Lista blanca por nombre (si está configurada): el usuario debe estar en ella.
+            $permitidos = $this->listaPermitidos($ajustes['usuarios_permitidos'] ?? '');
+            $enLista = empty($permitidos) || in_array(mb_strtolower(trim($data['email'])), $permitidos, true);
             // Si auto_create=false, solo entran usuarios ya provisionados en SIMON.
-            if ($datos !== null && ($perfil || ($ajustes['auto_create'] ?? true))) {
+            if ($datos !== null && $enLista && ($perfil || ($ajustes['auto_create'] ?? true))) {
                 $autenticado = true;
                 $nombre = $datos['nombre'] ?: $data['email'];
                 if (! $perfil) {
@@ -98,5 +101,18 @@ class AuthController extends Controller
             'token'  => $token,
             'perfil' => $perfil,
         ]);
+    }
+
+    /** Normaliza la lista blanca de usuarios (coma/; /salto de línea) a minúsculas. */
+    private function listaPermitidos(?string $texto): array
+    {
+        if (! $texto || trim($texto) === '') {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            fn ($u) => mb_strtolower(trim($u)),
+            preg_split('/[,;\r\n]+/', $texto)
+        )));
     }
 }

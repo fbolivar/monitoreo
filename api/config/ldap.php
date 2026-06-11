@@ -19,4 +19,7 @@ return [
     // Si es false, NO se crean perfiles automáticamente: solo entran los usuarios
     // que un administrador ya creó en SIMON (lista blanca manual).
     'auto_create'  => env('AUTH_LDAP_AUTOCREATE', true),
+    // Lista blanca de usuarios permitidos (separados por coma/salto de línea).
+    // Vacío = sin restricción por nombre. Ej: "fernando.bolivar, juan.perez"
+    'usuarios_permitidos' => env('AUTH_LDAP_USUARIOS', ''),
 ];

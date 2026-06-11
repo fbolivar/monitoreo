@@ -89,6 +89,16 @@ class PerfilController extends Controller
             }
         }
 
+        // No dejar a la app sin administrador LOCAL (cuenta de emergencia si el AD falla).
+        $esLocalAdminActivo = $perfil->origen === 'local' && $perfil->rol === 'admin' && $perfil->activo;
+        $dejariaDeSerlo = (array_key_exists('rol', $data) && $data['rol'] !== 'admin')
+            || (array_key_exists('activo', $data) && $data['activo'] === false);
+        if ($esLocalAdminActivo && $dejariaDeSerlo && self::adminsLocalesActivos() <= 1) {
+            return response()->json([
+                'message' => 'No puedes degradar ni desactivar al último administrador local (cuenta de emergencia).',
+            ], 422);
+        }
+
         if (! empty($data['password'])) {
             $perfil->password_hash = Hash::make($data['password']);
         }
@@ -115,8 +125,25 @@ class PerfilController extends Controller
             return response()->json(['message' => 'No puedes eliminar al único administrador activo.'], 422);
         }
 
+        // No dejar a la app sin administrador LOCAL (cuenta de emergencia si el AD falla).
+        if ($perfil->origen === 'local' && $perfil->rol === 'admin' && $perfil->activo
+            && self::adminsLocalesActivos() <= 1) {
+            return response()->json([
+                'message' => 'No puedes eliminar al último administrador local (cuenta de emergencia).',
+            ], 422);
+        }
+
         $perfil->delete();
 
         return response()->json(null, 204);
+    }
+
+    /** Cuenta de administradores LOCALES activos (cuentas de emergencia). */
+    private static function adminsLocalesActivos(): int
+    {
+        return Perfil::where('origen', 'local')
+            ->where('rol', 'admin')
+            ->where('activo', true)
+            ->count();
     }
 }
