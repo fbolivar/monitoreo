@@ -26,8 +26,15 @@ export class AuthService {
     if (this.token()) {
       try {
         this.perfil.set(await firstValueFrom(this.api.get<Perfil>('/me')));
-      } catch {
-        this.limpiar();
+      } catch (e) {
+        const status = (e as { status?: number })?.status;
+        // Solo cerrar sesión si el token es inválido; ante fallo de red/5xx
+        // transitorio conservar el token (no expulsar por un blip).
+        if (status === 401 || status === 403) {
+          this.limpiar();
+        } else {
+          this.perfil.set(null);
+        }
       }
     }
     this.cargando.set(false);

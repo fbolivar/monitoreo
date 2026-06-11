@@ -33,7 +33,8 @@ def iniciar_health_server(db: Database, port: int) -> ThreadingHTTPServer:
         def log_message(self, *args):  # silenciar logs de acceso
             return
 
-    servidor = ThreadingHTTPServer(("0.0.0.0", port), Handler)
+    # Solo localhost: el worker no expone API pública (CLAUDE.md).
+    servidor = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     hilo = threading.Thread(target=servidor.serve_forever, daemon=True, name="health")
     hilo.start()
     log.info("Health server escuchando en :%s/health", port)

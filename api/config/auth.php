@@ -1,18 +1,15 @@
 <?php
 
 return [
-
-    // La autenticación real la hace VerifySupabaseJwt (no se usan guards de
-    // sesión ni Sanctum). Estos defaults se mantienen por compatibilidad del
-    // framework. El "user resolver" se sobreescribe en el middleware con el
-    // modelo Perfil correspondiente al `sub` del JWT.
+    // La autenticación real la hace el middleware VerifyJwt (JWT propio, sin
+    // guards de sesión ni Sanctum). Este archivo se mantiene por compatibilidad
+    // del framework; el "user resolver" lo setea el middleware con el Perfil.
     'defaults' => [
-        'guard'     => 'api',
-        'passwords' => 'perfiles',
+        'guard' => 'web',
     ],
 
     'guards' => [
-        'api' => [
+        'web' => [
             'driver'   => 'session',
             'provider' => 'perfiles',
         ],
@@ -25,15 +22,5 @@ return [
         ],
     ],
 
-    'passwords' => [
-        'perfiles' => [
-            'provider' => 'perfiles',
-            'table'    => 'password_reset_tokens',
-            'expire'   => 60,
-            'throttle' => 60,
-        ],
-    ],
-
     'password_timeout' => 10800,
-
 ];

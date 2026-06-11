@@ -64,7 +64,8 @@ export class Login {
       await this.auth.iniciarSesion(this.email, this.password);
       await this.router.navigate(['/']);
     } catch (e: unknown) {
-      this.error.set(e instanceof Error ? e.message : 'No se pudo iniciar sesión');
+      const msg = (e as { error?: { message?: string } })?.error?.message;
+      this.error.set(msg ?? 'No se pudo iniciar sesión. Verifica tus credenciales.');
     } finally {
       this.cargando.set(false);
     }

@@ -1,5 +1,6 @@
 import { JsonPipe } from '@angular/common';
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Chequeo, Incidencia, Metrica, Recurso } from '../../core/models';
 import { RecursosService } from '../../core/recursos.service';
@@ -17,12 +18,12 @@ interface SerieMetrica { metrica: string; unidad: string; puntos: Punto[]; }
   templateUrl: './recurso-detalle.html',
   styleUrl: './recurso-detalle.scss',
 })
-export class RecursoDetalle implements OnInit {
+export class RecursoDetalle {
   private route = inject(ActivatedRoute);
   private recursosSvc = inject(RecursosService);
   private tele = inject(TelemetriaService);
 
-  id = Number(this.route.snapshot.paramMap.get('id'));
+  id = 0;
   recurso = signal<Recurso | null>(null);
   ultimoChequeo = signal<Chequeo | null>(null);
   metricas = signal<Metrica[]>([]);
@@ -48,7 +49,20 @@ export class RecursoDetalle implements OnInit {
       .sort((a, b) => a.metrica.localeCompare(b.metrica));
   });
 
-  ngOnInit(): void {
+  constructor() {
+    // Reacciona a cambios de :id (Angular reutiliza el componente entre recursos).
+    this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((pm) => {
+      const id = Number(pm.get('id'));
+      if (!Number.isFinite(id) || id <= 0) return;
+      this.id = id;
+      this.cargarTodo();
+    });
+  }
+
+  private cargarTodo(): void {
+    this.recurso.set(null);
+    this.ultimoChequeo.set(null);
+    this.incidencias.set([]);
     this.recursosSvc.obtener(this.id).subscribe({
       next: (r) => this.recurso.set(r),
       error: () => {},

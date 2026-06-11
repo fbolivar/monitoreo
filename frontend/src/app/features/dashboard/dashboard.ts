@@ -88,7 +88,6 @@ export class Dashboard implements OnInit, OnDestroy {
     this.cargar();
     // Opción B: refresco por POLLING (la BD es local; no hay Supabase Realtime).
     this.pollSub = interval(environment.refreshMs).subscribe(() => this.refrescar());
-    this.enVivo.set(true);
   }
 
   ngOnDestroy(): void {
@@ -101,10 +100,12 @@ export class Dashboard implements OnInit, OnDestroy {
       next: (page) => {
         this.recursos.set(page.data);
         this.cargando.set(false);
+        this.enVivo.set(true);
       },
       error: () => {
         this.error.set('No se pudieron cargar los recursos. ¿API y sesión activas?');
         this.cargando.set(false);
+        this.enVivo.set(false);
       },
     });
   }

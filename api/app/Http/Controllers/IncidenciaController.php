@@ -62,7 +62,7 @@ class IncidenciaController extends Controller
         $inc->update([
             'estado'         => 'reconocida',
             'reconocida_at'  => $inc->reconocida_at ?? now(),
-            'reconocida_por' => optional($request->attributes->get('perfil'))->id,
+            'reconocida_por' => $inc->reconocida_por ?? optional($request->attributes->get('perfil'))->id,
         ]);
 
         return response()->json($inc->load(['recurso:id,nombre', 'reconocidaPor:id,nombre,email']));

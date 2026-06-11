@@ -109,6 +109,10 @@ export class Configuracion implements OnInit {
   }
   guardarUmbral(): void {
     const f = this.fUmbral;
+    this.error.set(null);
+    if (f.ambito === 'recurso' && !f.recurso_id) { this.error.set('Selecciona un recurso.'); return; }
+    if (f.ambito === 'tipo' && !f.tipo_id) { this.error.set('Selecciona un tipo.'); return; }
+    if (!f.metrica.trim()) { this.error.set('Indica la métrica.'); return; }
     const body: Record<string, unknown> = {
       recurso_id: f.ambito === 'recurso' ? f.recurso_id : null,
       tipo_id: f.ambito === 'tipo' ? f.tipo_id : null,
@@ -144,6 +148,10 @@ export class Configuracion implements OnInit {
   }
   guardarMant(): void {
     const f = this.fMant;
+    this.error.set(null);
+    if (f.ambito === 'recurso' && !f.recurso_id) { this.error.set('Selecciona un recurso.'); return; }
+    if (f.ambito === 'sitio' && !f.sitio_id) { this.error.set('Selecciona un sitio.'); return; }
+    if (!f.inicio || !f.fin || !f.motivo.trim()) { this.error.set('Completa inicio, fin y motivo.'); return; }
     const body: Record<string, unknown> = {
       recurso_id: f.ambito === 'recurso' ? f.recurso_id : null,
       sitio_id: f.ambito === 'sitio' ? f.sitio_id : null,

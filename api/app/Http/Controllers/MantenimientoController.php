@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Mantenimiento;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class MantenimientoController extends Controller
 {
@@ -33,6 +34,7 @@ class MantenimientoController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate($this->rules());
+        $this->validarAmbito($data);
         $data['creado_por'] = optional($request->attributes->get('perfil'))->id;
 
         return response()->json(Mantenimiento::create($data), 201);
@@ -42,9 +44,20 @@ class MantenimientoController extends Controller
     {
         $mant = Mantenimiento::findOrFail($id);
         $data = $request->validate($this->rules(true));
+        $this->validarAmbito(array_merge($mant->only(['recurso_id', 'sitio_id']), $data));
         $mant->update($data);
 
         return response()->json($mant);
+    }
+
+    /** Una ventana aplica a un recurso, a un sitio, o es global; no a recurso Y sitio. */
+    private function validarAmbito(array $d): void
+    {
+        if (! empty($d['recurso_id']) && ! empty($d['sitio_id'])) {
+            throw ValidationException::withMessages([
+                'recurso_id' => ['Indique un recurso O un sitio, no ambos (o ninguno para global).'],
+            ]);
+        }
     }
 
     public function destroy(int $id): JsonResponse

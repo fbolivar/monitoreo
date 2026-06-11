@@ -186,14 +186,18 @@ class SnmpProbe:
 
             if alcanzable:
                 # CPU: promedio de hrProcessorLoad
-                proc, _ = snmp_walk(host, port, cred, HR_PROC_LOAD, timeout, retries)
+                proc, err_cpu = snmp_walk(host, port, cred, HR_PROC_LOAD, timeout, retries)
+                if err_cpu:
+                    detalle["error_cpu"] = err_cpu
                 cpu = promedio_cpu(proc)
                 if cpu is not None:
                     muestras.append(Muestra("cpu", cpu, "%"))
                     detalle["nucleos"] = len(proc)
 
                 # Memoria: % usado de la "Physical Memory"
-                descr, _ = snmp_walk(host, port, cred, HR_STOR_DESCR, timeout, retries)
+                descr, err_mem = snmp_walk(host, port, cred, HR_STOR_DESCR, timeout, retries)
+                if err_mem:
+                    detalle["error_mem"] = err_mem
                 idx = indice_memoria_fisica(descr)
                 if idx:
                     _okm, valm, _ = snmp_get(

@@ -78,6 +78,17 @@ class PerfilController extends Controller
             'password' => ['nullable', 'string', 'min:8'],
         ]);
 
+        // Evitar que un admin se bloquee a sí mismo (auto-degradación/desactivación).
+        $actual = $request->attributes->get('perfil');
+        if ($actual && $actual->id === $perfil->id) {
+            if ((array_key_exists('rol', $data) && $data['rol'] !== 'admin')
+                || (array_key_exists('activo', $data) && $data['activo'] === false)) {
+                return response()->json([
+                    'message' => 'No puedes cambiar tu propio rol de administrador ni desactivar tu propia cuenta.',
+                ], 422);
+            }
+        }
+
         if (! empty($data['password'])) {
             $perfil->password_hash = Hash::make($data['password']);
         }

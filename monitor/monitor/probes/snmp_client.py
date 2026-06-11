@@ -75,6 +75,8 @@ async def _snmp_get_async(host, port, cred, oids, timeout, retries):
     except ImportError:
         from pysnmp.hlapi.asyncio import getCmd as _get_cmd     # pysnmp 6.x
 
+    from pysnmp.proto import rfc1905  # valores especiales de OID no existente
+
     auth_data = _construir_auth(cred)
     target = await _construir_target(host, port, timeout, retries)
     nombres = list(oids.keys())
@@ -84,6 +86,7 @@ async def _snmp_get_async(host, port, cred, oids, timeout, retries):
         SnmpEngine(), auth_data, target, ContextData(), *objetos
     )
 
+    _no_existe = (rfc1905.NoSuchObject, rfc1905.NoSuchInstance, rfc1905.EndOfMibView)
     valores: dict[str, object] = {}
     error: str | None = None
     if error_indication:
@@ -92,6 +95,9 @@ async def _snmp_get_async(host, port, cred, oids, timeout, retries):
         error = f"{error_status.prettyPrint()} (idx {error_index})"
     else:
         for nombre, vb in zip(nombres, var_binds):
+            # Saltar OIDs no soportados por el agente (no son valores reales).
+            if isinstance(vb[1], _no_existe):
+                continue
             valores[nombre] = vb[1]
 
     ok = error is None and bool(valores)

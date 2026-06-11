@@ -1,4 +1,9 @@
-# CLAUDE.md — Sistema de Monitoreo de Disponibilidad de TI
+# CLAUDE.md — SIMON · Sistema Integral de Monitoreo
+
+> Nombre del producto: **SIMON** ("Sistema Integral de Monitoreo"), con identidad
+> corporativa de **Parques Nacionales Naturales de Colombia** (tema claro verde,
+> logo, favicon, tipografía GOV.CO Montserrat/Work Sans). Antes "Sistema de
+> Monitoreo de Disponibilidad de TI".
 
 ## Objetivo del proyecto
 Aplicación web para monitorear en tiempo casi-real la DISPONIBILIDAD y el

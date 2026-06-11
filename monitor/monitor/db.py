@@ -15,10 +15,15 @@ class Database:
     """Envuelve un ConnectionPool con autocommit y filas como dict."""
 
     def __init__(self, settings: Settings):
+        # El pool debe poder atender a todos los hilos del scheduler a la vez;
+        # si no, los chequeos concurrentes bloquean esperando conexión y pueden
+        # caducar (PoolTimeout), perdiéndose el chequeo.
+        max_size = max(settings.db_pool_max, settings.scheduler_max_workers)
         self.pool = ConnectionPool(
             conninfo=settings.dsn(),
             min_size=1,
-            max_size=settings.db_pool_max,
+            max_size=max_size,
+            timeout=15,  # fallar rápido en vez de bloquear 30s por defecto
             kwargs={"autocommit": True, "row_factory": dict_row},
             open=True,
         )
