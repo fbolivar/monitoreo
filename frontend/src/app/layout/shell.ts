@@ -2,7 +2,7 @@ import { Component, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../core/auth.service';
 
-/** Marco principal: barra lateral de navegación + topbar. */
+/** Marco principal: barra lateral institucional + topbar. */
 @Component({
   selector: 'app-shell',
   standalone: true,
@@ -10,7 +10,13 @@ import { AuthService } from '../core/auth.service';
   template: `
     <div class="layout">
       <aside class="side">
-        <div class="brand">◎ Monitoreo TI</div>
+        <div class="brand">
+          <img src="logo-simon.png" alt="Parques Nacionales Naturales de Colombia" class="logo" />
+          <div class="marca">
+            <b>SIMON</b>
+            <span>Sistema Integral de Monitoreo</span>
+          </div>
+        </div>
         <nav>
           <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Dashboard</a>
           <a routerLink="/recursos" routerLinkActive="active">Recursos</a>
@@ -20,6 +26,7 @@ import { AuthService } from '../core/auth.service';
             <a routerLink="/usuarios" routerLinkActive="active">Usuarios</a>
           }
         </nav>
+        <div class="pie text-dim">Parques Nacionales Naturales<br />de Colombia</div>
       </aside>
 
       <div class="main">
@@ -39,21 +46,45 @@ import { AuthService } from '../core/auth.service';
   `,
   styles: [
     `
-      .layout { display: grid; grid-template-columns: 210px 1fr; min-height: 100vh; }
-      .side { background: var(--bg-1); border-right: 1px solid var(--border); padding: 14px 10px; }
-      .brand { font-weight: 700; padding: 6px 8px 16px; }
-      nav { display: flex; flex-direction: column; gap: 2px; }
-      nav a { color: var(--text-dim); padding: 8px 10px; border-radius: var(--radius); }
-      nav a:hover { background: var(--bg-2); color: var(--text); text-decoration: none; }
-      nav a.active { background: var(--bg-3); color: var(--text); }
+      .layout { display: grid; grid-template-columns: 230px 1fr; min-height: 100vh; }
+
+      .side {
+        background: #fff;
+        border-right: 1px solid var(--border);
+        padding: 16px 12px;
+        display: flex;
+        flex-direction: column;
+      }
+      .brand { display: flex; flex-direction: column; gap: 10px; padding: 6px 6px 14px; border-bottom: 1px solid var(--border); }
+      .brand .logo { width: 100%; max-width: 170px; height: auto; }
+      .marca { display: flex; flex-direction: column; line-height: 1.1; }
+      .marca b { font-size: 20px; color: var(--primary-dark); letter-spacing: .02em; }
+      .marca span { font-size: 11px; color: var(--text-dim); }
+
+      nav { display: flex; flex-direction: column; gap: 3px; margin-top: 14px; }
+      nav a {
+        color: var(--text); padding: 9px 12px; border-radius: var(--radius);
+        border-left: 3px solid transparent; font-weight: 500;
+      }
+      nav a:hover { background: var(--bg-2); text-decoration: none; }
+      nav a.active { background: var(--primary-50); color: var(--primary-dark); border-left-color: var(--primary); font-weight: 600; }
+
+      .pie { margin-top: auto; padding: 12px 8px 4px; font-size: 11px; }
+
       .main { display: flex; flex-direction: column; min-width: 0; }
-      .topbar { display: flex; align-items: center; height: 46px; padding: 0 16px;
-                border-bottom: 1px solid var(--border); background: var(--bg-1); }
+      .topbar {
+        display: flex; align-items: center; height: 52px; padding: 0 20px;
+        border-bottom: 1px solid var(--border); background: #fff;
+        border-top: 3px solid var(--primary);
+      }
       .spacer { flex: 1; }
-      .user { display: flex; align-items: center; gap: 10px; }
-      .rol { background: var(--bg-3); border: 1px solid var(--border); border-radius: 10px;
-             padding: 1px 8px; font-size: 11px; text-transform: uppercase; }
-      .content { padding: 16px; min-width: 0; }
+      .user { display: flex; align-items: center; gap: 12px; }
+      .rol {
+        background: var(--primary-50); color: var(--primary-dark);
+        border: 1px solid #cfe3d4; border-radius: 10px;
+        padding: 2px 10px; font-size: 11px; font-weight: 600; text-transform: uppercase;
+      }
+      .content { padding: 20px; min-width: 0; }
     `,
   ],
 })

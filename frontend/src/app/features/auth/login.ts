@@ -10,8 +10,9 @@ import { AuthService } from '../../core/auth.service';
   template: `
     <div class="wrap">
       <form class="card box" (ngSubmit)="entrar()">
-        <h1>Monitoreo TI</h1>
-        <p class="text-dim">Acceso al panel de operación</p>
+        <img src="logo-simon.png" alt="Parques Nacionales Naturales de Colombia" class="logo" />
+        <h1>SIMON</h1>
+        <p class="sub">Sistema Integral de Monitoreo</p>
 
         <label>Correo</label>
         <input type="email" name="email" [(ngModel)]="email" autocomplete="username" required />
@@ -23,19 +24,27 @@ import { AuthService } from '../../core/auth.service';
         @if (error()) { <div class="err">{{ error() }}</div> }
 
         <button class="btn btn-primary" type="submit" [disabled]="cargando()">
-          {{ cargando() ? 'Entrando…' : 'Entrar' }}
+          {{ cargando() ? 'Entrando…' : 'Ingresar' }}
         </button>
+
+        <p class="pie text-dim">Parques Nacionales Naturales de Colombia</p>
       </form>
     </div>
   `,
   styles: [
     `
-      .wrap { display: grid; place-items: center; min-height: 100vh; }
-      .box { display: flex; flex-direction: column; gap: 8px; width: 320px; padding: 24px; }
-      h1 { margin: 0; font-size: 20px; }
+      .wrap {
+        display: grid; place-items: center; min-height: 100vh;
+        background: linear-gradient(160deg, #eef4ef 0%, #dceadf 100%);
+      }
+      .box { display: flex; flex-direction: column; gap: 8px; width: 360px; padding: 32px 28px; }
+      .logo { width: 190px; align-self: center; margin-bottom: 8px; }
+      h1 { margin: 0; font-size: 30px; text-align: center; color: var(--primary-dark); letter-spacing: .04em; }
+      .sub { margin: 0 0 14px; text-align: center; color: var(--text-dim); }
       label { color: var(--text-dim); font-size: 12px; margin-top: 6px; }
-      .err { color: var(--sev-critical); font-size: 12px; }
-      button { margin-top: 14px; }
+      .err { color: var(--sev-critical); font-size: 12.5px; }
+      button { margin-top: 16px; padding: 10px; font-weight: 600; }
+      .pie { text-align: center; font-size: 11px; margin: 16px 0 0; }
     `,
   ],
 })

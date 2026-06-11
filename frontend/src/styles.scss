@@ -1,31 +1,41 @@
 /* ──────────────────────────────────────────────────────────────────
-   Tema NOC: oscuro, denso, orientado a operación. Variables de estado
-   (semáforo) reutilizadas por toda la app.
+   SIMON — Sistema Integral de Monitoreo
+   Identidad corporativa Parques Nacionales Naturales de Colombia.
+   Tema CLARO institucional (verde) · tipografía GOV.CO (Montserrat/Work Sans).
+   Diseño limpio, accesible y denso, orientado a operación.
    ────────────────────────────────────────────────────────────────── */
 :root {
-  --bg: #0e1116;
-  --bg-1: #161b22;
-  --bg-2: #1c232c;
-  --bg-3: #232b36;
-  --border: #2b333d;
-  --text: #d7dee6;
-  --text-dim: #8b97a3;
-  --accent: #3b82f6;
+  /* Marca */
+  --primary: #2e7d46;        /* verde Parques */
+  --primary-dark: #1e5631;   /* verde oscuro (cabeceras) */
+  --primary-50: #eaf3ec;     /* tinte muy claro */
+  --primary-contrast: #ffffff;
 
-  /* Semáforo de estados */
-  --estado-up: #2ea043;
-  --estado-degraded: #d29922;
-  --estado-down: #f85149;
-  --estado-unknown: #6e7681;
-  --estado-maintenance: #58a6ff;
+  /* Superficies (mapeadas a las variables usadas por los componentes) */
+  --bg: #eef2ef;             /* fondo de página */
+  --bg-1: #ffffff;           /* tarjetas / paneles */
+  --bg-2: #f1f6f2;           /* hover sutil */
+  --bg-3: #e7efe9;           /* chips / fondos suaves */
+  --border: #d7e0d9;
+  --text: #1b2a20;
+  --text-dim: #5d6b62;
+  --accent: var(--primary);
 
-  --sev-info: #58a6ff;
-  --sev-warning: #d29922;
-  --sev-critical: #f85149;
+  /* Semáforo de estados (contraste sobre fondo claro) */
+  --estado-up: #2e9e4f;
+  --estado-degraded: #d98a00;
+  --estado-down: #d23b3b;
+  --estado-unknown: #8a978d;
+  --estado-maintenance: #2f6fb0;
 
-  --radius: 6px;
+  --sev-info: #2f6fb0;
+  --sev-warning: #d98a00;
+  --sev-critical: #d23b3b;
+
+  --radius: 8px;
   --gap: 10px;
-  --font: 13px;
+  --font: 13.5px;
+  --shadow: 0 1px 3px rgba(20, 50, 30, 0.08);
 }
 
 * { box-sizing: border-box; }
@@ -35,23 +45,26 @@ html, body {
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Segoe UI', Roboto, system-ui, -apple-system, sans-serif;
+  font-family: 'Work Sans', 'Segoe UI', Roboto, system-ui, -apple-system, sans-serif;
   font-size: var(--font);
-  line-height: 1.4;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
 }
 
-a { color: var(--accent); text-decoration: none; }
+h1, h2, h3, .marca b { font-family: 'Montserrat', 'Segoe UI', sans-serif; letter-spacing: -0.01em; }
+
+a { color: var(--primary-dark); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
 button { font-family: inherit; font-size: inherit; cursor: pointer; }
 
-/* Colores utilitarios por estado */
+/* Semáforo */
 .dot {
   display: inline-block;
-  width: 10px;
-  height: 10px;
+  width: 10px; height: 10px;
   border-radius: 50%;
   flex: 0 0 auto;
+  box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.04);
 }
 .bg-up { background: var(--estado-up); }
 .bg-degraded { background: var(--estado-degraded); }
@@ -63,34 +76,39 @@ button { font-family: inherit; font-size: inherit; cursor: pointer; }
 
 /* Botones */
 .btn {
-  background: var(--bg-3);
+  background: #fff;
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 6px 12px;
+  padding: 7px 13px;
+  transition: background .12s, border-color .12s;
 }
-.btn:hover { background: var(--bg-2); }
-.btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
-.btn-primary:hover { filter: brightness(1.1); }
-.btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+.btn:hover { background: var(--bg-2); border-color: #c4d2c8; }
+.btn-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn-primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+.btn[disabled] { opacity: .5; cursor: not-allowed; }
 
 /* Inputs */
 input, select, textarea {
-  background: var(--bg);
+  background: #fff;
   color: var(--text);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 7px 9px;
+  padding: 8px 10px;
   font-family: inherit;
   font-size: inherit;
 }
-input:focus, select:focus { outline: 1px solid var(--accent); }
+input:focus, select:focus, textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-50);
+}
 
 /* Tablas densas */
-table { width: 100%; border-collapse: collapse; }
-th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
-th { color: var(--text-dim); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .03em; }
-tr:hover td { background: var(--bg-1); }
+table { width: 100%; border-collapse: collapse; background: #fff; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+th { color: var(--text-dim); font-weight: 600; font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; background: var(--bg-2); }
+tr:hover td { background: var(--primary-50); }
 
 /* Tarjetas */
-.card { background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius); }
+.card { background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
