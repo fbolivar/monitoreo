@@ -122,6 +122,39 @@
     </section>
   }
 
+  <!-- Respaldos de configuración -->
+  @if (respaldos().length > 0) {
+    <section>
+      <h2>Respaldos de configuración <span class="text-dim">({{ respaldos().length }} versiones)</span></h2>
+      <table class="resp">
+        <thead><tr><th>Fecha</th><th class="num">Tamaño</th><th>Cambio</th><th></th></tr></thead>
+        <tbody>
+          @for (r of respaldos(); track r.id) {
+            <tr>
+              <td class="text-dim">{{ fecha(r.ts) }}</td>
+              <td class="num">{{ r.bytes ? (r.bytes / 1024 | number: '1.0-0') + ' KB' : '—' }}</td>
+              <td>@if (r.cambio) { <span class="chg">● cambió</span> } @else { <span class="text-dim">inicial</span> }</td>
+              <td><button class="btn ver" (click)="verRespaldo(r)">{{ respaldoSel()?.id === r.id ? 'Ocultar' : 'Ver' }}</button></td>
+            </tr>
+            @if (respaldoSel()?.id === r.id; as d) {
+              <tr class="resp-det">
+                <td colspan="4">
+                  @if (respaldoSel()!.diff) {
+                    <div class="vtabs">
+                      <button class="btn" [class.btn-primary]="respaldoVista() === 'diff'" (click)="respaldoVista.set('diff')">Diff</button>
+                      <button class="btn" [class.btn-primary]="respaldoVista() === 'completo'" (click)="respaldoVista.set('completo')">Config completa</button>
+                    </div>
+                  }
+                  <pre class="cfg">{{ respaldoVista() === 'diff' && respaldoSel()!.diff ? respaldoSel()!.diff : respaldoSel()!.contenido }}</pre>
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </section>
+  }
+
   <!-- Incidencias -->
   <section>
     <h2>Incidencias</h2>

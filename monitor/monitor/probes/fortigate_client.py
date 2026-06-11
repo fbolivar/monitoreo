@@ -31,3 +31,16 @@ def consultar(host: str, token: str, verify_ssl: bool, timeout: float) -> dict:
             ha = None  # equipo standalone o endpoint no disponible
 
     return {"uso": uso, "ha": ha}
+
+
+def respaldar_config(host: str, token: str, verify_ssl: bool, timeout: float) -> str:
+    """Descarga la configuración completa del FortiGate (texto). Lanza si falla."""
+    import httpx
+
+    base = host if host.startswith(("http://", "https://")) else f"https://{host}"
+    headers = {"Authorization": f"Bearer {token}"}
+    with httpx.Client(base_url=base, headers=headers, verify=verify_ssl, timeout=timeout) as c:
+        r = c.get("/api/v2/monitor/system/config/backup", params={"scope": "global"})
+        r.raise_for_status()
+        return r.text
+

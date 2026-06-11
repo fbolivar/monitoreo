@@ -13,7 +13,12 @@ from . import repository as repo
 from .config import Settings
 from .db import Database
 from .notificaciones import reintentar_pendientes
-from .runner import ejecutar_chequeo_por_id, escalar_incidencias, latido_externo
+from .runner import (
+    ejecutar_chequeo_por_id,
+    escalar_incidencias,
+    latido_externo,
+    respaldar_configuraciones,
+)
 
 log = logging.getLogger(__name__)
 
@@ -122,6 +127,9 @@ def registrar_tareas_internas(scheduler: BackgroundScheduler, db: Database, sett
     # Purga según retención (03:30).
     scheduler.add_job(repo.purgar_datos, CronTrigger(hour=3, minute=30), args=[db],
                       id="purga", replace_existing=True)
+    # Respaldo de configuración de firewalls (02:00). Guarda solo si cambió.
+    scheduler.add_job(respaldar_configuraciones, CronTrigger(hour=2, minute=0), args=[db, settings],
+                      id="respaldo-config", replace_existing=True)
     # Asegurar partición del mes siguiente (día 25 de cada mes).
     scheduler.add_job(_asegurar_particion_proximo_mes, CronTrigger(day=25, hour=1), args=[db],
                       id="particion-mes", replace_existing=True)

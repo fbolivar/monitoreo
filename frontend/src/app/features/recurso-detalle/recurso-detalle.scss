@@ -41,6 +41,17 @@ section { margin-top: 8px; }
 .ifaces tr.if-grafica .rango { display: flex; gap: 4px; margin-bottom: 6px; }
 .ifaces tr.if-grafica .rango .btn { padding: 3px 9px; }
 
+.resp { width: 100%; font-size: 13px; }
+.resp .num { text-align: right; font-variant-numeric: tabular-nums; }
+.resp .chg { color: var(--sev-warning); font-weight: 700; font-size: 12px; }
+.resp .btn.ver { padding: 2px 8px; font-size: 12px; }
+.resp .vtabs { display: flex; gap: 4px; margin-bottom: 6px; }
+.resp .vtabs .btn { padding: 3px 10px; }
+.resp-det td { background: var(--bg-2, #f5f7f5); }
+.cfg { margin: 0; max-height: 380px; overflow: auto; background: var(--bg, #0e1116);
+  color: #d6dee6; padding: 10px; border-radius: var(--radius); font-size: 11px; line-height: 1.45;
+  white-space: pre; font-family: ui-monospace, Consolas, monospace; }
+
 .sev { text-transform: uppercase; font-size: 11px; font-weight: 700; }
 .sev-info { color: var(--sev-info); }
 .sev-warning { color: var(--sev-warning); }

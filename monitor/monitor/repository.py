@@ -83,6 +83,35 @@ def cargar_recurso(db: Database, recurso_id: int) -> Recurso | None:
         return _fila_a_recurso(row) if row else None
 
 
+def recursos_por_tipo(db: Database, tipo_codigo: str) -> list[Recurso]:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(_SELECT_RECURSO + " WHERE r.activo = true AND t.codigo = %s ORDER BY r.id",
+                    (tipo_codigo,))
+        return [_fila_a_recurso(r) for r in cur.fetchall()]
+
+
+# ── Respaldos de configuración ────────────────────────────────────────
+def ultimo_respaldo(db: Database, recurso_id: int) -> dict[str, Any] | None:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT hash, contenido FROM config_respaldos WHERE recurso_id = %s ORDER BY ts DESC LIMIT 1",
+            (recurso_id,),
+        )
+        return cur.fetchone()
+
+
+def guardar_respaldo(db: Database, recurso_id: int, hash_: str, bytes_: int,
+                     cambio: bool, diff: str | None, contenido: str) -> None:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO config_respaldos (recurso_id, hash, bytes, cambio, diff, contenido)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+            (recurso_id, hash_, bytes_, cambio, diff, contenido),
+        )
+
+
 def descifrar_secretos(db: Database, recurso_id: int, clave: str) -> dict[str, Any] | None:
     """Descifra los secretos del recurso vía pgcrypto (igual que la API)."""
     with db.connection() as conn, conn.cursor() as cur:

@@ -1,8 +1,8 @@
-import { JsonPipe } from '@angular/common';
+import { DecimalPipe, JsonPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Chequeo, Incidencia, Interfaz, Metrica, MuestraInterfaz, Recurso } from '../../core/models';
+import { Chequeo, Incidencia, Interfaz, Metrica, MuestraInterfaz, Recurso, Respaldo, RespaldoDetalle } from '../../core/models';
 import { AuthService } from '../../core/auth.service';
 import { RecursosService } from '../../core/recursos.service';
 import { TelemetriaService } from '../../core/telemetria.service';
@@ -15,7 +15,7 @@ interface SerieMetrica { metrica: string; unidad: string; puntos: Punto[]; }
 @Component({
   selector: 'app-recurso-detalle',
   standalone: true,
-  imports: [RouterLink, JsonPipe, EstadoBadge, LineChart],
+  imports: [RouterLink, JsonPipe, DecimalPipe, EstadoBadge, LineChart],
   templateUrl: './recurso-detalle.html',
   styleUrl: './recurso-detalle.scss',
 })
@@ -31,6 +31,9 @@ export class RecursoDetalle {
   metricas = signal<Metrica[]>([]);
   incidencias = signal<Incidencia[]>([]);
   interfaces = signal<Interfaz[]>([]);
+  respaldos = signal<Respaldo[]>([]);
+  respaldoSel = signal<RespaldoDetalle | null>(null);
+  respaldoVista = signal<'diff' | 'completo'>('diff');
   rango = signal<'1h' | '24h' | '7d'>('24h');
   cargando = signal(true);
 
@@ -85,6 +88,11 @@ export class RecursoDetalle {
       next: (xs) => this.interfaces.set(xs),
       error: () => this.interfaces.set([]),
     });
+    this.respaldoSel.set(null);
+    this.recursosSvc.respaldos(this.id).subscribe({
+      next: (rs) => this.respaldos.set(rs),
+      error: () => this.respaldos.set([]),
+    });
     this.tele.chequeos({ recurso_id: this.id, per_page: 1 }).subscribe({
       next: (p) => this.ultimoChequeo.set(p.data[0] ?? null),
     });
@@ -118,6 +126,15 @@ export class RecursoDetalle {
     this.recursosSvc.interfazHistorico(this.id, idx, this.ifRango()).subscribe({
       next: (h) => { this.ifHist.set(h); this.ifCargandoHist.set(false); },
       error: () => this.ifCargandoHist.set(false),
+    });
+  }
+
+  verRespaldo(r: Respaldo): void {
+    if (this.respaldoSel()?.id === r.id) { this.respaldoSel.set(null); return; }
+    this.respaldoVista.set(r.cambio ? 'diff' : 'completo');
+    this.recursosSvc.respaldoContenido(this.id, r.id).subscribe({
+      next: (d) => this.respaldoSel.set(d),
+      error: () => this.respaldoSel.set(null),
     });
   }
 

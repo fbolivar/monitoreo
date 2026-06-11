@@ -72,6 +72,11 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
     // SNMP traps recibidos (lectura).
     Route::get('traps', [TrapController::class, 'index']);
 
+    // Respaldos de configuración de un recurso (lectura).
+    Route::get('recursos/{id}/respaldos', [RecursoController::class, 'respaldos'])->whereNumber('id');
+    Route::get('recursos/{id}/respaldos/{respaldoId}', [RecursoController::class, 'respaldoContenido'])
+        ->whereNumber('id')->whereNumber('respaldoId');
+
     // Solo lectura (telemetría / eventos) con filtros.
     Route::get('chequeos', [ChequeoController::class, 'index']);
     Route::get('chequeos/{id}', [ChequeoController::class, 'show'])->whereNumber('id');

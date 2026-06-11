@@ -77,6 +77,29 @@ class RecursoController extends Controller
         return response()->json(['monitorear' => $data['monitorear']]);
     }
 
+    /** Versiones de configuración respaldadas del recurso (sin contenido). */
+    public function respaldos(int $id): JsonResponse
+    {
+        Recurso::findOrFail($id);
+        $rows = DB::table('config_respaldos')
+            ->where('recurso_id', $id)
+            ->orderByDesc('ts')
+            ->get(['id', 'ts', 'bytes', 'cambio']);
+
+        return response()->json($rows);
+    }
+
+    /** Contenido (y diff) de una versión de configuración. */
+    public function respaldoContenido(int $id, int $respaldoId): JsonResponse
+    {
+        $row = DB::table('config_respaldos')
+            ->where('recurso_id', $id)->where('id', $respaldoId)
+            ->first(['id', 'ts', 'bytes', 'cambio', 'diff', 'contenido']);
+        abort_unless($row, 404);
+
+        return response()->json($row);
+    }
+
     /** Histórico de throughput (Mbps in/out) de una interfaz para graficar. */
     public function interfazHistorico(Request $request, int $id, int $ifIndex): JsonResponse
     {

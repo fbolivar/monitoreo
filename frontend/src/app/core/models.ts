@@ -94,6 +94,18 @@ export interface MuestraInterfaz {
   out_mbps: number | null;
 }
 
+export interface Respaldo {
+  id: number;
+  ts: string;
+  bytes: number | null;
+  cambio: boolean;
+}
+
+export interface RespaldoDetalle extends Respaldo {
+  diff: string | null;
+  contenido: string;
+}
+
 export interface FilaDisponibilidad {
   id: number;
   nombre: string;

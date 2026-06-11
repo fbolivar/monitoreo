@@ -110,6 +110,29 @@ def notificar(db: Database, settings: Settings, *, incidencia_id: int, recurso: 
         log.exception("Error notificando %s de incidencia %s", evento, incidencia_id)
 
 
+def notificar_simple(db: Database, settings: Settings, asunto: str, texto: str,
+                     severidad: str = "warning") -> None:
+    """Envía un aviso suelto (no ligado a incidencia) a los canales activos.
+    Para eventos como cambios de configuración. No se registra en `notificaciones`."""
+    if not settings.notif_enabled:
+        return
+    from .. import repository as repo
+    from . import senders
+
+    try:
+        canales = repo.canales_activos(db, settings.app_crypto_key)
+        msg = {"asunto": asunto, "texto": texto, "severidad": severidad, "evento": "evento"}
+        for canal in canales:
+            min_sev = (canal.config or {}).get("min_severidad", "info")
+            if not severidad_alcanza(min_sev, severidad):
+                continue
+            ok, error, _ = senders.enviar(canal, msg)
+            if not ok:
+                log.warning("Aviso a canal %s falló: %s", canal.nombre, error)
+    except Exception:  # noqa: BLE001
+        log.exception("Error enviando aviso simple")
+
+
 def reintentar_pendientes(db: Database, settings: Settings) -> None:
     """Reintenta los envíos fallidos (intentos < NOTIF_MAX_INTENTOS)."""
     if not settings.notif_enabled:

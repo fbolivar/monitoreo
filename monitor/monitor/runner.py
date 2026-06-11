@@ -20,7 +20,7 @@ from .config import Settings
 from .db import Database
 from .evaluacion import Evaluacion, evaluar
 from .models import Recurso, Umbral
-from .notificaciones import SEV_ORDEN, notificar
+from .notificaciones import SEV_ORDEN, notificar, notificar_simple
 from .probes import seleccionar_probe
 from .probes.base import ResultadoProbe
 
@@ -125,6 +125,45 @@ def _detectar_failover(db: Database, recurso: Recurso, resultado: ResultadoProbe
             return Evaluacion("degraded", "warning", [motivo])
         ev.motivos.append(motivo)
     return ev
+
+
+def respaldar_configuraciones(db: Database, settings: Settings) -> None:
+    """Respalda la configuración de los firewalls; guarda nueva versión solo si cambió."""
+    import difflib
+    import hashlib
+
+    from .probes import fortigate_client
+
+    for recurso in repo.recursos_por_tipo(db, "firewall"):
+        if not recurso.hostname:
+            continue
+        secretos = (repo.descifrar_secretos(db, recurso.id, settings.app_crypto_key)
+                    if settings.app_crypto_key else None)
+        token = (secretos or {}).get("api_key")
+        if not token:
+            continue
+        verify = bool((recurso.parametros or {}).get("verify_ssl", False))
+        try:
+            contenido = fortigate_client.respaldar_config(recurso.hostname, token, verify, 30)
+        except Exception:  # noqa: BLE001
+            log.warning("Respaldo: no se pudo obtener la config de %s", recurso.nombre)
+            continue
+
+        h = hashlib.sha256(contenido.encode("utf-8", "ignore")).hexdigest()
+        prev = repo.ultimo_respaldo(db, recurso.id)
+        if prev is None:
+            repo.guardar_respaldo(db, recurso.id, h, len(contenido), False, None, contenido)
+            log.info("Respaldo inicial de %s (%d bytes).", recurso.nombre, len(contenido))
+        elif prev["hash"] != h:
+            diff = "\n".join(difflib.unified_diff(
+                (prev["contenido"] or "").splitlines(), contenido.splitlines(),
+                fromfile="anterior", tofile="actual", lineterm=""))
+            repo.guardar_respaldo(db, recurso.id, h, len(contenido), True, diff[:200000], contenido)
+            log.warning("CAMBIO de configuración detectado en %s.", recurso.nombre)
+            notificar_simple(
+                db, settings, f"Cambio de configuración: {recurso.nombre}",
+                f"La configuración de {recurso.nombre} cambió. Revisa el diff en SIMON "
+                f"(detalle del recurso → Respaldos).", "warning")
 
 
 def latido_externo(db: Database, settings: Settings) -> None:
