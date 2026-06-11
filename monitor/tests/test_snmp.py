@@ -4,6 +4,9 @@ from monitor.probes.snmp import (
     construir_credenciales,
     construir_muestras_generico,
     construir_muestras_ups,
+    indice_memoria_fisica,
+    porcentaje_memoria,
+    promedio_cpu,
 )
 from monitor.probes.snmp_client import Credenciales
 
@@ -75,3 +78,31 @@ def test_muestras_genericas_solo_oids_configurados():
 def test_credenciales_es_tipo_dataclass():
     cred = Credenciales(version="2c", community="x")
     assert cred.nivel_seguridad() == "n/a"
+
+
+# ── HOST-RESOURCES (Windows/Linux) ────────────────────────────────────
+def test_promedio_cpu():
+    walk = [
+        ("1.3.6.1.2.1.25.3.3.1.2.3", 0),
+        ("1.3.6.1.2.1.25.3.3.1.2.4", 10),
+        ("1.3.6.1.2.1.25.3.3.1.2.5", 20),
+    ]
+    assert promedio_cpu(walk) == 10.0
+    assert promedio_cpu([]) is None
+
+
+def test_indice_memoria_fisica():
+    descr = [
+        ("1.3.6.1.2.1.25.2.3.1.3.1", "C:\\ Label:  Serial Number f0eb1090"),
+        ("1.3.6.1.2.1.25.2.3.1.3.10", "Virtual Memory"),
+        ("1.3.6.1.2.1.25.2.3.1.3.11", "Physical Memory"),
+    ]
+    assert indice_memoria_fisica(descr) == "11"
+    assert indice_memoria_fisica([("x.1", "C:\\")]) is None
+
+
+def test_porcentaje_memoria():
+    # size=1309992, used=862898 -> ~65.9 %
+    assert porcentaje_memoria(1309992, 862898) == 65.9
+    assert porcentaje_memoria(0, 5) is None
+    assert porcentaje_memoria(None, 5) is None

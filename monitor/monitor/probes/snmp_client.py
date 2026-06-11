@@ -1,8 +1,8 @@
 """Cliente SNMP aislado (la ÚNICA parte dependiente de pysnmp y de su versión).
 
-Soporta SNMP v1/v2c (community) y v3 (USM: noAuth/authNoPriv/authPriv).
-La E/S se hace con la API asyncio de pysnmp envuelta en asyncio.run(), apta
-para ejecutarse dentro de los hilos de APScheduler.
+Soporta SNMP v1/v2c (community) y v3 (USM: noAuth/authNoPriv/authPriv), con GET
+y WALK. Compatible con pysnmp 6.x (getCmd/walkCmd, UdpTransportTarget()) y
+7.x (get_cmd/walk_cmd, UdpTransportTarget.create()).
 """
 from __future__ import annotations
 
@@ -21,7 +21,6 @@ class Credenciales:
     priv_proto: str = "AES"      # DES | AES
 
     def nivel_seguridad(self) -> str:
-        """Nivel USM derivado de las claves presentes (solo informativo/tests)."""
         if self.version != "3":
             return "n/a"
         if self.auth_key and self.priv_key:
@@ -31,54 +30,53 @@ class Credenciales:
         return "noAuthNoPriv"
 
 
-def snmp_get(host: str, port: int, cred: Credenciales, oids: dict[str, str],
-             timeout: float, retries: int) -> tuple[bool, dict[str, object], str | None]:
-    """GET sincrónico de varios OIDs. Devuelve (ok, {nombre: valor}, error)."""
-    return asyncio.run(_snmp_get_async(host, port, cred, oids, timeout, retries))
-
-
-async def _snmp_get_async(host, port, cred, oids, timeout, retries):
-    from pysnmp.hlapi.asyncio import (  # import diferido: dependencia de ejecución
-        CommunityData,
-        ContextData,
-        ObjectIdentity,
-        ObjectType,
-        SnmpEngine,
-        UdpTransportTarget,
-        UsmUserData,
-        usmAesCfb128Protocol,
-        usmDESPrivProtocol,
-        usmHMACMD5AuthProtocol,
-        usmHMACSHAAuthProtocol,
+def _construir_auth(cred: Credenciales):
+    """Devuelve el objeto de autenticación pysnmp (CommunityData/UsmUserData)."""
+    from pysnmp.hlapi.asyncio import (
+        CommunityData, UsmUserData,
+        usmAesCfb128Protocol, usmDESPrivProtocol,
+        usmHMACMD5AuthProtocol, usmHMACSHAAuthProtocol,
     )
-
-    # Nombre del comando GET: pysnmp 7.x usa get_cmd; 6.x usa getCmd.
-    try:
-        from pysnmp.hlapi.asyncio import get_cmd as _get_cmd
-    except ImportError:
-        from pysnmp.hlapi.asyncio import getCmd as _get_cmd
-
     auth_protos = {"MD5": usmHMACMD5AuthProtocol, "SHA": usmHMACSHAAuthProtocol}
     priv_protos = {"DES": usmDESPrivProtocol, "AES": usmAesCfb128Protocol}
 
     if cred.version in ("1", "2c"):
-        auth_data = CommunityData(cred.community, mpModel=0 if cred.version == "1" else 1)
-    else:
-        kwargs = {}
-        if cred.auth_key:
-            kwargs["authProtocol"] = auth_protos.get(cred.auth_proto.upper(), usmHMACSHAAuthProtocol)
-            kwargs["authKey"] = cred.auth_key
-        if cred.priv_key:
-            kwargs["privProtocol"] = priv_protos.get(cred.priv_proto.upper(), usmAesCfb128Protocol)
-            kwargs["privKey"] = cred.priv_key
-        auth_data = UsmUserData(cred.user, **kwargs)
+        return CommunityData(cred.community, mpModel=0 if cred.version == "1" else 1)
 
-    # Transporte: pysnmp 7.x usa await .create(); 6.x el constructor directo.
-    if hasattr(UdpTransportTarget, "create"):
-        target = await UdpTransportTarget.create((host, port), timeout=timeout, retries=retries)
-    else:
-        target = UdpTransportTarget((host, port), timeout=timeout, retries=retries)
+    kwargs = {}
+    if cred.auth_key:
+        kwargs["authProtocol"] = auth_protos.get(cred.auth_proto.upper(), usmHMACSHAAuthProtocol)
+        kwargs["authKey"] = cred.auth_key
+    if cred.priv_key:
+        kwargs["privProtocol"] = priv_protos.get(cred.priv_proto.upper(), usmAesCfb128Protocol)
+        kwargs["privKey"] = cred.priv_key
+    return UsmUserData(cred.user, **kwargs)
 
+
+async def _construir_target(host, port, timeout, retries):
+    from pysnmp.hlapi.asyncio import UdpTransportTarget
+    if hasattr(UdpTransportTarget, "create"):  # pysnmp 7.x
+        return await UdpTransportTarget.create((host, port), timeout=timeout, retries=retries)
+    return UdpTransportTarget((host, port), timeout=timeout, retries=retries)  # pysnmp 6.x
+
+
+def snmp_get(host: str, port: int, cred: Credenciales, oids: dict[str, str],
+             timeout: float, retries: int) -> tuple[bool, dict[str, object], str | None]:
+    """GET de varios OIDs. Devuelve (ok, {nombre: valor}, error)."""
+    return asyncio.run(_snmp_get_async(host, port, cred, oids, timeout, retries))
+
+
+async def _snmp_get_async(host, port, cred, oids, timeout, retries):
+    from pysnmp.hlapi.asyncio import (
+        ContextData, ObjectIdentity, ObjectType, SnmpEngine,
+    )
+    try:
+        from pysnmp.hlapi.asyncio import get_cmd as _get_cmd   # pysnmp 7.x
+    except ImportError:
+        from pysnmp.hlapi.asyncio import getCmd as _get_cmd     # pysnmp 6.x
+
+    auth_data = _construir_auth(cred)
+    target = await _construir_target(host, port, timeout, retries)
     nombres = list(oids.keys())
     objetos = [ObjectType(ObjectIdentity(oids[n])) for n in nombres]
 
@@ -98,3 +96,38 @@ async def _snmp_get_async(host, port, cred, oids, timeout, retries):
 
     ok = error is None and bool(valores)
     return ok, valores, error
+
+
+def snmp_walk(host: str, port: int, cred: Credenciales, base_oid: str,
+              timeout: float, retries: int) -> tuple[list[tuple[str, object]], str | None]:
+    """WALK de un subárbol. Devuelve ([(oid, valor), ...], error)."""
+    return asyncio.run(_snmp_walk_async(host, port, cred, base_oid, timeout, retries))
+
+
+async def _snmp_walk_async(host, port, cred, base_oid, timeout, retries):
+    from pysnmp.hlapi.asyncio import (
+        ContextData, ObjectIdentity, ObjectType, SnmpEngine,
+    )
+    try:
+        from pysnmp.hlapi.asyncio import walk_cmd as _walk_cmd   # pysnmp 7.x
+    except ImportError:
+        from pysnmp.hlapi.asyncio import walkCmd as _walk_cmd     # pysnmp 6.x
+
+    auth_data = _construir_auth(cred)
+    target = await _construir_target(host, port, timeout, retries)
+
+    resultados: list[tuple[str, object]] = []
+    error: str | None = None
+    objeto = ObjectType(ObjectIdentity(base_oid))
+
+    async for (err_ind, err_stat, err_idx, var_binds) in _walk_cmd(
+        SnmpEngine(), auth_data, target, ContextData(), objeto, lexicographicMode=False
+    ):
+        if err_ind:
+            error = str(err_ind); break
+        if err_stat:
+            error = f"{err_stat.prettyPrint()} (idx {err_idx})"; break
+        for vb in var_binds:
+            resultados.append((str(vb[0]), vb[1]))
+
+    return resultados, error
