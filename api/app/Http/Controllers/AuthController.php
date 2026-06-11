@@ -39,17 +39,24 @@ class AuthController extends Controller
         // 2) SSO LDAP/AD (si está habilitado): usuarios sin perfil local o de origen ldap.
         if (! $autenticado && Ldap::habilitado()
             && (! $perfil || $perfil->origen === 'ldap' || ! $perfil->password_hash)) {
-            if (Ldap::autenticar($data['email'], $data['password'])) {
+            $ajustes = Ldap::ajustes();
+            $datos = Ldap::autenticarConDatos($ajustes, $data['email'], $data['password']);
+            if ($datos !== null) {
                 $autenticado = true;
+                $nombre = $datos['nombre'] ?: $data['email'];
                 if (! $perfil) {
                     $perfil = Perfil::create([
                         'id'     => (string) Str::uuid(),
                         'email'  => $data['email'],
-                        'nombre' => $data['email'],
-                        'rol'    => config('ldap.rol_default', 'viewer'),
+                        'nombre' => $nombre,
+                        'rol'    => $ajustes['rol_default'] ?? 'viewer',
                         'activo' => true,
                         'origen' => 'ldap',
                     ]);
+                } elseif ($datos['nombre'] && $perfil->nombre !== $datos['nombre']) {
+                    // Mantener el nombre sincronizado con el directorio.
+                    $perfil->nombre = $datos['nombre'];
+                    $perfil->save();
                 }
             }
         }

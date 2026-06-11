@@ -5,11 +5,11 @@ namespace App\Support;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Autenticación contra Active Directory / LDAP por "bind" simple: si el bind con
- * las credenciales del usuario tiene éxito, la contraseña es válida.
+ * Autenticación contra Active Directory / LDAP por "bind" simple. Tras un bind
+ * exitoso, busca el nombre del usuario (displayName/cn) para mostrarlo en SIMON.
  *
- * Los ajustes salen de la tabla app_config (clave 'ldap'), editable desde la UI,
- * con respaldo en config/ldap.php (.env) para compatibilidad.
+ * Ajustes desde app_config (clave 'ldap', editable por UI) con respaldo en
+ * config/ldap.php (.env).
  */
 class Ldap
 {
@@ -23,12 +23,13 @@ class Ldap
             'use_tls'      => (bool) config('ldap.use_tls'),
             'bind_pattern' => (string) config('ldap.bind_pattern', '{user}'),
             'rol_default'  => (string) config('ldap.rol_default', 'viewer'),
+            'base_dn'      => (string) config('ldap.base_dn', ''),
         ];
 
         try {
             $row = DB::table('app_config')->where('clave', 'ldap')->value('valor');
         } catch (\Throwable $e) {
-            $row = null; // tabla aún no migrada
+            $row = null;
         }
         if ($row) {
             $db = is_string($row) ? json_decode($row, true) : (array) $row;
@@ -50,32 +51,29 @@ class Ldap
         return self::disponible() && (bool) (self::ajustes()['enabled'] ?? false);
     }
 
-    public static function autenticar(string $usuario, string $password): bool
-    {
-        if (! self::habilitado()) {
-            return false;
-        }
-
-        return self::autenticarCon(self::ajustes(), $usuario, $password);
-    }
-
-    /** Intenta un bind con los ajustes dados (usado también por la prueba de conexión). */
+    /** Solo verifica credenciales (para la prueba de conexión). */
     public static function autenticarCon(array $a, string $usuario, string $password): bool
     {
+        return self::autenticarConDatos($a, $usuario, $password) !== null;
+    }
+
+    /**
+     * Verifica credenciales y, si son válidas, devuelve los datos del usuario:
+     * ['nombre' => displayName|cn|null]. Devuelve null si la autenticación falla.
+     */
+    public static function autenticarConDatos(array $a, string $usuario, string $password): ?array
+    {
         if ($password === '' || ! self::disponible() || empty($a['host'])) {
-            return false;
+            return null;
         }
 
-        // LDAPS/STARTTLS con certificados internos (AD): por defecto no se verifica
-        // el certificado (poner tls_verify=true para exigirlo). Debe fijarse ANTES
-        // de ldap_connect para que aplique al handshake de ldaps://.
         if (empty($a['tls_verify']) && defined('LDAP_OPT_X_TLS_REQUIRE_CERT')) {
             @ldap_set_option(null, LDAP_OPT_X_TLS_REQUIRE_CERT, LDAP_OPT_X_TLS_NEVER);
         }
 
         $conn = @ldap_connect($a['host'], (int) ($a['port'] ?? 389));
         if (! $conn) {
-            return false;
+            return null;
         }
         ldap_set_option($conn, LDAP_OPT_PROTOCOL_VERSION, 3);
         ldap_set_option($conn, LDAP_OPT_REFERRALS, 0);
@@ -84,10 +82,56 @@ class Ldap
             @ldap_start_tls($conn);
         }
 
-        $dn = str_replace('{user}', $usuario, (string) ($a['bind_pattern'] ?? '{user}'));
-        $ok = @ldap_bind($conn, $dn, $password);
+        $patron = (string) ($a['bind_pattern'] ?? '{user}');
+        $dn = str_replace('{user}', $usuario, $patron);
+
+        if (! @ldap_bind($conn, $dn, $password)) {
+            @ldap_unbind($conn);
+
+            return null;
+        }
+
+        $nombre = self::buscarNombre($conn, $a, $usuario, $dn);
         @ldap_unbind($conn);
 
-        return (bool) $ok;
+        return ['nombre' => $nombre];
+    }
+
+    /** Busca displayName/cn del usuario en el directorio (best-effort). */
+    private static function buscarNombre($conn, array $a, string $usuario, string $dn): ?string
+    {
+        $base = trim((string) ($a['base_dn'] ?? '')) ?: self::baseDnDesdePatron((string) ($a['bind_pattern'] ?? ''));
+        if (! $base) {
+            return null;
+        }
+        $upn = ldap_escape($dn, '', LDAP_ESCAPE_FILTER);
+        $sam = ldap_escape($usuario, '', LDAP_ESCAPE_FILTER);
+        $filtro = "(|(userPrincipalName=$upn)(sAMAccountName=$sam))";
+
+        $sr = @ldap_search($conn, $base, $filtro, ['displayname', 'cn']);
+        if (! $sr) {
+            return null;
+        }
+        $e = @ldap_get_entries($conn, $sr);
+        if (empty($e[0])) {
+            return null;
+        }
+
+        return $e[0]['displayname'][0] ?? $e[0]['cn'][0] ?? null;
+    }
+
+    /** Deriva la base DN del sufijo de dominio del patrón ({user}@pnnc.local -> DC=pnnc,DC=local). */
+    private static function baseDnDesdePatron(string $patron): ?string
+    {
+        $pos = strpos($patron, '@');
+        if ($pos === false) {
+            return null;
+        }
+        $dom = trim(substr($patron, $pos + 1));
+        if ($dom === '') {
+            return null;
+        }
+
+        return 'DC='.implode(',DC=', explode('.', $dom));
     }
 }

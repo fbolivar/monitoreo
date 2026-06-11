@@ -10,8 +10,8 @@
   <form class="card form" (ngSubmit)="guardar()">
     <h2>{{ editandoId() ? 'Editar usuario' : 'Nuevo usuario' }}</h2>
     <div class="grid">
-      <label>Correo
-        <input type="email" name="email" [(ngModel)]="form.email" required />
+      <label>Usuario o correo
+        <input type="text" name="email" [(ngModel)]="form.email" required />
       </label>
       <label>Nombre
         <input name="nombre" [(ngModel)]="form.nombre" />
@@ -41,7 +41,7 @@
 } @else {
   <table>
     <thead>
-      <tr><th>Correo</th><th>Nombre</th><th>Rol</th><th>Activo</th><th></th></tr>
+      <tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Activo</th><th></th></tr>
     </thead>
     <tbody>
       @for (u of usuarios(); track u.id) {
