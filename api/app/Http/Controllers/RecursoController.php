@@ -6,12 +6,15 @@ use App\Models\Recurso;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class RecursoController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $q = Recurso::query()->with(['tipo:id,codigo,nombre', 'sitio:id,codigo,nombre']);
+        $q = Recurso::query()->with([
+            'tipo:id,codigo,nombre', 'sitio:id,codigo,nombre', 'dependeDe:id,nombre',
+        ]);
 
         if ($request->filled('tipo_id')) {
             $q->where('tipo_id', $request->integer('tipo_id'));
@@ -35,7 +38,7 @@ class RecursoController extends Controller
 
     public function show(int $id): JsonResponse
     {
-        $recurso = Recurso::with(['tipo', 'sitio'])->findOrFail($id);
+        $recurso = Recurso::with(['tipo', 'sitio', 'dependeDe:id,nombre'])->findOrFail($id);
 
         // Informa SI hay secretos, sin exponerlos nunca.
         $data = $recurso->toArray();
@@ -60,6 +63,7 @@ class RecursoController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate($this->rules());
+        $this->validarDependencia(null, $data['depende_de_id'] ?? null);
         $secretos = $data['secretos'] ?? null;
         unset($data['secretos']);
 
@@ -76,6 +80,10 @@ class RecursoController extends Controller
     {
         $recurso = Recurso::findOrFail($id);
         $data = $request->validate($this->rules(true));
+
+        if (array_key_exists('depende_de_id', $data)) {
+            $this->validarDependencia($id, $data['depende_de_id']);
+        }
 
         // Si viene la clave 'secretos' (incluso null), se actualiza el secreto.
         if ($request->has('secretos')) {
@@ -108,8 +116,37 @@ class RecursoController extends Controller
             'parametros'         => ['nullable', 'array'],
             'intervalo_segundos' => ['nullable', 'integer', 'between:5,86400'],
             'activo'             => ['boolean'],
+            'depende_de_id'      => ['nullable', 'integer', 'exists:recursos,id'],
             // Secretos en claro (jsonb). Se cifran de forma transparente. Nunca se devuelven.
             'secretos'           => ['nullable', 'array'],
         ];
+    }
+
+    /**
+     * Evita autodependencia y ciclos en la cadena depende_de_id.
+     * $id es el recurso que se edita (null al crear); $padreId el padre propuesto.
+     */
+    private function validarDependencia(?int $id, $padreId): void
+    {
+        if (!$padreId) {
+            return;
+        }
+        $padreId = (int) $padreId;
+        if ($id && $padreId === $id) {
+            throw ValidationException::withMessages(
+                ['depende_de_id' => 'Un recurso no puede depender de sí mismo.']);
+        }
+
+        // Sube por la cadena del padre; si reaparece $id (o se repite un nodo) hay ciclo.
+        $actual = $padreId;
+        $vistos = [];
+        while ($actual && !in_array($actual, $vistos, true)) {
+            if ($id && $actual === $id) {
+                throw ValidationException::withMessages(
+                    ['depende_de_id' => 'La dependencia crearía un ciclo.']);
+            }
+            $vistos[] = $actual;
+            $actual = (int) (DB::table('recursos')->where('id', $actual)->value('depende_de_id') ?? 0);
+        }
     }
 }

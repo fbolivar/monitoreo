@@ -21,7 +21,7 @@ log = logging.getLogger(__name__)
 # ── Recursos ──────────────────────────────────────────────────────────
 _SELECT_RECURSO = """
     SELECT r.id, r.nombre, r.hostname, r.parametros, r.intervalo_segundos,
-           r.estado_actual, r.sitio_id, t.codigo AS tipo_codigo,
+           r.estado_actual, r.sitio_id, r.depende_de_id, t.codigo AS tipo_codigo,
            t.protocolo_default
     FROM recursos r
     JOIN tipos_recurso t ON t.id = r.tipo_id
@@ -39,7 +39,35 @@ def _fila_a_recurso(row: dict[str, Any]) -> Recurso:
         intervalo_segundos=row["intervalo_segundos"],
         estado_actual=row["estado_actual"],
         sitio_id=row["sitio_id"],
+        depende_de_id=row.get("depende_de_id"),
     )
+
+
+def ancestro_caido(db: Database, recurso_id: int) -> str | None:
+    """Nombre del ancestro (cadena depende_de_id) que está 'down', si lo hay.
+
+    Sube por la cadena de dependencias del recurso; devuelve el nombre del
+    ancestro más cercano caído (para suprimir alertas del hijo). El límite de
+    nivel evita bucles si hubiera un ciclo en los datos.
+    """
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            WITH RECURSIVE cadena AS (
+                SELECT id, depende_de_id, estado_actual, nombre, 1 AS nivel
+                FROM recursos
+                WHERE id = (SELECT depende_de_id FROM recursos WHERE id = %s)
+                UNION ALL
+                SELECT r.id, r.depende_de_id, r.estado_actual, r.nombre, c.nivel + 1
+                FROM recursos r JOIN cadena c ON r.id = c.depende_de_id
+                WHERE c.nivel < 20
+            )
+            SELECT nombre FROM cadena WHERE estado_actual = 'down' ORDER BY nivel LIMIT 1
+            """,
+            (recurso_id,),
+        )
+        row = cur.fetchone()
+        return row["nombre"] if row else None
 
 
 def cargar_recursos_activos(db: Database) -> list[Recurso]:

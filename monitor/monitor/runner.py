@@ -57,10 +57,18 @@ def chequear(db: Database, settings: Settings, recurso: Recurso) -> str:
     en_mant = repo.en_mantenimiento(db, recurso, ahora)
     estado_persistido = "maintenance" if en_mant else ev.estado
 
+    # 5b. Dependencia: ¿un ancestro (enlace/firewall aguas arriba) está caído?
+    #     Si es así, la caída de este recurso es consecuencia, no causa raíz.
+    dep_caida = None
+    if recurso.depende_de_id and ev.estado in ("down", "degraded", "unknown"):
+        dep_caida = repo.ancestro_caido(db, recurso.id)
+
     # 6. Persistencia de chequeo + métricas + estado
     detalle = dict(resultado.detalle)
     detalle["evaluacion"] = {"estado": ev.estado, "severidad": ev.severidad, "motivos": ev.motivos}
     detalle["mantenimiento"] = en_mant
+    if dep_caida:
+        detalle["dependencia_caida"] = dep_caida
 
     chequeo_id = repo.guardar_chequeo(db, recurso.id, estado_persistido,
                                       resultado.latencia_ms, detalle, ahora)
@@ -71,7 +79,7 @@ def chequear(db: Database, settings: Settings, recurso: Recurso) -> str:
 
     # 7. Incidencias + notificaciones (silenciadas durante mantenimiento)
     if not en_mant:
-        _gestionar_incidencia(db, settings, recurso, ev, umbrales, chequeo_id, ahora)
+        _gestionar_incidencia(db, settings, recurso, ev, umbrales, chequeo_id, ahora, dep_caida)
 
     return estado_persistido
 
@@ -115,7 +123,8 @@ def _detectar_failover(db: Database, recurso: Recurso, resultado: ResultadoProbe
 
 
 def _gestionar_incidencia(db: Database, settings: Settings, recurso: Recurso, ev: Evaluacion,
-                          umbrales: list[Umbral], chequeo_id: int, ahora: datetime) -> None:
+                          umbrales: list[Umbral], chequeo_id: int, ahora: datetime,
+                          dep_caida: str | None = None) -> None:
     abierta = repo.incidencia_abierta(db, recurso.id)
 
     # Recuperación: vuelve a 'up' -> cerrar incidencia abierta + notificar cierre.
@@ -132,6 +141,13 @@ def _gestionar_incidencia(db: Database, settings: Settings, recurso: Recurso, ev
 
     # 'unknown': no abrimos incidencia (evita ruido por problemas de sondeo).
     if ev.estado == "unknown":
+        return
+
+    # Supresión por dependencia: si un ancestro está down, esta caída es
+    # consecuencia (no causa raíz). No abrimos incidencia ni notificamos.
+    if dep_caida:
+        log.info("Recurso %s %s suprimido: ancestro '%s' caído (sin alerta).",
+                 recurso.id, ev.estado, dep_caida)
         return
 
     # 'degraded' / 'down'

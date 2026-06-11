@@ -16,6 +16,7 @@ class Recurso:
     intervalo_segundos: int = 60
     estado_actual: str = "unknown"
     sitio_id: int | None = None
+    depende_de_id: int | None = None
 
 
 @dataclass

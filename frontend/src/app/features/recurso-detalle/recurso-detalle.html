@@ -13,7 +13,16 @@
     <div><span class="text-dim">Intervalo</span><b>{{ r.intervalo_segundos }}s</b></div>
     <div><span class="text-dim">Último chequeo</span><b>{{ hace(r.ultimo_chequeo_at) }}</b></div>
     <div><span class="text-dim">Activo</span><b>{{ r.activo ? 'Sí' : 'No' }}</b></div>
+    @if (r.depende_de) {
+      <div><span class="text-dim">Depende de</span>
+        <b><a [routerLink]="['/recursos', r.depende_de.id]">{{ r.depende_de.nombre }}</a></b>
+      </div>
+    }
   </div>
+
+  @if ($any(ultimoChequeo()?.detalle)?.dependencia_caida; as dep) {
+    <p class="aviso-dep">⚠ Alertas silenciadas: depende de <b>{{ dep }}</b>, que está caído (causa raíz).</p>
+  }
 
   <!-- Último chequeo -->
   @if (ultimoChequeo(); as c) {

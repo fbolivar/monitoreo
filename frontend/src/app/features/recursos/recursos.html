@@ -48,10 +48,19 @@
       <label>Intervalo (s)
         <input type="number" name="intervalo" [(ngModel)]="form.intervalo_segundos" min="5" max="86400" />
       </label>
+      <label>Depende de
+        <select name="depende_de_id" [(ngModel)]="form.depende_de_id">
+          <option [ngValue]="null">— Ninguno —</option>
+          @for (r of recursos(); track r.id) {
+            @if (r.id !== editandoId()) { <option [ngValue]="r.id">{{ r.nombre }}</option> }
+          }
+        </select>
+      </label>
       <label class="check">
         <input type="checkbox" name="activo" [(ngModel)]="form.activo" /> Activo
       </label>
     </div>
+    <p class="text-dim hint">Si el recurso padre (enlace, firewall) está caído, se silencian las alertas de este recurso.</p>
     <label>Parámetros (JSON, no sensible)
       <textarea name="parametros" rows="4" [(ngModel)]="form.parametrosTexto"></textarea>
     </label>

@@ -17,7 +17,7 @@ class Recurso extends Model
     // `estado_actual`/`ultimo_chequeo_at` los escriben los workers, no la API de gestión.
     protected $fillable = [
         'tipo_id', 'sitio_id', 'nombre', 'hostname', 'descripcion',
-        'parametros', 'intervalo_segundos', 'activo',
+        'parametros', 'intervalo_segundos', 'activo', 'depende_de_id',
     ];
 
     // La columna binaria cifrada nunca se serializa.
@@ -42,6 +42,11 @@ class Recurso extends Model
     public function sitio(): BelongsTo
     {
         return $this->belongsTo(Sitio::class, 'sitio_id');
+    }
+
+    public function dependeDe(): BelongsTo
+    {
+        return $this->belongsTo(Recurso::class, 'depende_de_id');
     }
 
     public function chequeos(): HasMany

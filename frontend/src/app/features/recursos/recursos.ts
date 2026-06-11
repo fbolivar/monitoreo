@@ -13,6 +13,7 @@ interface FormRecurso {
   hostname: string;
   intervalo_segundos: number;
   activo: boolean;
+  depende_de_id: number | null;
   parametrosTexto: string;
   secretosTexto: string;
 }
@@ -72,7 +73,8 @@ export class Recursos implements OnInit {
   private vacio(): FormRecurso {
     return {
       nombre: '', tipo_id: null, sitio_id: null, hostname: '',
-      intervalo_segundos: 60, activo: true, parametrosTexto: '{}', secretosTexto: '',
+      intervalo_segundos: 60, activo: true, depende_de_id: null,
+      parametrosTexto: '{}', secretosTexto: '',
     };
   }
 
@@ -92,6 +94,7 @@ export class Recursos implements OnInit {
       hostname: r.hostname ?? '',
       intervalo_segundos: r.intervalo_segundos,
       activo: r.activo,
+      depende_de_id: r.depende_de_id ?? null,
       parametrosTexto: JSON.stringify(r.parametros ?? {}, null, 2),
       secretosTexto: '',
     };
@@ -118,6 +121,7 @@ export class Recursos implements OnInit {
       hostname: f.hostname || null,
       intervalo_segundos: f.intervalo_segundos,
       activo: f.activo,
+      depende_de_id: f.depende_de_id,
       parametros,
     };
 

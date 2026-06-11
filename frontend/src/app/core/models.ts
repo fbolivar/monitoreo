@@ -34,8 +34,10 @@ export interface Recurso {
   activo: boolean;
   ultimo_chequeo_at?: string | null;
   parametros?: Record<string, unknown>;
+  depende_de_id?: number | null;
   tipo?: TipoRecurso;
   sitio?: Sitio;
+  depende_de?: { id: number; nombre: string } | null;
   tiene_secretos?: boolean;
 }
 

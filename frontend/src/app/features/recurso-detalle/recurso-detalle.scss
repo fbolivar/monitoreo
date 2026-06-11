@@ -22,6 +22,12 @@ section { margin-top: 8px; }
 
 .charts { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 10px; }
 
+.aviso-dep {
+  margin: 4px 0 0; padding: 8px 12px; border-radius: var(--radius);
+  background: color-mix(in srgb, var(--sev-warning) 15%, transparent);
+  border-left: 3px solid var(--sev-warning); font-size: 13px;
+}
+
 .ifaces { width: 100%; font-size: 12px; }
 .ifaces .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ifaces tr.if-down td { opacity: .55; }
