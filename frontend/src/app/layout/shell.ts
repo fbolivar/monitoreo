@@ -24,6 +24,7 @@ import { AuthService } from '../core/auth.service';
           <a routerLink="/mapa" routerLinkActive="active">Mapa</a>
           <a routerLink="/incidencias" routerLinkActive="active">Incidencias</a>
           <a routerLink="/reportes" routerLinkActive="active">Reportes</a>
+          <a routerLink="/wallboard">Tablero NOC ↗</a>
           <a routerLink="/configuracion" routerLinkActive="active">Configuración</a>
           @if (auth.esAdmin()) {
             <a routerLink="/usuarios" routerLinkActive="active">Usuarios</a>

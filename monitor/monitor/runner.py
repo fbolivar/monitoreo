@@ -127,6 +127,25 @@ def _detectar_failover(db: Database, recurso: Recurso, resultado: ResultadoProbe
     return ev
 
 
+def escalar_incidencias(db: Database, settings: Settings) -> None:
+    """Job periódico: escala incidencias 'abierta' no reconocidas a tiempo (on-call)."""
+    if not settings.escalation_min or settings.escalation_min <= 0:
+        return
+    ahora = datetime.now(timezone.utc)
+    for row in repo.incidencias_para_escalar(db, settings.escalation_min):
+        recurso = Recurso(
+            id=row["rid"], nombre=row["nombre"], hostname=row["hostname"],
+            tipo_codigo=row["tipo_codigo"], protocolo_default="",
+        )
+        log.warning("Escalando incidencia %s (sin reconocer > %s min)", row["id"], settings.escalation_min)
+        notificar(
+            db, settings, incidencia_id=row["id"], recurso=recurso,
+            severidad=row["severidad"], evento="escalada_tiempo",
+            titulo=f"Sin reconocer hace +{settings.escalation_min} min: {row['titulo']}",
+        )
+        repo.marcar_escalada(db, row["id"], ahora)
+
+
 def _gestionar_incidencias_interfaces(db: Database, settings: Settings, recurso: Recurso,
                                       ahora: datetime) -> None:
     """Abre/cierra incidencias por interfaz monitoreada según su estado oper."""

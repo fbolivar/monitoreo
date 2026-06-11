@@ -13,7 +13,7 @@ from . import repository as repo
 from .config import Settings
 from .db import Database
 from .notificaciones import reintentar_pendientes
-from .runner import ejecutar_chequeo_por_id
+from .runner import ejecutar_chequeo_por_id, escalar_incidencias
 
 log = logging.getLogger(__name__)
 
@@ -86,6 +86,15 @@ def registrar_tareas_internas(scheduler: BackgroundScheduler, db: Database, sett
             id="notif-retry",
             replace_existing=True,
         )
+        # Escalado por tiempo (on-call): incidencias sin reconocer.
+        if settings.escalation_min and settings.escalation_min > 0:
+            scheduler.add_job(
+                escalar_incidencias,
+                trigger=IntervalTrigger(seconds=settings.escalation_check_seg),
+                args=[db, settings],
+                id="escalado",
+                replace_existing=True,
+            )
 
     if not settings.tareas_mantenimiento:
         return

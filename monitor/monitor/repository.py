@@ -354,6 +354,30 @@ def cerrar_incidencia(db: Database, incidencia_id: int, ahora: datetime) -> None
         )
 
 
+def incidencias_para_escalar(db: Database, minutos: int) -> list[dict[str, Any]]:
+    """Incidencias 'abierta' (no reconocidas), más viejas que `minutos` y sin escalar."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT i.id, i.severidad, i.titulo, i.if_nombre,
+                   r.id AS rid, r.nombre, r.hostname, t.codigo AS tipo_codigo
+            FROM incidencias i
+            JOIN recursos r ON r.id = i.recurso_id
+            JOIN tipos_recurso t ON t.id = r.tipo_id
+            WHERE i.estado = 'abierta'
+              AND i.escalada_at IS NULL
+              AND i.abierta_at < now() - make_interval(mins => %s)
+            """,
+            (minutos,),
+        )
+        return cur.fetchall()
+
+
+def marcar_escalada(db: Database, incidencia_id: int, ahora: datetime) -> None:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute("UPDATE incidencias SET escalada_at = %s WHERE id = %s", (ahora, incidencia_id))
+
+
 # ── Mantenimiento de datos (rollup / purga / particiones) ─────────────
 def asegurar_particiones(db: Database, fechas: list) -> None:
     with db.connection() as conn, conn.cursor() as cur:

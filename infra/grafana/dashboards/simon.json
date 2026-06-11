@@ -1,0 +1,74 @@
+{
+  "uid": "simon-overview",
+  "title": "SIMON — Visión general",
+  "tags": ["simon"],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-24h", "to": "now" },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Recursos por estado",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 8, "x": 0, "y": 0 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "simon-pg" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT estado_actual AS metric, count(*) AS value FROM recursos GROUP BY 1 ORDER BY 1"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Incidencias abiertas",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 16, "x": 8, "y": 0 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "simon-pg" },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT i.abierta_at AS \"Abierta\", r.nombre AS \"Recurso\", i.severidad AS \"Sev\", i.titulo AS \"Título\", i.estado AS \"Estado\" FROM incidencias i JOIN recursos r ON r.id=i.recurso_id WHERE i.estado <> 'resuelta' ORDER BY i.abierta_at DESC"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Latencia (ms) por recurso",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 12, "x": 0, "y": 8 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "simon-pg" },
+      "fieldConfig": { "defaults": { "unit": "ms" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT c.ts AS time, r.nombre AS metric, c.latencia_ms AS value FROM chequeos c JOIN recursos r ON r.id=c.recurso_id WHERE $__timeFilter(c.ts) AND c.latencia_ms IS NOT NULL ORDER BY c.ts"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Throughput de interfaces (Mbps in)",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 12, "x": 12, "y": 8 },
+      "datasource": { "type": "grafana-postgresql-datasource", "uid": "simon-pg" },
+      "fieldConfig": { "defaults": { "unit": "Mbits" }, "overrides": [] },
+      "targets": [
+        {
+          "refId": "A",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT h.ts AS time, ('if'||h.if_index) AS metric, h.in_mbps AS value FROM interfaces_historico h WHERE $__timeFilter(h.ts) ORDER BY h.ts"
+        }
+      ]
+    }
+  ]
+}

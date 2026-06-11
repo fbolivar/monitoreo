@@ -8,6 +8,12 @@ export const routes: Routes = [
     loadComponent: () => import('./features/auth/login').then((m) => m.Login),
   },
   {
+    // Tablero NOC a pantalla completa (fuera del Shell).
+    path: 'wallboard',
+    canActivate: [authGuard],
+    loadComponent: () => import('./features/wallboard/wallboard').then((m) => m.Wallboard),
+  },
+  {
     path: '',
     component: Shell,
     canActivate: [authGuard],

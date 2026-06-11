@@ -56,6 +56,10 @@ class Settings:
     notif_dedup_cooldown_seg: int = _int("NOTIF_DEDUP_COOLDOWN_SEG", 600)
     notif_max_intentos: int = _int("NOTIF_MAX_INTENTOS", 3)
     notif_retry_interval_seg: int = _int("NOTIF_RETRY_INTERVAL_SEG", 120)
+    # Escalado por tiempo (on-call): si una incidencia 'abierta' no se reconoce
+    # en estos minutos, se reenvía un evento de escalada. 0 = desactivado.
+    escalation_min: int = _int("ESCALATION_MIN", 15)
+    escalation_check_seg: int = _int("ESCALATION_CHECK_SEG", 60)
 
     # Health
     health_enabled: bool = _bool("HEALTH_ENABLED", True)

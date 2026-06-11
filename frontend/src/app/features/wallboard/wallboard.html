@@ -1,0 +1,38 @@
+<div class="wb">
+  <header class="wb-top">
+    <div class="marca">
+      <img src="logo-simon.png" alt="SIMON" />
+      <div><b>SIMON</b><span>Tablero de operaciones</span></div>
+    </div>
+    <div class="kpis">
+      <div class="kpi up"><b>{{ resumen().up }}</b><span>Operativo</span></div>
+      <div class="kpi degraded"><b>{{ resumen().degraded }}</b><span>Degradado</span></div>
+      <div class="kpi down"><b>{{ resumen().down }}</b><span>Caído</span></div>
+      <div class="kpi unknown"><b>{{ resumen().unknown }}</b><span>Sin dato</span></div>
+      <div class="kpi maintenance"><b>{{ resumen().maintenance }}</b><span>Mant.</span></div>
+    </div>
+    <div class="reloj">
+      <b>{{ reloj() }}</b>
+      <span [class.vivo]="enVivo()">{{ enVivo() ? '● EN VIVO' : '○ sin conexión' }}</span>
+      <a routerLink="/" class="salir">Salir</a>
+    </div>
+  </header>
+
+  <div class="sedes">
+    @for (s of sedes(); track s.sitio) {
+      <section class="sede" [attr.data-peor]="s.peor">
+        <h2>{{ s.sitio }} <span>{{ s.total }}</span></h2>
+        <div class="tiles">
+          @for (r of s.recursos; track r.id) {
+            <div class="tile" [attr.data-estado]="r.estado_actual" [title]="r.tipo?.nombre + ' · ' + (r.hostname ?? '')">
+              {{ r.nombre }}
+            </div>
+          }
+        </div>
+      </section>
+    }
+    @if (sedes().length === 0) {
+      <p class="vacio">Sin recursos para mostrar.</p>
+    }
+  </div>
+</div>

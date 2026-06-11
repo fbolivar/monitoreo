@@ -42,6 +42,8 @@ def construir_mensaje(evento: str, recurso: Recurso, severidad: str,
                       titulo: str, descripcion: str | None = None) -> dict:
     if evento.startswith("escalamiento"):
         encab = "🟠 ESCALAMIENTO de severidad"
+    elif evento == "escalada_tiempo":
+        encab = "⏰ Incidencia SIN RECONOCER (escalada)"
     else:
         encab = _ENCABEZADOS.get(evento, evento)
 
