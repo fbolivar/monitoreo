@@ -66,6 +66,13 @@ class Ldap
             return false;
         }
 
+        // LDAPS/STARTTLS con certificados internos (AD): por defecto no se verifica
+        // el certificado (poner tls_verify=true para exigirlo). Debe fijarse ANTES
+        // de ldap_connect para que aplique al handshake de ldaps://.
+        if (empty($a['tls_verify']) && defined('LDAP_OPT_X_TLS_REQUIRE_CERT')) {
+            @ldap_set_option(null, LDAP_OPT_X_TLS_REQUIRE_CERT, LDAP_OPT_X_TLS_NEVER);
+        }
+
         $conn = @ldap_connect($a['host'], (int) ($a['port'] ?? 389));
         if (! $conn) {
             return false;
