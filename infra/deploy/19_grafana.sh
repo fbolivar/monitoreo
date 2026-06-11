@@ -23,22 +23,23 @@ else
 fi
 
 echo "== 2) Rol Postgres de solo lectura =="
-GPW=$(grep -E '^GRAFANA_RO_PW=' /root/monitoreo-secrets.env 2>/dev/null | cut -d= -f2- || true)
+GPW=$(grep -E '^GRAFANA_RO_PW=' /root/monitoreo-secrets.env 2>/dev/null | head -1 | cut -d= -f2- || true)
 if [ -z "${GPW:-}" ]; then
   GPW=$(openssl rand -base64 24 | tr -d '/+=' | head -c 28)
   echo "GRAFANA_RO_PW=$GPW" >> /root/monitoreo-secrets.env
   echo "  generada GRAFANA_RO_PW (guardada en monitoreo-secrets.env)"
 fi
-if [ "$($PSQL -tAc "SELECT 1 FROM pg_roles WHERE rolname='grafana_ro'")" = "1" ]; then
-  $PSQL -c "ALTER ROLE grafana_ro LOGIN PASSWORD '$GPW'"
+# El rol se crea como superusuario postgres (monitoreo no tiene CREATEROLE).
+PGS="sudo -u postgres psql -d monitoreo -v ON_ERROR_STOP=1"
+if [ "$(sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='grafana_ro'")" = "1" ]; then
+  $PGS -c "ALTER ROLE grafana_ro LOGIN PASSWORD '$GPW'"
 else
-  $PSQL -c "CREATE ROLE grafana_ro LOGIN PASSWORD '$GPW'"
+  $PGS -c "CREATE ROLE grafana_ro LOGIN PASSWORD '$GPW'"
 fi
-$PSQL -c "GRANT CONNECT ON DATABASE monitoreo TO grafana_ro"
-$PSQL -c "GRANT USAGE ON SCHEMA public TO grafana_ro"
-$PSQL -c "GRANT SELECT ON ALL TABLES IN SCHEMA public TO grafana_ro"
-$PSQL -c "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO grafana_ro"
-$PSQL -c "REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON ALL TABLES IN SCHEMA public FROM grafana_ro" >/dev/null 2>&1 || true
+$PGS -c "GRANT CONNECT ON DATABASE monitoreo TO grafana_ro"
+$PGS -c "GRANT USAGE ON SCHEMA public TO grafana_ro"
+$PGS -c "GRANT SELECT ON ALL TABLES IN SCHEMA public TO grafana_ro"
+$PGS -c "ALTER DEFAULT PRIVILEGES FOR ROLE monitoreo IN SCHEMA public GRANT SELECT ON TABLES TO grafana_ro"
 
 echo "== 3) Provisionar datasource + dashboards =="
 install -d /etc/grafana/provisioning/datasources /etc/grafana/provisioning/dashboards /var/lib/grafana/dashboards
