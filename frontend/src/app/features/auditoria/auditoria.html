@@ -1,0 +1,70 @@
+<div class="head">
+  <h1>Bitácora de auditoría</h1>
+  <span class="text-dim">{{ total() }} registro(s)</span>
+</div>
+
+<div class="filtros">
+  <input type="search" placeholder="Buscar (usuario o descripción)…"
+         [ngModel]="buscar()" (ngModelChange)="buscar.set($event)" (keyup.enter)="cargar()" />
+  <select [ngModel]="fAccion()" (ngModelChange)="fAccion.set($event); cargar()">
+    <option value="">Toda acción</option>
+    @for (a of acciones; track a) { <option [value]="a">{{ a }}</option> }
+  </select>
+  <select [ngModel]="fEntidad()" (ngModelChange)="fEntidad.set($event); cargar()">
+    <option value="">Toda entidad</option>
+    @for (e of entidades; track e) { <option [value]="e">{{ e }}</option> }
+  </select>
+  <button class="btn" (click)="cargar()">Filtrar</button>
+</div>
+
+@if (cargando()) {
+  <p class="text-dim">Cargando…</p>
+} @else if (entradas().length === 0) {
+  <p class="text-dim">Sin registros para el filtro.</p>
+} @else {
+  <table>
+    <thead>
+      <tr>
+        <th>Fecha</th><th>Usuario</th><th>Acción</th><th>Entidad</th>
+        <th>Objeto</th><th>IP</th><th></th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (e of entradas(); track e.id) {
+        <tr>
+          <td class="text-dim nowrap">{{ fecha(e.ts) }}</td>
+          <td>{{ e.actor_email ?? '—' }} @if (e.actor_rol) { <span class="rol">{{ e.actor_rol }}</span> }</td>
+          <td><span class="acc" [class]="'acc-' + e.accion">{{ e.accion }}</span></td>
+          <td class="text-dim">{{ e.entidad }}</td>
+          <td>{{ e.descripcion ?? '—' }}<span class="text-dim"> #{{ e.entidad_id ?? '' }}</span></td>
+          <td class="text-dim nowrap">{{ e.ip ?? '—' }}</td>
+          <td>
+            @if (e.cambios) {
+              <button class="btn ver" (click)="toggle(e.id)">
+                {{ expandida() === e.id ? 'Ocultar' : 'Cambios' }}
+              </button>
+            }
+          </td>
+        </tr>
+        @if (expandida() === e.id && e.cambios) {
+          <tr class="detalle-row">
+            <td colspan="7">
+              <table class="diff">
+                <thead><tr><th>Campo</th><th>Antes</th><th>Después</th></tr></thead>
+                <tbody>
+                  @for (campo of campos(e.cambios); track campo) {
+                    <tr>
+                      <td><b>{{ campo }}</b></td>
+                      <td class="antes">{{ fmt(e.cambios[campo][0]) }}</td>
+                      <td class="despues">{{ fmt(e.cambios[campo][1]) }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </td>
+          </tr>
+        }
+      }
+    </tbody>
+  </table>
+}

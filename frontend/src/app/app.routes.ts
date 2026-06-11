@@ -51,6 +51,11 @@ export const routes: Routes = [
         canActivate: [adminGuard],
         loadComponent: () => import('./features/usuarios/usuarios').then((m) => m.Usuarios),
       },
+      {
+        path: 'auditoria',
+        canActivate: [adminGuard],
+        loadComponent: () => import('./features/auditoria/auditoria').then((m) => m.Auditoria),
+      },
     ],
   },
   { path: '**', redirectTo: '' },

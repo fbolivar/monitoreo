@@ -1,0 +1,29 @@
+.head { display: flex; align-items: baseline; gap: 12px; margin: 8px 0 14px; }
+h1 { font-size: 18px; margin: 0; }
+
+.filtros { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.filtros input[type="search"] { min-width: 240px; }
+
+table { width: 100%; font-size: 13px; }
+.nowrap { white-space: nowrap; }
+
+.rol {
+  background: var(--primary-50); color: var(--primary-dark);
+  border-radius: 8px; padding: 1px 6px; font-size: 10px; font-weight: 600;
+  text-transform: uppercase; margin-left: 6px;
+}
+
+.acc { font-weight: 700; text-transform: uppercase; font-size: 11px; }
+.acc-crear { color: #1b8a3a; }
+.acc-actualizar { color: #2e6fd6; }
+.acc-eliminar { color: var(--sev-critical); }
+.acc-login { color: var(--text-dim); }
+.acc-login_fallido { color: var(--sev-warning); }
+
+.btn.ver { padding: 2px 8px; font-size: 12px; }
+
+.detalle-row td { background: var(--bg-2, #f5f7f5); }
+table.diff { width: 100%; font-size: 12px; }
+table.diff th { font-weight: 600; color: var(--text-dim); }
+.diff .antes { color: var(--sev-critical); text-decoration: line-through; opacity: .8; }
+.diff .despues { color: #1b8a3a; }

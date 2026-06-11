@@ -111,6 +111,20 @@ export interface ReporteDisponibilidad {
   recursos: FilaDisponibilidad[];
 }
 
+export interface AuditoriaEntrada {
+  id: number;
+  ts: string;
+  perfil_id: string | null;
+  actor_email: string | null;
+  actor_rol: string | null;
+  accion: string;       // crear | actualizar | eliminar | login | login_fallido
+  entidad: string;
+  entidad_id: string | null;
+  descripcion: string | null;
+  cambios: Record<string, [unknown, unknown]> | null;
+  ip: string | null;
+}
+
 export interface Perfil {
   id: string;
   email: string;

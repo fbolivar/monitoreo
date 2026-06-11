@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AuditoriaController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CanalNotificacionController;
 use App\Http\Controllers\ChequeoController;
@@ -78,8 +79,9 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
         Route::post('incidencias/{id}/resolver', [IncidenciaController::class, 'resolver'])->whereNumber('id');
     });
 
-    // ── USUARIOS (perfiles): solo admin ──────────────────────────────
+    // ── USUARIOS (perfiles) y AUDITORÍA: solo admin ──────────────────
     Route::middleware('role:admin')->group(function () {
+        Route::get('auditoria', [AuditoriaController::class, 'index']);
         Route::get('usuarios', [PerfilController::class, 'index']);
         Route::get('usuarios/{id}', [PerfilController::class, 'show']);
         Route::post('usuarios', [PerfilController::class, 'store']);

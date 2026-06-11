@@ -27,6 +27,7 @@ import { AuthService } from '../core/auth.service';
           <a routerLink="/configuracion" routerLinkActive="active">Configuración</a>
           @if (auth.esAdmin()) {
             <a routerLink="/usuarios" routerLinkActive="active">Usuarios</a>
+            <a routerLink="/auditoria" routerLinkActive="active">Auditoría</a>
           }
         </nav>
         <div class="pie text-dim">Parques Nacionales Naturales<br />de Colombia</div>
