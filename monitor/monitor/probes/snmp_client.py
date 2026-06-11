@@ -46,12 +46,17 @@ async def _snmp_get_async(host, port, cred, oids, timeout, retries):
         SnmpEngine,
         UdpTransportTarget,
         UsmUserData,
-        get_cmd,
         usmAesCfb128Protocol,
         usmDESPrivProtocol,
         usmHMACMD5AuthProtocol,
         usmHMACSHAAuthProtocol,
     )
+
+    # Nombre del comando GET: pysnmp 7.x usa get_cmd; 6.x usa getCmd.
+    try:
+        from pysnmp.hlapi.asyncio import get_cmd as _get_cmd
+    except ImportError:
+        from pysnmp.hlapi.asyncio import getCmd as _get_cmd
 
     auth_protos = {"MD5": usmHMACMD5AuthProtocol, "SHA": usmHMACSHAAuthProtocol}
     priv_protos = {"DES": usmDESPrivProtocol, "AES": usmAesCfb128Protocol}
@@ -68,11 +73,16 @@ async def _snmp_get_async(host, port, cred, oids, timeout, retries):
             kwargs["privKey"] = cred.priv_key
         auth_data = UsmUserData(cred.user, **kwargs)
 
-    target = await UdpTransportTarget.create((host, port), timeout=timeout, retries=retries)
+    # Transporte: pysnmp 7.x usa await .create(); 6.x el constructor directo.
+    if hasattr(UdpTransportTarget, "create"):
+        target = await UdpTransportTarget.create((host, port), timeout=timeout, retries=retries)
+    else:
+        target = UdpTransportTarget((host, port), timeout=timeout, retries=retries)
+
     nombres = list(oids.keys())
     objetos = [ObjectType(ObjectIdentity(oids[n])) for n in nombres]
 
-    error_indication, error_status, error_index, var_binds = await get_cmd(
+    error_indication, error_status, error_index, var_binds = await _get_cmd(
         SnmpEngine(), auth_data, target, ContextData(), *objetos
     )
 
