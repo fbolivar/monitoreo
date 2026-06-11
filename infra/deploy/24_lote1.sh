@@ -18,8 +18,10 @@ printf "  traps:  "; systemctl is-active simon-traps
 
 echo "== Prueba traps->incidencia (recurso temporal, correo desactivado) =="
 $PSQL -c "UPDATE canales_notificacion SET activo=false WHERE tipo='email'" >/dev/null
+$PSQL -c "DELETE FROM recursos WHERE nombre='ZZ-TRAP-TEST'" >/dev/null  # limpia restos previos
 TIPO=$($PSQL -tAc "SELECT id FROM tipos_recurso WHERE codigo='switch_lan' LIMIT 1")
-RID=$($PSQL -tAc "INSERT INTO recursos (tipo_id, nombre, hostname, activo) VALUES ($TIPO,'ZZ-TRAP-TEST','127.0.0.1',true) RETURNING id")
+$PSQL -c "INSERT INTO recursos (tipo_id, nombre, hostname, activo) VALUES ($TIPO,'ZZ-TRAP-TEST','127.0.0.1',true)" >/dev/null
+RID=$($PSQL -tAc "SELECT id FROM recursos WHERE nombre='ZZ-TRAP-TEST'")
 $PSQL -c "INSERT INTO interfaces (recurso_id, if_index, if_name, admin_estado, oper_estado) VALUES ($RID,7,'Gi0/7','up','up') ON CONFLICT DO NOTHING" >/dev/null
 echo "  recurso temporal id=$RID (hostname 127.0.0.1)"
 
@@ -34,7 +36,7 @@ sleep 3
 $PSQL -c "SELECT if_index, estado, (resuelta_at IS NOT NULL) AS resuelta FROM incidencias WHERE recurso_id=$RID"
 
 echo "== Limpieza =="
-$PSQL -c "DELETE FROM recursos WHERE id=$RID" >/dev/null
+$PSQL -c "DELETE FROM recursos WHERE nombre='ZZ-TRAP-TEST'" >/dev/null
 $PSQL -c "UPDATE canales_notificacion SET activo=true WHERE tipo='email'" >/dev/null
 echo "  recurso temporal eliminado, correo reactivado."
 
