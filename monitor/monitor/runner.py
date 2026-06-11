@@ -127,6 +127,24 @@ def _detectar_failover(db: Database, recurso: Recurso, resultado: ResultadoProbe
     return ev
 
 
+def latido_externo(db: Database, settings: Settings) -> None:
+    """Dead-man's switch: envía un latido a una URL externa solo si la BD responde.
+    Si el worker/servidor cae (o la BD no responde), el latido se detiene y el
+    servicio externo (p. ej. healthchecks.io) alerta."""
+    if not settings.deadman_url:
+        return
+    try:
+        db.ping()
+    except Exception:
+        log.warning("Dead-man's switch: la BD no responde; no se envía latido.")
+        return
+    try:
+        import httpx
+        httpx.get(settings.deadman_url, timeout=10)
+    except Exception:  # noqa: BLE001
+        log.debug("Dead-man's switch: no se pudo enviar el latido (¿red?).")
+
+
 def escalar_incidencias(db: Database, settings: Settings) -> None:
     """Job periódico: escala incidencias 'abierta' no reconocidas a tiempo (on-call)."""
     if not settings.escalation_min or settings.escalation_min <= 0:

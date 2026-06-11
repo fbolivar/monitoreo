@@ -223,6 +223,17 @@ def guardar_interfaces_historico(db: Database, recurso_id: int, interfaces: list
         )
 
 
+def nombre_interfaz(db: Database, recurso_id: int, if_index: int) -> str | None:
+    """Nombre de una interfaz ya descubierta (snapshot), si existe."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT if_name FROM interfaces WHERE recurso_id = %s AND if_index = %s",
+            (recurso_id, if_index),
+        )
+        row = cur.fetchone()
+        return row["if_name"] if row else None
+
+
 def interfaces_monitoreadas(db: Database, recurso_id: int) -> list[dict[str, Any]]:
     """Interfaces marcadas para alertar (monitorear=true) con su estado oper actual."""
     with db.connection() as conn, conn.cursor() as cur:

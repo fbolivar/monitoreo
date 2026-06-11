@@ -9,6 +9,7 @@ Solo lectura/inserción; no toca el state-machine de incidencias del worker.
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 
 from pysnmp.carrier.asyncio.dgram import udp
 from pysnmp.entity import config, engine
@@ -17,8 +18,12 @@ from pysnmp.entity.rfc3413 import ntfrcv
 from monitor import repository as repo
 from monitor.config import cargar_settings
 from monitor.db import Database
+from monitor.notificaciones import notificar
 
 SNMP_TRAP_OID = "1.3.6.1.6.3.1.1.4.1.0"
+IF_INDEX_PREFIX = "1.3.6.1.2.1.2.2.1.1."  # ifIndex en los varbinds de linkDown/linkUp
+LINKDOWN_OID = "1.3.6.1.6.3.1.1.5.3"
+LINKUP_OID = "1.3.6.1.6.3.1.1.5.4"
 
 # OID del trap estándar -> (nombre, severidad, descripción)
 TRAPS_CONOCIDOS: dict[str, tuple[str, str, str]] = {
@@ -32,15 +37,21 @@ TRAPS_CONOCIDOS: dict[str, tuple[str, str, str]] = {
 log = logging.getLogger("monitor.traps")
 
 
-def _procesar(db: Database, source_ip: str | None, var_binds) -> None:
+def _procesar(db: Database, settings, source_ip: str | None, var_binds) -> None:
     varbinds: dict[str, str] = {}
     trap_oid = None
+    if_index = None
     for oid, val in var_binds:
         soid = str(oid)
         sval = val.prettyPrint()
         varbinds[soid] = sval
         if soid == SNMP_TRAP_OID:
             trap_oid = sval
+        elif soid.startswith(IF_INDEX_PREFIX):  # ifIndex de linkDown/linkUp
+            try:
+                if_index = int(sval)
+            except (TypeError, ValueError):
+                pass
 
     nombre, severidad, descr = TRAPS_CONOCIDOS.get(trap_oid or "", (None, "info", None))
     if nombre is None:
@@ -49,7 +60,38 @@ def _procesar(db: Database, source_ip: str | None, var_binds) -> None:
 
     recurso_id = repo.recurso_id_por_host(db, source_ip) if source_ip else None
     repo.guardar_trap(db, source_ip, recurso_id, trap_oid, nombre, severidad, descr, varbinds)
-    log.info("Trap %s de %s (recurso=%s)", nombre, source_ip, recurso_id)
+    log.info("Trap %s de %s (recurso=%s, if=%s)", nombre, source_ip, recurso_id, if_index)
+
+    # Tiempo real: linkDown/linkUp abren/cierran incidencia de interfaz + notifican.
+    if recurso_id and if_index is not None and trap_oid in (LINKDOWN_OID, LINKUP_OID):
+        _incidencia_por_trap(db, settings, recurso_id, if_index, trap_oid)
+
+
+def _incidencia_por_trap(db: Database, settings, recurso_id: int, if_index: int, trap_oid: str) -> None:
+    recurso = repo.cargar_recurso(db, recurso_id)
+    if recurso is None:
+        return
+    nombre_if = repo.nombre_interfaz(db, recurso_id, if_index) or f"if{if_index}"
+    ahora = datetime.now(timezone.utc)
+
+    if trap_oid == LINKDOWN_OID:
+        titulo = f"{recurso.nombre}: puerto {nombre_if} caído (trap)"
+        nueva = repo.abrir_incidencia_interfaz(
+            db, recurso_id, if_index, nombre_if, "warning", titulo,
+            "Trap linkDown recibido en tiempo real.", ahora)
+        if nueva:
+            log.warning("Incidencia interfaz %s ABIERTA por trap linkDown (recurso %s, %s)",
+                        nueva, recurso_id, nombre_if)
+            notificar(db, settings, incidencia_id=nueva, recurso=recurso,
+                      severidad="warning", evento="apertura", titulo=titulo)
+    else:  # linkUp
+        ab = repo.incidencia_interfaz_abierta(db, recurso_id, if_index)
+        if ab:
+            repo.cerrar_incidencia(db, ab["id"], ahora)
+            log.info("Incidencia interfaz %s resuelta por trap linkUp (%s).", ab["id"], nombre_if)
+            notificar(db, settings, incidencia_id=ab["id"], recurso=recurso,
+                      severidad=ab.get("severidad", "warning"), evento="cierre",
+                      titulo=f"{recurso.nombre}: puerto {nombre_if} recuperado (trap)")
 
 
 def main() -> int:
@@ -88,7 +130,7 @@ def main() -> int:
         try:
             addr = estado.get("addr")
             ip = str(addr[0]) if addr else None
-            _procesar(db, ip, var_binds)
+            _procesar(db, settings, ip, var_binds)
         except Exception:
             log.exception("Error procesando trap recibido")
 

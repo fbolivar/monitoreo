@@ -13,7 +13,7 @@ from . import repository as repo
 from .config import Settings
 from .db import Database
 from .notificaciones import reintentar_pendientes
-from .runner import ejecutar_chequeo_por_id, escalar_incidencias
+from .runner import ejecutar_chequeo_por_id, escalar_incidencias, latido_externo
 
 log = logging.getLogger(__name__)
 
@@ -37,6 +37,10 @@ def _job_id(recurso_id: int) -> str:
 def sincronizar_jobs(scheduler: BackgroundScheduler, db: Database, settings: Settings) -> None:
     """Crea/actualiza/elimina jobs según los recursos activos en la BD."""
     recursos = repo.cargar_recursos_activos(db)
+    # Pollers distribuidos: este worker solo atiende los sitios configurados.
+    filtro = settings.sitios_filtro()
+    if filtro:
+        recursos = [r for r in recursos if r.sitio_id in filtro]
     activos = {_job_id(r.id) for r in recursos}
 
     # Altas y cambios de intervalo
@@ -76,6 +80,17 @@ def registrar_tareas_internas(scheduler: BackgroundScheduler, db: Database, sett
         id="sync-jobs",
         replace_existing=True,
     )
+
+    # Dead-man's switch: latido a un servicio externo.
+    if settings.deadman_url:
+        scheduler.add_job(
+            latido_externo,
+            trigger=IntervalTrigger(seconds=settings.deadman_interval_seg),
+            args=[db, settings],
+            id="deadman",
+            replace_existing=True,
+        )
+        log.info("Dead-man's switch activo (latido cada %ss).", settings.deadman_interval_seg)
 
     # Reintento de notificaciones fallidas.
     if settings.notif_enabled:

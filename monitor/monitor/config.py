@@ -71,8 +71,21 @@ class Settings:
     trap_port: int = _int("TRAP_PORT", 162)
     trap_community: str = os.getenv("TRAP_COMMUNITY", "public")
 
+    # Dead-man's switch: el worker manda un "latido" a esta URL externa cada
+    # deadman_interval_seg. Si SIMON (o el servidor) se cae, ese servicio externo
+    # deja de recibir el latido y alerta. Vacío = desactivado.
+    deadman_url: str = os.getenv("DEADMAN_URL", "")
+    deadman_interval_seg: int = _int("DEADMAN_INTERVAL_SEG", 60)
+
+    # Pollers distribuidos: si se define (ej "1,3,5"), este worker SOLO atiende los
+    # recursos de esos sitios. Permite desplegar un worker por sede/parque remoto.
+    worker_sitios: str = os.getenv("WORKER_SITIOS", "")
+
     # Logging
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
+
+    def sitios_filtro(self) -> list[int]:
+        return [int(x) for x in self.worker_sitios.split(",") if x.strip().isdigit()]
 
     def dsn(self) -> str:
         return (
