@@ -15,7 +15,11 @@ export interface Sitio {
   id: number;
   codigo: string;
   nombre: string;
-  ciudad?: string;
+  direccion?: string | null;
+  ciudad?: string | null;
+  latitud?: number | null;
+  longitud?: number | null;
+  descripcion?: string | null;
   activo?: boolean;
 }
 

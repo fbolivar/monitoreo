@@ -20,6 +20,7 @@ import { AuthService } from '../core/auth.service';
         <nav>
           <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Dashboard</a>
           <a routerLink="/recursos" routerLinkActive="active">Recursos</a>
+          <a routerLink="/sitios" routerLinkActive="active">Sitios</a>
           <a routerLink="/incidencias" routerLinkActive="active">Incidencias</a>
           <a routerLink="/configuracion" routerLinkActive="active">Configuración</a>
           @if (auth.esAdmin()) {

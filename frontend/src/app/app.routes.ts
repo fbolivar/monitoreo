@@ -21,6 +21,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/recursos/recursos').then((m) => m.Recursos),
       },
       {
+        path: 'sitios',
+        loadComponent: () => import('./features/sitios/sitios').then((m) => m.Sitios),
+      },
+      {
         path: 'recursos/:id',
         loadComponent: () =>
           import('./features/recurso-detalle/recurso-detalle').then((m) => m.RecursoDetalle),

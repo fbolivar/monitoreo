@@ -1,0 +1,74 @@
+<div class="head">
+  <h1>Sitios</h1>
+  @if (auth.puedeEditar()) {
+    <button class="btn btn-primary" (click)="nuevo()">+ Nuevo sitio</button>
+  } @else {
+    <span class="text-dim">Rol {{ auth.rol() }} · solo lectura</span>
+  }
+</div>
+
+@if (error()) { <p class="err">{{ error() }}</p> }
+@if (ok()) { <p class="ok">{{ ok() }}</p> }
+
+@if (creando() || editandoId() !== null) {
+  <form class="card form" (ngSubmit)="guardar()">
+    <h2>{{ editandoId() ? 'Editar sitio' : 'Nuevo sitio' }}</h2>
+    <div class="grid">
+      <label>Código
+        <input name="codigo" [(ngModel)]="form.codigo" required maxlength="50" />
+      </label>
+      <label>Nombre
+        <input name="nombre" [(ngModel)]="form.nombre" required maxlength="255" />
+      </label>
+      <label>Ciudad
+        <input name="ciudad" [(ngModel)]="form.ciudad" maxlength="120" />
+      </label>
+      <label class="wide">Dirección
+        <input name="direccion" [(ngModel)]="form.direccion" maxlength="255" />
+      </label>
+      <label>Latitud
+        <input type="number" step="any" name="latitud" [(ngModel)]="form.latitud" min="-90" max="90" />
+      </label>
+      <label>Longitud
+        <input type="number" step="any" name="longitud" [(ngModel)]="form.longitud" min="-180" max="180" />
+      </label>
+      <label class="check"><input type="checkbox" name="activo" [(ngModel)]="form.activo" /> Activo</label>
+    </div>
+    <label>Descripción
+      <textarea name="descripcion" rows="2" [(ngModel)]="form.descripcion"></textarea>
+    </label>
+    <div class="acciones">
+      <button type="submit" class="btn btn-primary" [disabled]="guardando()">
+        {{ guardando() ? 'Guardando…' : 'Guardar' }}
+      </button>
+      <button type="button" class="btn" (click)="cancelar()">Cancelar</button>
+    </div>
+  </form>
+}
+
+@if (cargando()) {
+  <p class="text-dim">Cargando…</p>
+} @else {
+  <table>
+    <thead>
+      <tr><th>Código</th><th>Nombre</th><th>Ciudad</th><th>Dirección</th><th>Activo</th><th></th></tr>
+    </thead>
+    <tbody>
+      @for (s of sitios(); track s.id) {
+        <tr>
+          <td>{{ s.codigo }}</td>
+          <td>{{ s.nombre }}</td>
+          <td>{{ s.ciudad ?? '—' }}</td>
+          <td class="text-dim">{{ s.direccion ?? '—' }}</td>
+          <td>{{ s.activo ? 'Sí' : 'No' }}</td>
+          <td class="acc">
+            @if (auth.puedeEditar()) {
+              <button class="btn" (click)="editar(s)">Editar</button>
+              <button class="btn" (click)="eliminar(s)">Eliminar</button>
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}
