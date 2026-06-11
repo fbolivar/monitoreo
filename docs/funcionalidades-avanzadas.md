@@ -11,6 +11,11 @@ https://192.168.50.54/. Esta guía resume **qué hacen** y **cómo operarlas**.
 | Mapa de sedes | — | frontend |
 | Bitácora de auditoría | 0006 | BD · API · frontend |
 | Interfaces Fase 2 (histórico + alertas) | 0007 | BD · worker · API · frontend |
+| Escalado por tiempo (on-call) | 0008 | BD · worker |
+| Tablero NOC (wallboard) | — | frontend |
+| Grafana | — | infra |
+| Receptor de SNMP traps | 0009 | BD · worker (servicio) · API · frontend |
+| SSO AD/LDAP + 2FA TOTP | 0010 | BD · API · frontend |
 
 ---
 
@@ -74,6 +79,67 @@ Sobre la funcionalidad 1:
   Cuando un puerto monitoreado pasa a **oper-down**, el worker **abre una incidencia**
   ("puerto X caído") y **notifica**; al recuperarse, la **cierra**. Respeta mantenimiento y la
   supresión por dependencia.
+
+## 7. Escalado por tiempo (on-call)
+
+Si una incidencia **abierta no se reconoce** en `ESCALATION_MIN` minutos (def. 15), el worker
+reenvía un evento **"⏰ escalada por tiempo"** por los canales activos. **Reconocer la incidencia
+detiene el escalado.** Complementa el escalado por severidad ya existente.
+
+Variables (`monitor/.env`): `ESCALATION_MIN` (0 = desactivado), `ESCALATION_CHECK_SEG` (frecuencia
+del chequeo). Sugerencia: define un canal (correo/Telegram) con `min_severidad` adecuado para que la
+escalada llegue al on-call.
+
+## 8. Tablero NOC (wallboard)
+
+Entrada **"Tablero NOC ↗"** del menú → vista **a pantalla completa** (`/wallboard`, fuera del marco
+normal), tema oscuro, **autorefrescante**, con: KPIs globales (operativo/degradado/caído/…), reloj,
+indicador EN VIVO y **tiles por sede** coloreados por peor estado (parpadean si hay caídas).
+Pensada para proyectar en la sala de operaciones. "Salir" regresa a la app.
+
+## 9. Grafana
+
+Dashboards ricos e históricos largos leyendo **el mismo PostgreSQL** (rol de **solo lectura**).
+
+- Acceso: `http://192.168.50.54:3000` (usuario `admin`/`admin` el primer ingreso → **cámbialo**).
+- Trae el dashboard **"SIMON — Visión general"** (estado, incidencias, latencia, throughput).
+- Instalación/provisión: `infra/deploy/19_grafana.sh` (rol `grafana_ro`, datasource y dashboard
+  automáticos; artefactos en `infra/grafana/`). La clave RO queda en `GRAFANA_RO_PW`.
+
+## 10. Receptor de SNMP traps (tiempo real)
+
+Servicio **`simon-traps`** escuchando **UDP/162**: captura eventos que los equipos envían por su
+cuenta (link down/up, cold/warm start, fallas, autenticación) **entre sondeos**, los asocia al
+recurso por IP de origen y los registra. Pantalla **"Traps"** (filtro por severidad + varbinds).
+
+**Para que un equipo envíe traps a SIMON:** configura el destino de traps SNMP del equipo apuntando
+a la IP del servidor, comunidad `public` (o la que definas en `TRAP_COMMUNITY`). Ej. FortiGate/Dell:
+"SNMP trap host = 192.168.50.54". *(Aún no abre incidencias automáticamente; es registro + visibilidad
+en tiempo real — el paso a incidencia/alerta queda como mejora futura.)*
+
+## 11. SSO AD/LDAP + 2FA (TOTP)
+
+**2FA (verificación en dos pasos):** cada usuario lo activa en **"Seguridad"** (topbar): se genera un
+secreto (clave + enlace `otpauth://` para la app autenticadora — Google/Microsoft Authenticator,
+FreeOTP), se confirma con un código de 6 dígitos. A partir de ahí, el login pide el código. Solo
+aplica a **cuentas locales**. Implementación propia (RFC 6238), sin dependencias.
+
+**SSO con Active Directory / LDAP** (opcional, *env-gated*): permite entrar con credenciales
+corporativas. Desactivado por defecto. Para activarlo, en `api/.env`:
+
+```
+AUTH_LDAP_ENABLED=true
+AUTH_LDAP_HOST=ldap://controlador.dominio.gov.co
+AUTH_LDAP_PORT=389
+AUTH_LDAP_TLS=false
+AUTH_LDAP_BIND_PATTERN={user}@parques.gov.co   # o '{user}' si se escribe el UPN completo
+AUTH_LDAP_ROL_DEFAULT=viewer
+```
+
+El login intenta primero la contraseña local (el admin local siempre funciona) y luego LDAP. Al
+primer ingreso por LDAP se crea el perfil con `origen='ldap'` y rol por defecto (ajustable luego en
+Usuarios). Requiere la extensión `php8.2-ldap` (ya instalada). Los usuarios LDAP usan el 2FA del
+directorio, no el de la app.
 
 ---
 

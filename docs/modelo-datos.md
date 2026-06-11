@@ -182,6 +182,10 @@ Migraciones 0004–0007 (ver `db/migrations/` y `docs/funcionalidades-avanzadas.
   `entidad_id`, `cambios` (jsonb diff), `ip`.
 - **0007** — `interfaces_historico` (serie temporal de Mbps por puerto, retención 7d),
   `interfaces.monitorear` (alertar si cae), e `incidencias.if_index`/`if_nombre` (incidencias por interfaz).
+- **0008 `incidencias.escalada_at`** — marca de escalado por tiempo (on-call), evita reescalar.
+- **0009 `traps`** — SNMP traps recibidos: `source_ip`, `recurso_id`, `trap_oid`, `nombre`,
+  `severidad`, `descripcion`, `varbinds` (jsonb). Lo escribe el servicio `simon-traps`.
+- **0010 `perfiles`** — `totp_secret`/`totp_activo` (2FA TOTP) y `origen` (`local` | `ldap` para SSO AD).
 
 > El catálogo de estados y la política de retención son **propuestas** de esta
 > fase: la sección correspondiente de `CLAUDE.md` estaba vacía.

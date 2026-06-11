@@ -9,7 +9,7 @@ cd /opt/monitoreo
 echo "== Commit desplegado =="; git log --oneline -1
 
 echo "== Servicios =="
-for s in monitoreo-worker nginx php8.2-fpm postgresql; do
+for s in monitoreo-worker simon-traps grafana-server nginx php8.2-fpm postgresql; do
   printf "  %-18s " "$s"; systemctl is-active "$s" 2>/dev/null || true
 done
 printf "  %-18s " ufw; ufw status 2>/dev/null | head -1
@@ -26,7 +26,7 @@ $PSQL -tAc "SELECT '   incidencias.if_index    -> ' || count(*) FROM information
 
 echo "== Conteos =="
 $PSQL -c "SELECT estado_actual, count(*) FROM recursos GROUP BY 1 ORDER BY 2 DESC"
-for t in chequeos metricas interfaces interfaces_historico auditoria; do
+for t in chequeos metricas interfaces interfaces_historico auditoria traps; do
   printf "  %-22s " "$t"; $PSQL -tAc "SELECT count(*) FROM $t"
 done
 printf "  %-22s " "incidencias_abiertas"; $PSQL -tAc "SELECT count(*) FROM incidencias WHERE estado<>'resuelta'"

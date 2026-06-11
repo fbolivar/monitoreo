@@ -145,7 +145,28 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
     + notifica para interfaces monitoreadas (respeta mantenimiento y supresión por dependencia).
     API: PUT /recursos/{id}/interfaces/{ifIndex} (monitorear) y GET .../historico. UI: checkbox
     "Monitorear" + gráficas entrada/salida por puerto.
-  - PENDIENTE del roadmap: canal Telegram (construido en Fase 5, falta configurar/probar) y Teams.
+  - Canales: Telegram (motor Fase 5; falta configurar bot_token/chat_id) y Teams (sender provisto,
+    Incoming Webhook MessageCard; tipo 'teams' permitido) — implementados, sin configurar aún.
+
+- ✅ MEJORAS 2ª OLA (mercado, 2026-06-11) — todas en producción y verificadas (commit 6b831a2):
+  - **Escalado por tiempo (on-call)** [migr. 0008]: `incidencias.escalada_at`; job APScheduler
+    `escalar_incidencias` (cada `ESCALATION_CHECK_SEG`); si una incidencia 'abierta' supera
+    `ESCALATION_MIN` (def 15) sin reconocerse, reenvía evento `escalada_tiempo`. Reconocer la detiene.
+  - **Tablero NOC (wallboard)**: ruta `/wallboard` a pantalla completa (fuera del Shell), tema oscuro,
+    autorefresco, KPIs + tiles por sede coloreados (parpadeo en caídas). Para sala de operaciones.
+  - **Grafana**: instalado en `:3000` (script `19_grafana.sh`); rol Postgres RO `grafana_ro`
+    (clave en `GRAFANA_RO_PW`); datasource + dashboard autoprovisionados (`infra/grafana/`). ufw 3000.
+  - **Receptor de SNMP traps** [migr. 0009]: servicio systemd `simon-traps` (`monitor/trap_listener.py`,
+    pysnmp ntfrcv UDP/162, community `TRAP_COMMUNITY`); mapea IP→recurso; clasifica
+    linkDown/linkUp/cold-warmStart/authFailure; tabla `traps`; GET `/api/traps`; pantalla "Traps".
+    Pasa de sondeo a TIEMPO REAL en eventos de red. ufw 162/udp.
+  - **SSO AD/LDAP** (env-gated) [migr. 0010, `origen`]: `config/ldap.php` + `App\Support\Ldap` (bind
+    simple); `AuthController` intenta local y luego LDAP si `AUTH_LDAP_ENABLED`; crea perfil
+    `origen='ldap'` al primer ingreso. Requiere `php8.2-ldap` (instalado). Sin configurar (sin AD).
+  - **2FA TOTP** [migr. 0010, `totp_secret`/`totp_activo`]: `App\Support\Totp` (RFC 6238, sin deps);
+    `DosFactorController` (`/api/2fa/iniciar|activar|desactivar`); login pide `codigo` y responde
+    `{requiere_2fa:true}` si falta; pantalla "Seguridad". Solo cuentas locales (LDAP usa el 2FA del AD).
+  Guía operativa de todo en `docs/funcionalidades-avanzadas.md`.
 
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.

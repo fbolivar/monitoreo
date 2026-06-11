@@ -39,7 +39,11 @@ notificaciones → despliegue) y las **mejoras de operación** del roadmap:
 - ✅ Dependencias padre→hijo (anti-tormenta de alertas).
 - ✅ Reportes de disponibilidad/SLA (CSV) y mapa de sedes (SVG offline).
 - ✅ Bitácora de auditoría (CRUD + login, solo admin).
-- ⏳ Pendiente: canal Telegram (configurar/probar) y Microsoft Teams.
+- ✅ Escalado por tiempo (on-call) y Tablero NOC a pantalla completa.
+- ✅ Grafana (dashboards sobre el mismo Postgres, solo lectura).
+- ✅ Receptor de SNMP traps (eventos en tiempo real, servicio `simon-traps`).
+- ✅ 2FA (TOTP) y SSO AD/LDAP (env-gated).
+- ⏳ Pendiente: configurar canal Telegram y Microsoft Teams; activar LDAP cuando haya datos del AD.
 
 Detalle operativo de cada una en [`docs/funcionalidades-avanzadas.md`](docs/funcionalidades-avanzadas.md).
 El detalle por fases vive en [`CLAUDE.md`](CLAUDE.md).
