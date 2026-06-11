@@ -52,7 +52,12 @@ def parsear_uso(data: dict | None) -> dict[str, float | None]:
 
 
 def parsear_ha(data: dict | None, esperados: int) -> dict | None:
-    """Interpreta system/ha-statistics. Devuelve None si no hay HA (standalone)."""
+    """Interpreta system/ha-statistics. Devuelve None si no hay HA (standalone).
+
+    El primario se identifica por el `serial` de NIVEL SUPERIOR de la respuesta
+    (FortiOS responde por la unidad primaria del clúster). Como respaldo para
+    otras versiones, también se aceptan banderas por miembro (_CLAVES_PRIMARIO).
+    """
     if not data:
         return None
 
@@ -62,11 +67,15 @@ def parsear_ha(data: dict | None, esperados: int) -> dict | None:
     if not isinstance(miembros, list):
         return None
 
+    serial_primario = data.get("serial")  # unidad que responde = primaria
     info = []
     primary = None
     for m in miembros:
         serial = m.get("serial_no") or m.get("serial") or m.get("hostname")
-        es_primary = any(bool(m.get(k)) for k in _CLAVES_PRIMARIO)
+        es_primary = (
+            (serial_primario is not None and serial == serial_primario)
+            or any(bool(m.get(k)) for k in _CLAVES_PRIMARIO)
+        )
         info.append({"serial": serial, "hostname": m.get("hostname"), "primary": es_primary})
         if es_primary and primary is None:
             primary = serial

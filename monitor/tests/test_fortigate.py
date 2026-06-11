@@ -44,5 +44,18 @@ def test_ha_caido_sin_primario():
     assert ha["primary"] is None
 
 
+def test_ha_primario_por_serial_raiz():
+    # FortiOS 7.x: ha-statistics no marca primary por miembro; el primario es
+    # el 'serial' de nivel superior (la unidad que responde).
+    data = {"serial": "FGMASTER", "results": [
+        {"serial_no": "FGMASTER", "hostname": "master"},
+        {"serial_no": "FGBACKUP", "hostname": "backup"},
+    ]}
+    ha = parsear_ha(data, esperados=2)
+    assert ha["estado"] == "up"
+    assert ha["primary"] == "FGMASTER"
+    assert ha["n"] == 2
+
+
 def test_ha_none_si_standalone():
     assert parsear_ha(None, esperados=2) is None
