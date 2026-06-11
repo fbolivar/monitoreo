@@ -39,8 +39,9 @@ def respaldar_config(host: str, token: str, verify_ssl: bool, timeout: float) ->
 
     base = host if host.startswith(("http://", "https://")) else f"https://{host}"
     headers = {"Authorization": f"Bearer {token}"}
+    # FortiOS expone el backup como POST (GET devuelve 405).
     with httpx.Client(base_url=base, headers=headers, verify=verify_ssl, timeout=timeout) as c:
-        r = c.get("/api/v2/monitor/system/config/backup", params={"scope": "global"})
+        r = c.post("/api/v2/monitor/system/config/backup", params={"scope": "global"})
         r.raise_for_status()
         return r.text
 
