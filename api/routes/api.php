@@ -109,5 +109,6 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
         Route::get('usuarios/{id}', [PerfilController::class, 'show']);
         Route::post('usuarios', [PerfilController::class, 'store']);
         Route::match(['put', 'patch'], 'usuarios/{id}', [PerfilController::class, 'update']);
+        Route::delete('usuarios/{id}', [PerfilController::class, 'destroy']);
     });
 });

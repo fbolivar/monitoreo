@@ -17,4 +17,7 @@ export class UsuariosService {
   actualizar(id: string, body: Record<string, unknown>): Observable<Perfil> {
     return this.api.put<Perfil>(`/usuarios/${id}`, body);
   }
+  eliminar(id: string): Observable<void> {
+    return this.api.delete<void>(`/usuarios/${id}`);
+  }
 }

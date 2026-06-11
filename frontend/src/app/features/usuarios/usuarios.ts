@@ -89,6 +89,16 @@ export class Usuarios implements OnInit {
     }
   }
 
+  eliminar(u: Perfil): void {
+    if (!confirm(`¿Eliminar al usuario "${u.nombre || u.email}"? Esta acción no se puede deshacer.`)) return;
+    this.error.set(null);
+    this.ok.set(null);
+    this.svc.eliminar(u.id).subscribe({
+      next: () => { this.ok.set('Usuario eliminado.'); this.cargar(); },
+      error: (e) => this.error.set(this.msg(e)),
+    });
+  }
+
   private msg(e: unknown): string {
     const err = e as { error?: { message?: string; errors?: Record<string, string[]> } };
     if (err?.error?.errors) {

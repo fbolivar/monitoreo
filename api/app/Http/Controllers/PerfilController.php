@@ -98,4 +98,25 @@ class PerfilController extends Controller
 
         return response()->json($perfil);
     }
+
+    public function destroy(Request $request, string $id): JsonResponse
+    {
+        $perfil = Perfil::findOrFail($id);
+
+        // Anti-bloqueo: no puedes eliminar tu propia cuenta.
+        $actual = $request->attributes->get('perfil');
+        if ($actual && $actual->id === $perfil->id) {
+            return response()->json(['message' => 'No puedes eliminar tu propia cuenta.'], 422);
+        }
+
+        // No dejar la app sin administradores activos.
+        if ($perfil->rol === 'admin'
+            && Perfil::where('rol', 'admin')->where('activo', true)->count() <= 1) {
+            return response()->json(['message' => 'No puedes eliminar al único administrador activo.'], 422);
+        }
+
+        $perfil->delete();
+
+        return response()->json(null, 204);
+    }
 }

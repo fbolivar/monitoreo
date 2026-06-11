@@ -50,7 +50,10 @@
           <td>{{ u.nombre ?? '—' }}</td>
           <td><span class="rol">{{ u.rol }}</span></td>
           <td>{{ u.activo ? 'Sí' : 'No' }}</td>
-          <td><button class="btn" (click)="editar(u)">Editar</button></td>
+          <td class="acc">
+            <button class="btn" (click)="editar(u)">Editar</button>
+            <button class="btn" (click)="eliminar(u)">Eliminar</button>
+          </td>
         </tr>
       }
     </tbody>
