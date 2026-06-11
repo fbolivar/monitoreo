@@ -1,0 +1,54 @@
+<div class="head">
+  <h1>SNMP Traps <span class="text-dim">(eventos en tiempo real)</span></h1>
+  <span class="text-dim">{{ total() }} evento(s)</span>
+</div>
+
+<div class="filtros">
+  <select [ngModel]="fSeveridad()" (ngModelChange)="fSeveridad.set($event); cargar()">
+    <option value="">Toda severidad</option>
+    <option value="info">info</option>
+    <option value="warning">warning</option>
+    <option value="critical">critical</option>
+  </select>
+  <button class="btn" (click)="cargar()">Actualizar</button>
+</div>
+
+@if (cargando()) {
+  <p class="text-dim">Cargando…</p>
+} @else if (traps().length === 0) {
+  <p class="text-dim">No se han recibido traps todavía. Configura los equipos para enviar traps a este servidor (UDP/162).</p>
+} @else {
+  <table>
+    <thead>
+      <tr><th>Fecha</th><th>Origen</th><th>Recurso</th><th>Evento</th><th>Sev.</th><th>Descripción</th><th></th></tr>
+    </thead>
+    <tbody>
+      @for (t of traps(); track t.id) {
+        <tr>
+          <td class="text-dim nowrap">{{ fecha(t.ts) }}</td>
+          <td class="nowrap">{{ t.source_ip ?? '—' }}</td>
+          <td>{{ t.recurso_nombre ?? '—' }}</td>
+          <td><b>{{ t.nombre }}</b></td>
+          <td><span class="sev" [class]="'sev-' + t.severidad">{{ t.severidad }}</span></td>
+          <td>{{ t.descripcion ?? '—' }}</td>
+          <td>
+            @if (t.varbinds) {
+              <button class="btn ver" (click)="toggle(t.id)">{{ expandida() === t.id ? 'Ocultar' : 'Varbinds' }}</button>
+            }
+          </td>
+        </tr>
+        @if (expandida() === t.id && t.varbinds) {
+          <tr class="detalle-row">
+            <td colspan="7">
+              <table class="vb">
+                @for (k of claves(t.varbinds); track k) {
+                  <tr><td class="oid">{{ k }}</td><td>{{ t.varbinds[k] }}</td></tr>
+                }
+              </table>
+            </td>
+          </tr>
+        }
+      }
+    </tbody>
+  </table>
+}

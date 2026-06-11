@@ -40,6 +40,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/incidencias/incidencias').then((m) => m.Incidencias),
       },
       {
+        path: 'traps',
+        loadComponent: () => import('./features/traps/traps').then((m) => m.Traps),
+      },
+      {
         path: 'reportes',
         loadComponent: () => import('./features/reportes/reportes').then((m) => m.Reportes),
       },
@@ -51,6 +55,10 @@ export const routes: Routes = [
         path: 'configuracion',
         loadComponent: () =>
           import('./features/configuracion/configuracion').then((m) => m.Configuracion),
+      },
+      {
+        path: 'seguridad',
+        loadComponent: () => import('./features/seguridad/seguridad').then((m) => m.Seguridad),
       },
       {
         path: 'usuarios',

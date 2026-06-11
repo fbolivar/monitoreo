@@ -40,13 +40,37 @@ export class AuthService {
     this.cargando.set(false);
   }
 
-  async iniciarSesion(email: string, password: string): Promise<void> {
+  /** Devuelve 'ok' si inició sesión, o '2fa' si se requiere código (con mensaje opcional). */
+  async iniciarSesion(email: string, password: string, codigo?: string):
+    Promise<{ estado: 'ok' | '2fa'; mensaje?: string }> {
     const r = await firstValueFrom(
-      this.api.post<{ token: string; perfil: Perfil }>('/auth/login', { email, password }),
+      this.api.post<{ token?: string; perfil?: Perfil; requiere_2fa?: boolean; mensaje?: string }>(
+        '/auth/login', { email, password, codigo },
+      ),
     );
-    localStorage.setItem(this.TOKEN_KEY, r.token);
-    this.token.set(r.token);
-    this.perfil.set(r.perfil);
+    if (r.requiere_2fa) {
+      return { estado: '2fa', mensaje: r.mensaje };
+    }
+    localStorage.setItem(this.TOKEN_KEY, r.token!);
+    this.token.set(r.token!);
+    this.perfil.set(r.perfil!);
+    return { estado: 'ok' };
+  }
+
+  // ── 2FA (TOTP) del usuario actual ─────────────────────────────────
+  async iniciar2fa(): Promise<{ secret: string; uri: string }> {
+    return firstValueFrom(this.api.post<{ secret: string; uri: string }>('/2fa/iniciar', {}));
+  }
+  async activar2fa(codigo: string): Promise<void> {
+    await firstValueFrom(this.api.post('/2fa/activar', { codigo }));
+    await this.refrescarPerfil();
+  }
+  async desactivar2fa(codigo: string): Promise<void> {
+    await firstValueFrom(this.api.post('/2fa/desactivar', { codigo }));
+    await this.refrescarPerfil();
+  }
+  private async refrescarPerfil(): Promise<void> {
+    try { this.perfil.set(await firstValueFrom(this.api.get<Perfil>('/me'))); } catch { /* ignore */ }
   }
 
   async cerrarSesion(): Promise<void> {

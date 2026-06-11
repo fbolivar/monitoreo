@@ -23,6 +23,7 @@ import { AuthService } from '../core/auth.service';
           <a routerLink="/sitios" routerLinkActive="active">Sitios</a>
           <a routerLink="/mapa" routerLinkActive="active">Mapa</a>
           <a routerLink="/incidencias" routerLinkActive="active">Incidencias</a>
+          <a routerLink="/traps" routerLinkActive="active">Traps</a>
           <a routerLink="/reportes" routerLinkActive="active">Reportes</a>
           <a routerLink="/wallboard">Tablero NOC ↗</a>
           <a routerLink="/configuracion" routerLinkActive="active">Configuración</a>
@@ -40,6 +41,7 @@ import { AuthService } from '../core/auth.service';
           <div class="user">
             <span class="text-dim">{{ auth.perfil()?.email }}</span>
             <span class="rol">{{ auth.rol() }}</span>
+            <a routerLink="/seguridad" class="btn">Seguridad</a>
             <button class="btn" (click)="salir()">Salir</button>
           </div>
         </header>

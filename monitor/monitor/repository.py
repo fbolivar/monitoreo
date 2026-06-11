@@ -378,6 +378,27 @@ def marcar_escalada(db: Database, incidencia_id: int, ahora: datetime) -> None:
         cur.execute("UPDATE incidencias SET escalada_at = %s WHERE id = %s", (ahora, incidencia_id))
 
 
+# ── SNMP traps ────────────────────────────────────────────────────────
+def recurso_id_por_host(db: Database, ip: str) -> int | None:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT id FROM recursos WHERE hostname = %s ORDER BY id LIMIT 1", (ip,))
+        row = cur.fetchone()
+        return row["id"] if row else None
+
+
+def guardar_trap(db: Database, source_ip: str | None, recurso_id: int | None, trap_oid: str | None,
+                 nombre: str | None, severidad: str, descripcion: str | None,
+                 varbinds: dict) -> None:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO traps (source_ip, recurso_id, trap_oid, nombre, severidad, descripcion, varbinds)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """,
+            (source_ip, recurso_id, trap_oid, nombre, severidad, descripcion, Json(varbinds)),
+        )
+
+
 # ── Mantenimiento de datos (rollup / purga / particiones) ─────────────
 def asegurar_particiones(db: Database, fechas: list) -> None:
     with db.connection() as conn, conn.cursor() as cur:

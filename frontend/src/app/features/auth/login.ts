@@ -21,10 +21,16 @@ import { AuthService } from '../../core/auth.service';
         <input type="password" name="password" [(ngModel)]="password"
                autocomplete="current-password" required />
 
+        @if (requiere2fa()) {
+          <label>Código de verificación (2FA)</label>
+          <input name="codigo" [(ngModel)]="codigo" inputmode="numeric" autocomplete="one-time-code"
+                 placeholder="6 dígitos" maxlength="6" autofocus />
+        }
+
         @if (error()) { <div class="err">{{ error() }}</div> }
 
         <button class="btn btn-primary" type="submit" [disabled]="cargando()">
-          {{ cargando() ? 'Entrando…' : 'Ingresar' }}
+          {{ cargando() ? 'Entrando…' : (requiere2fa() ? 'Verificar' : 'Ingresar') }}
         </button>
 
         <p class="pie text-dim">Parques Nacionales Naturales de Colombia</p>
@@ -54,14 +60,21 @@ export class Login {
 
   email = '';
   password = '';
+  codigo = '';
   cargando = signal(false);
   error = signal<string | null>(null);
+  requiere2fa = signal(false);
 
   async entrar(): Promise<void> {
     this.error.set(null);
     this.cargando.set(true);
     try {
-      await this.auth.iniciarSesion(this.email, this.password);
+      const r = await this.auth.iniciarSesion(this.email, this.password, this.codigo || undefined);
+      if (r.estado === '2fa') {
+        this.requiere2fa.set(true);
+        if (r.mensaje) this.error.set(r.mensaje);
+        return;
+      }
       await this.router.navigate(['/']);
     } catch (e: unknown) {
       const msg = (e as { error?: { message?: string } })?.error?.message;

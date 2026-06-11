@@ -16,13 +16,14 @@ class Perfil extends Authenticatable
     public $incrementing = false;
     protected $keyType = 'string';
 
-    protected $fillable = ['id', 'email', 'nombre', 'rol', 'activo'];
+    protected $fillable = ['id', 'email', 'nombre', 'rol', 'activo', 'origen', 'totp_activo'];
 
-    // El hash de contraseña nunca se serializa en respuestas JSON.
-    protected $hidden = ['password_hash'];
+    // El hash de contraseña y el secreto TOTP nunca se serializan en respuestas JSON.
+    protected $hidden = ['password_hash', 'totp_secret'];
 
     protected $casts = [
-        'activo' => 'boolean',
+        'activo'      => 'boolean',
+        'totp_activo' => 'boolean',
     ];
 
     public const ROLES = ['admin', 'operador', 'viewer'];

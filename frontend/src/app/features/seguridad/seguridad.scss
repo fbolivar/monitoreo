@@ -1,0 +1,12 @@
+h1 { font-size: 18px; margin: 8px 0 14px; }
+.box { max-width: 640px; padding: 18px 20px; display: flex; flex-direction: column; gap: 10px; }
+.estado .on { color: #1b8a3a; }
+.estado .off { color: var(--text-dim); }
+.ok { color: #1b8a3a; }
+.err { color: var(--sev-critical); }
+ol { margin: 6px 0; padding-left: 20px; line-height: 1.8; }
+.secret { font-size: 16px; font-weight: 700; letter-spacing: 2px; background: var(--bg-2, #f1f4f1);
+  padding: 2px 8px; border-radius: 6px; display: inline-block; }
+.uri { font-size: 11px; word-break: break-all; color: var(--text-dim); }
+.fila { display: flex; gap: 8px; align-items: center; }
+.fila input { width: 130px; font-size: 16px; letter-spacing: 3px; text-align: center; }

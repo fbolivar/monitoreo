@@ -132,12 +132,27 @@ export interface AuditoriaEntrada {
   ip: string | null;
 }
 
+export interface Trap {
+  id: number;
+  ts: string;
+  source_ip: string | null;
+  recurso_id: number | null;
+  recurso_nombre: string | null;
+  trap_oid: string | null;
+  nombre: string | null;
+  severidad: Severidad;
+  descripcion: string | null;
+  varbinds: Record<string, string> | null;
+}
+
 export interface Perfil {
   id: string;
   email: string;
   nombre?: string | null;
   rol: Rol;
   activo: boolean;
+  origen?: string;
+  totp_activo?: boolean;
 }
 
 export interface Umbral {

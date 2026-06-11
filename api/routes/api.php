@@ -4,6 +4,7 @@ use App\Http\Controllers\AuditoriaController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CanalNotificacionController;
 use App\Http\Controllers\ChequeoController;
+use App\Http\Controllers\DosFactorController;
 use App\Http\Controllers\IncidenciaController;
 use App\Http\Controllers\MantenimientoController;
 use App\Http\Controllers\MetricaController;
@@ -11,6 +12,7 @@ use App\Http\Controllers\PerfilController;
 use App\Http\Controllers\RecursoController;
 use App\Http\Controllers\ReporteController;
 use App\Http\Controllers\SitioController;
+use App\Http\Controllers\TrapController;
 use App\Http\Controllers\TipoRecursoController;
 use App\Http\Controllers\UmbralController;
 use Illuminate\Support\Facades\Route;
@@ -47,6 +49,11 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
     // Perfil propio (cualquier rol).
     Route::get('me', [PerfilController::class, 'me']);
 
+    // 2FA (TOTP) del usuario autenticado.
+    Route::post('2fa/iniciar', [DosFactorController::class, 'iniciar']);
+    Route::post('2fa/activar', [DosFactorController::class, 'activar']);
+    Route::post('2fa/desactivar', [DosFactorController::class, 'desactivar']);
+
     // ── LECTURA: cualquier rol autenticado ───────────────────────────
     foreach ($crud as $uri => $controller) {
         Route::get($uri, [$controller, 'index']);
@@ -60,6 +67,9 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
 
     // Reportes (lectura): disponibilidad/SLA por recurso en un periodo.
     Route::get('reportes/disponibilidad', [ReporteController::class, 'disponibilidad']);
+
+    // SNMP traps recibidos (lectura).
+    Route::get('traps', [TrapController::class, 'index']);
 
     // Solo lectura (telemetría / eventos) con filtros.
     Route::get('chequeos', [ChequeoController::class, 'index']);

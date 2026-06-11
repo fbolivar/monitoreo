@@ -65,6 +65,12 @@ class Settings:
     health_enabled: bool = _bool("HEALTH_ENABLED", True)
     health_port: int = _int("HEALTH_PORT", 8090)
 
+    # Receptor de SNMP traps (servicio aparte: trap_listener.py)
+    traps_enabled: bool = _bool("TRAPS_ENABLED", True)
+    trap_bind: str = os.getenv("TRAP_BIND", "0.0.0.0")
+    trap_port: int = _int("TRAP_PORT", 162)
+    trap_community: str = os.getenv("TRAP_COMMUNITY", "public")
+
     # Logging
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
 

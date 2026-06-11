@@ -4,10 +4,13 @@ namespace App\Http\Controllers;
 
 use App\Models\Perfil;
 use App\Support\Auditoria;
+use App\Support\Ldap;
+use App\Support\Totp;
 use Firebase\JWT\JWT;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 /**
  * Autenticación LOCAL: verifica email + contraseña (bcrypt en `perfiles`) y
@@ -20,17 +23,53 @@ class AuthController extends Controller
         $data = $request->validate([
             'email'    => ['required', 'email'],
             'password' => ['required', 'string'],
+            'codigo'   => ['nullable', 'string'],   // código TOTP (2FA)
         ]);
 
         $perfil = Perfil::where('email', $data['email'])->first();
 
-        if (! $perfil
-            || ! $perfil->activo
-            || ! $perfil->password_hash
-            || ! Hash::check($data['password'], $perfil->password_hash)) {
+        // 1) Autenticación local (contraseña en perfiles).
+        $autenticado = $perfil
+            && $perfil->activo
+            && $perfil->origen === 'local'
+            && $perfil->password_hash
+            && Hash::check($data['password'], $perfil->password_hash);
+
+        // 2) SSO LDAP/AD (si está habilitado): usuarios sin perfil local o de origen ldap.
+        if (! $autenticado && Ldap::habilitado()
+            && (! $perfil || $perfil->origen === 'ldap' || ! $perfil->password_hash)) {
+            if (Ldap::autenticar($data['email'], $data['password'])) {
+                $autenticado = true;
+                if (! $perfil) {
+                    $perfil = Perfil::create([
+                        'id'     => (string) Str::uuid(),
+                        'email'  => $data['email'],
+                        'nombre' => $data['email'],
+                        'rol'    => config('ldap.rol_default', 'viewer'),
+                        'activo' => true,
+                        'origen' => 'ldap',
+                    ]);
+                }
+            }
+        }
+
+        if (! $autenticado || ! $perfil || ! $perfil->activo) {
             Auditoria::registrar('login_fallido', 'auth', null, $data['email']);
 
             return response()->json(['message' => 'Credenciales inválidas.'], 401);
+        }
+
+        // 3) Segundo factor (TOTP) para perfiles que lo tengan activo.
+        if ($perfil->totp_activo) {
+            $codigo = $data['codigo'] ?? null;
+            if (! $codigo) {
+                return response()->json(['requiere_2fa' => true], 200);
+            }
+            if (! Totp::verificar((string) $perfil->totp_secret, $codigo)) {
+                Auditoria::registrar('login_fallido', 'auth', $perfil->id, $perfil->email.' (2FA)');
+
+                return response()->json(['requiere_2fa' => true, 'mensaje' => 'Código 2FA inválido.'], 200);
+            }
         }
 
         $now = time();

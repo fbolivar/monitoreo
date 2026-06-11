@@ -1,0 +1,50 @@
+<h1>Seguridad — Verificación en dos pasos (2FA)</h1>
+
+<div class="card box">
+  <p class="estado">
+    Estado:
+    @if (auth.perfil()?.totp_activo) {
+      <b class="on">● Activado</b>
+    } @else {
+      <b class="off">○ Desactivado</b>
+    }
+    @if (auth.perfil()?.origen === 'ldap') {
+      <span class="text-dim"> · cuenta LDAP (gestionada por el directorio)</span>
+    }
+  </p>
+
+  @if (ok()) { <p class="ok">{{ ok() }}</p> }
+  @if (error()) { <p class="err">{{ error() }}</p> }
+
+  @if (auth.perfil()?.origen === 'ldap') {
+    <p class="text-dim">El 2FA de esta cuenta lo gestiona tu directorio corporativo (AD).</p>
+  } @else if (!auth.perfil()?.totp_activo) {
+    <!-- Activar -->
+    @if (paso() === 'inicio') {
+      <p class="text-dim">Protege tu cuenta con una app autenticadora (Google Authenticator,
+        Microsoft Authenticator, FreeOTP…).</p>
+      <button class="btn btn-primary" (click)="iniciar()" [disabled]="cargando()">Configurar 2FA</button>
+    } @else {
+      <ol>
+        <li>Agrega esta clave en tu app autenticadora (entrada manual):
+          <code class="secret">{{ secret() }}</code>
+        </li>
+        <li class="text-dim">O usa el enlace <code>otpauth://</code> (para generar el QR):<br />
+          <code class="uri">{{ uri() }}</code>
+        </li>
+        <li>Ingresa el código de 6 dígitos que muestra la app:</li>
+      </ol>
+      <div class="fila">
+        <input [(ngModel)]="codigo" inputmode="numeric" maxlength="6" placeholder="6 dígitos" />
+        <button class="btn btn-primary" (click)="activar()" [disabled]="cargando()">Activar</button>
+      </div>
+    }
+  } @else {
+    <!-- Desactivar -->
+    <p class="text-dim">Para desactivar el 2FA, ingresa un código vigente de tu app:</p>
+    <div class="fila">
+      <input [(ngModel)]="codigo" inputmode="numeric" maxlength="6" placeholder="6 dígitos" />
+      <button class="btn" (click)="desactivar()" [disabled]="cargando()">Desactivar 2FA</button>
+    </div>
+  }
+</div>

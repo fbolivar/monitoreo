@@ -13,7 +13,7 @@ use Illuminate\Database\Eloquent\Model;
 class AuditObserver
 {
     /** Campos que nunca se vuelcan en el diff (ruido o sensibles). */
-    private const DENY = ['updated_at', 'created_at', 'secretos', 'password_hash'];
+    private const DENY = ['updated_at', 'created_at', 'secretos', 'password_hash', 'totp_secret'];
 
     public function created(Model $m): void
     {
