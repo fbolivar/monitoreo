@@ -4,6 +4,7 @@ Config (no sensible) y secretos (descifrados) viven en el objeto Canal:
 - email:    config{smtp_host, smtp_port, from, destinatarios[]}  secretos{smtp_user, smtp_pass}
 - telegram: config{chat_id}                                      secretos{bot_token}
 - webhook:  config{url}                                          secretos{token}
+- teams:    config{webhook_url} (o secretos{webhook_url})        — Incoming Webhook de Teams
 """
 from __future__ import annotations
 
@@ -21,6 +22,8 @@ def enviar(canal: Canal, msg: dict) -> tuple[bool, str | None, str | None]:
         return _telegram(canal, msg)
     if canal.tipo == "webhook":
         return _webhook(canal, msg)
+    if canal.tipo == "teams":
+        return _teams(canal, msg)
     return False, f"tipo de canal no soportado: {canal.tipo}", None
 
 
@@ -75,6 +78,35 @@ def _telegram(canal: Canal, msg: dict):
         return True, None, str(chat)
     except Exception as e:  # noqa: BLE001
         return False, str(e), str(chat)
+
+
+def _teams(canal: Canal, msg: dict):
+    """Microsoft Teams vía Incoming Webhook (MessageCard). PROVISTO: listo para usar
+    cuando se configure el webhook_url del canal; no requiere cambios de código."""
+    import httpx
+
+    cfg = canal.config or {}
+    sec = canal.secretos or {}
+    url = sec.get("webhook_url") or cfg.get("webhook_url")
+    if not url:
+        return False, "config de teams incompleta (webhook_url)", None
+
+    color = {"info": "2E7D3A", "warning": "E0A400", "critical": "D11D1D"}.get(
+        msg.get("severidad", "info"), "2E7D3A")
+    payload = {
+        "@type": "MessageCard",
+        "@context": "http://schema.org/extensions",
+        "themeColor": color,
+        "summary": msg["asunto"],
+        "title": msg["asunto"],
+        "text": msg["texto"].replace("\n", "  \n"),  # saltos de línea en Teams
+    }
+    try:
+        r = httpx.post(url, json=payload, timeout=15)
+        r.raise_for_status()
+        return True, None, url
+    except Exception as e:  # noqa: BLE001
+        return False, str(e), url
 
 
 def _webhook(canal: Canal, msg: dict):

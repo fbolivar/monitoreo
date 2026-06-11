@@ -173,7 +173,7 @@ export interface Canal {
 }
 
 export const OPERADORES = ['>', '>=', '<', '<=', '==', '!='];
-export const TIPOS_CANAL = ['email', 'sms', 'webhook', 'slack', 'telegram'];
+export const TIPOS_CANAL = ['email', 'sms', 'webhook', 'slack', 'telegram', 'teams'];
 export const ROLES: Rol[] = ['admin', 'operador', 'viewer'];
 
 // Paginador de Laravel.
