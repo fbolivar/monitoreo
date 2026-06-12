@@ -30,14 +30,20 @@ class HttpProbe:
     def run(self, recurso, secretos, settings) -> ResultadoProbe:
         import httpx  # import diferido
 
-        params = recurso.parametros or {}
+        params = recurso.parametros if isinstance(recurso.parametros, dict) else {}
         base_url = (recurso.hostname or "").strip()
         if not base_url:
             return ResultadoProbe(False, "unknown", None, [], {"error": "sitio sin URL"})
 
         path = params.get("http_path", "")
         url = base_url.rstrip("/") + path if path else base_url
-        expected = int(params.get("expected_status", 200))
+        # expected_status: si se define, se exige ese código EXACTO (modo estricto).
+        # Si NO se define, se clasifica por familia: 2xx/3xx=up, 4xx=degraded, 5xx=down.
+        expected = params.get("expected_status")
+        # codigos_ok: lista opcional de códigos que cuentan como "up" (p.ej. una API
+        # cuya raíz responde 404 pero está sana). Tiene prioridad sobre la familia.
+        codigos_ok = params.get("codigos_ok")
+        seguir = params.get("seguir_redirecciones", True)
         timeout = params.get("timeout_ms", settings.probe_timeout_ms) / 1000
         match_text = params.get("match_text")
 
@@ -50,11 +56,11 @@ class HttpProbe:
                 headers["Authorization"] = f"Bearer {secretos['api_key']}"
 
         metricas: list[Muestra] = []
-        detalle: dict = {"url": url, "esperado": expected}
+        detalle: dict = {"url": url, "esperado": expected if expected is not None else "2xx/3xx"}
 
         t0 = time.perf_counter()
         try:
-            resp = httpx.get(url, timeout=timeout, follow_redirects=True, auth=auth, headers=headers)
+            resp = httpx.get(url, timeout=timeout, follow_redirects=bool(seguir), auth=auth, headers=headers)
         except Exception as e:
             latencia = round((time.perf_counter() - t0) * 1000, 2)
             return ResultadoProbe(False, "down", None,
@@ -66,11 +72,34 @@ class HttpProbe:
         metricas.append(Muestra("http_status", float(resp.status_code), ""))
         detalle["http_status"] = resp.status_code
 
+        code = resp.status_code
         estado_base = "up"
-        if resp.status_code != expected:
-            estado_base = "down"
-            detalle["motivo"] = f"status {resp.status_code} != esperado {expected}"
-        elif match_text and match_text not in resp.text:
+        if codigos_ok:
+            # Lista explícita de códigos sanos.
+            if code in codigos_ok:
+                estado_base = "up"
+            elif code >= 500:
+                estado_base = "down"
+                detalle["motivo"] = f"status {code} (5xx)"
+            else:
+                estado_base = "degraded"
+                detalle["motivo"] = f"status {code} no está en codigos_ok"
+        elif expected is not None:
+            # Modo estricto: se exige el código exacto.
+            if code != int(expected):
+                estado_base = "down"
+                detalle["motivo"] = f"status {code} != esperado {expected}"
+        else:
+            # Clasificación por familia: 2xx/3xx=up, 4xx=degraded (responde pero
+            # error de cliente), 5xx=down.
+            if code >= 500:
+                estado_base = "down"
+                detalle["motivo"] = f"status {code} (5xx)"
+            elif code >= 400:
+                estado_base = "degraded"
+                detalle["motivo"] = f"status {code} (4xx)"
+
+        if estado_base == "up" and match_text and match_text not in resp.text:
             estado_base = "down"
             detalle["motivo"] = f"texto '{match_text}' ausente en la respuesta"
 
