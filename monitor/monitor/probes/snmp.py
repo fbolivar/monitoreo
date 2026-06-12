@@ -19,11 +19,13 @@ from .snmp_client import Credenciales, snmp_get, snmp_walk
 # Reachability
 SYS_UPTIME = "1.3.6.1.2.1.1.3.0"
 
-# HOST-RESOURCES-MIB (Windows/Linux): CPU por núcleo y almacenamiento (memoria).
+# HOST-RESOURCES-MIB (Windows/Linux): CPU por núcleo y almacenamiento (memoria/discos).
 HR_PROC_LOAD = "1.3.6.1.2.1.25.3.3.1.2"   # hrProcessorLoad (tabla por núcleo)
+HR_STOR_TYPE = "1.3.6.1.2.1.25.2.3.1.2"   # hrStorageType (OID de clase)
 HR_STOR_DESCR = "1.3.6.1.2.1.25.2.3.1.3"  # hrStorageDescr
-HR_STOR_SIZE = "1.3.6.1.2.1.25.2.3.1.5"   # hrStorageSize
+HR_STOR_SIZE = "1.3.6.1.2.1.25.2.3.1.5"   # hrStorageSize (en unidades de asignación)
 HR_STOR_USED = "1.3.6.1.2.1.25.2.3.1.6"   # hrStorageUsed
+HR_TYPE_FIXED = "1.3.6.1.2.1.25.2.1.4"    # hrStorageFixedDisk (discos locales)
 
 # UPS-MIB (RFC 1628) — nombre de métrica -> OID escalar
 UPS_OIDS: dict[str, str] = {
@@ -140,6 +142,47 @@ def porcentaje_memoria(size: object, used: object) -> float | None:
     return round(u / s * 100, 1)
 
 
+def _por_indice(walk: list[tuple[str, object]]) -> dict[str, object]:
+    """Convierte un walk [(oid, valor)] en {ultimo_indice: valor}."""
+    return {oid.rsplit(".", 1)[-1]: val for oid, val in walk}
+
+
+def _etiqueta_disco(descr: str) -> str:
+    """De 'C:\\ Label:... ' deriva 'C'; si no es una unidad Windows, usa la 1ª palabra."""
+    descr = (descr or "").strip()
+    if len(descr) >= 2 and descr[1] == ":":
+        return descr[0].upper()
+    return (descr.split() or ["?"])[0][:12]
+
+
+def construir_muestras_discos(
+    descr_walk: list[tuple[str, object]],
+    type_walk: list[tuple[str, object]],
+    size_walk: list[tuple[str, object]],
+    used_walk: list[tuple[str, object]],
+) -> list[Muestra]:
+    """% usado por cada disco FIJO (hrStorageFixedDisk) + 'disco_max' (peor disco).
+    Los volúmenes se emiten como 'disco_<LETRA>' (p.ej. disco_C)."""
+    descr = _por_indice(descr_walk)
+    tipos = _por_indice(type_walk)
+    sizes = _por_indice(size_walk)
+    useds = _por_indice(used_walk)
+    muestras: list[Muestra] = []
+    peor: float | None = None
+    for idx, tipo in tipos.items():
+        if not str(tipo).rstrip(".").endswith("25.2.1.4"):  # solo discos fijos
+            continue
+        pct = porcentaje_memoria(sizes.get(idx), useds.get(idx))
+        if pct is None:
+            continue
+        etiqueta = _etiqueta_disco(str(descr.get(idx, idx)))
+        muestras.append(Muestra(f"disco_{etiqueta}", pct, "%"))
+        peor = pct if peor is None else max(peor, pct)
+    if peor is not None:
+        muestras.append(Muestra("disco_max", peor, "%"))
+    return muestras
+
+
 class SnmpProbe:
     nombre = "snmp"
     requiere_secretos = True
@@ -250,6 +293,15 @@ class SnmpProbe:
                     mem = porcentaje_memoria(valm.get("size"), valm.get("used"))
                     if mem is not None:
                         muestras.append(Muestra("mem", mem, "%"))
+
+                # Discos fijos: % usado por volumen (C:, D:, …) + disco_max.
+                tipos, _ = snmp_walk(host, port, cred, HR_STOR_TYPE, timeout, retries)
+                sizes, _ = snmp_walk(host, port, cred, HR_STOR_SIZE, timeout, retries)
+                useds, _ = snmp_walk(host, port, cred, HR_STOR_USED, timeout, retries)
+                discos = construir_muestras_discos(descr, tipos, sizes, useds)
+                muestras += discos
+                if discos:
+                    detalle["discos"] = len([m for m in discos if m.nombre != "disco_max"])
         except Exception as e:  # noqa: BLE001
             return ResultadoProbe(False, "down", None, [], {"error": str(e), "perfil": "hostresources"})
 
