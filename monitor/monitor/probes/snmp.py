@@ -99,6 +99,25 @@ def construir_muestras_generico(valores: dict[str, object], oids_map: dict[str, 
     return muestras
 
 
+def _par_oids_pct(par: dict) -> tuple[str | None, str | None]:
+    """Acepta {num,den} o {used,total}; devuelve (oid_numerador, oid_denominador)."""
+    num = par.get("num") or par.get("used")
+    den = par.get("den") or par.get("total")
+    return num, den
+
+
+def construir_muestras_pct(valores: dict[str, object], pct_map: dict[str, dict]) -> list[Muestra]:
+    """Métricas derivadas en %: por cada {metrica: {num/used, den/total}}, calcula
+    numerador/denominador*100. Los OIDs se consultan con claves '__pct_<m>_num/_den'."""
+    muestras: list[Muestra] = []
+    for nombre in pct_map:
+        num = a_float(valores.get(f"__pct_{nombre}_num"))
+        den = a_float(valores.get(f"__pct_{nombre}_den"))
+        if num is not None and den is not None and den > 0:
+            muestras.append(Muestra(nombre, round(num / den * 100, 1), "%"))
+    return muestras
+
+
 def promedio_cpu(proc_walk: list[tuple[str, object]]) -> float | None:
     """Promedia hrProcessorLoad de todos los núcleos (lista de (oid, valor))."""
     vals = [a_float(v) for _oid, v in proc_walk]
@@ -149,7 +168,14 @@ class SnmpProbe:
 
         es_ups = recurso.tipo_codigo == "ups" or params.get("perfil") == "ups"
         oids_metricas = UPS_OIDS if es_ups else dict(params.get("oids", {}))
+        pct_map = {} if es_ups else dict(params.get("oids_pct", {}))
         oids = {"sysUpTime": SYS_UPTIME, **oids_metricas}
+        # Aplana los OIDs de las métricas derivadas en % para consultarlos en el mismo get.
+        for nombre, par in pct_map.items():
+            num, den = _par_oids_pct(par)
+            if num and den:
+                oids[f"__pct_{nombre}_num"] = num
+                oids[f"__pct_{nombre}_den"] = den
 
         t0 = time.perf_counter()
         try:
@@ -163,13 +189,14 @@ class SnmpProbe:
             muestras = construir_muestras_ups(valores)
         else:
             muestras = construir_muestras_generico(valores, params.get("oids", {}))
+            muestras += construir_muestras_pct(valores, pct_map)
 
         alcanzable = valores.get("sysUpTime") is not None
         estado_base = "up" if alcanzable else "down"
         detalle = {
             "snmp_version": cred.version,
             "nivel_seguridad": cred.nivel_seguridad(),
-            "oids_consultados": list(oids_metricas.keys()),
+            "oids_consultados": list(oids_metricas.keys()) + list(pct_map.keys()),
             "oids_sin_respuesta": [n for n in oids if valores.get(n) is None],
         }
         if error:
