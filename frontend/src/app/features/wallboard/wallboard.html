@@ -2,37 +2,123 @@
   <header class="wb-top">
     <div class="marca">
       <img src="logo-simon.png" alt="SIMON" />
-      <div><b>SIMON</b><span>Tablero de operaciones</span></div>
-    </div>
-    <div class="kpis">
-      <div class="kpi up"><b>{{ resumen().up }}</b><span>Operativo</span></div>
-      <div class="kpi degraded"><b>{{ resumen().degraded }}</b><span>Degradado</span></div>
-      <div class="kpi down"><b>{{ resumen().down }}</b><span>Caído</span></div>
-      <div class="kpi unknown"><b>{{ resumen().unknown }}</b><span>Sin dato</span></div>
-      <div class="kpi maintenance"><b>{{ resumen().maintenance }}</b><span>Mant.</span></div>
+      <div><b>SIMON</b><span>Centro de Operaciones de Red</span></div>
     </div>
     <div class="reloj">
       <b>{{ reloj() }}</b>
-      <span [class.vivo]="enVivo()">{{ enVivo() ? '● EN VIVO' : '○ sin conexión' }}</span>
-      <a routerLink="/" class="salir">Salir</a>
+      <span class="estado-conn" [class.vivo]="enVivo()">{{ enVivo() ? '● EN VIVO' : '○ SIN CONEXIÓN' }}</span>
     </div>
+    <a routerLink="/" class="salir" title="Salir del tablero">✕</a>
   </header>
 
-  <div class="sedes">
-    @for (s of sedes(); track s.sitio) {
-      <section class="sede" [attr.data-peor]="s.peor">
-        <h2>{{ s.sitio }} <span>{{ s.total }}</span></h2>
-        <div class="tiles">
-          @for (r of s.recursos; track r.id) {
-            <div class="tile" [attr.data-estado]="r.estado_actual" [title]="r.tipo?.nombre + ' · ' + (r.hostname ?? '')">
-              {{ r.nombre }}
-            </div>
+  <!-- Banda de disponibilidad -->
+  <section class="banda">
+    <div class="dispo" [attr.data-nivel]="nivelDispo()">
+      <div class="num">{{ operatividad() }}<small>%</small></div>
+      <div class="lbl">Disponibilidad</div>
+    </div>
+
+    <div class="barra-wrap">
+      <div class="barra">
+        @if (resumen().up) { <span class="seg up" [style.flex]="resumen().up"></span> }
+        @if (resumen().degraded) { <span class="seg degraded" [style.flex]="resumen().degraded"></span> }
+        @if (resumen().down) { <span class="seg down" [style.flex]="resumen().down"></span> }
+        @if (resumen().unknown) { <span class="seg unknown" [style.flex]="resumen().unknown"></span> }
+        @if (resumen().maintenance) { <span class="seg maintenance" [style.flex]="resumen().maintenance"></span> }
+      </div>
+      <div class="barra-pie">{{ total() }} recursos monitoreados</div>
+    </div>
+
+    <div class="contadores">
+      <div class="c up"><b>{{ resumen().up }}</b><span>Operativo</span></div>
+      <div class="c degraded"><b>{{ resumen().degraded }}</b><span>Degradado</span></div>
+      <div class="c down" [class.alarma]="resumen().down > 0"><b>{{ resumen().down }}</b><span>Caído</span></div>
+      <div class="c unknown"><b>{{ resumen().unknown }}</b><span>Sin dato</span></div>
+      <div class="c maintenance"><b>{{ resumen().maintenance }}</b><span>Mant.</span></div>
+    </div>
+  </section>
+
+  <!-- Cuerpo: alertas (protagonista) + salud por sede -->
+  <div class="cuerpo">
+    <section class="panel alertas">
+      <h2><span class="pt">Alertas activas</span><span class="n" [class.cero]="alertas().length === 0">{{ alertas().length }}</span></h2>
+
+      @if (alertas().length === 0) {
+        <div class="ok">
+          <div class="check">✓</div>
+          <b>Todos los sistemas operativos</b>
+          <span>No hay incidencias activas</span>
+        </div>
+      } @else {
+        <div class="lista" #lista (mouseenter)="scrollHover = true" (mouseleave)="scrollHover = false">
+          @for (a of alertas(); track a.recurso.id) {
+            <article class="al" [attr.data-estado]="a.estado" [class.ack]="a.reconocida">
+              <div class="sev"></div>
+              <div class="ico">{{ abrev(a.recurso) }}</div>
+              <div class="info">
+                <div class="l1">
+                  <b>{{ a.recurso.nombre }}</b>
+                  @if (a.reconocida) { <em class="ack-tag">reconocida</em> }
+                </div>
+                <div class="l2">{{ a.titulo }}</div>
+              </div>
+              <div class="meta">
+                <span class="badge" [attr.data-estado]="a.estado">{{ etiqueta(a.estado) }}</span>
+                <span class="sitio">{{ a.recurso.sitio?.nombre ?? 'Sin sitio' }}</span>
+                <span class="dur">{{ hace(a.desde) }}</span>
+              </div>
+            </article>
           }
         </div>
-      </section>
-    }
-    @if (sedes().length === 0) {
-      <p class="vacio">Sin recursos para mostrar.</p>
-    }
+      }
+    </section>
+
+    <section class="panel salud">
+      <h2><span class="pt">Estado por sede</span><span class="n">{{ sedes().length }}</span></h2>
+      <div class="grid">
+        @for (s of sedes(); track s.sitio) {
+          <div class="sede" [attr.data-peor]="s.peor">
+            <div class="cab">
+              <b [title]="s.sitio">{{ s.sitio }}</b>
+              <span class="frac" [class.full]="s.up === s.total">{{ s.up }}/{{ s.total }}</span>
+            </div>
+            <div class="dots">
+              @if (s.conteo.down) { <i class="d down" [style.flex]="s.conteo.down"></i> }
+              @if (s.conteo.degraded) { <i class="d degraded" [style.flex]="s.conteo.degraded"></i> }
+              @if (s.conteo.unknown) { <i class="d unknown" [style.flex]="s.conteo.unknown"></i> }
+              @if (s.conteo.maintenance) { <i class="d maintenance" [style.flex]="s.conteo.maintenance"></i> }
+              @if (s.conteo.up) { <i class="d up" [style.flex]="s.conteo.up"></i> }
+            </div>
+            @if (s.problemas) {
+              <div class="pie prob">{{ s.problemas }} con problema</div>
+            } @else {
+              <div class="pie okp">Operativa</div>
+            }
+          </div>
+        }
+      </div>
+    </section>
+
+    <section class="panel topdur">
+      <h2><span class="pt">Mayor duración</span></h2>
+      @if (topDuracion().length === 0) {
+        <div class="vacio-mini">Sin incidencias activas</div>
+      } @else {
+        <ol class="rank">
+          @for (t of topDuracion(); track t.alerta.recurso.id; let i = $index) {
+            <li [attr.data-estado]="t.alerta.estado">
+              <span class="pos">{{ i + 1 }}</span>
+              <div class="rinfo">
+                <div class="rl1">
+                  <b [title]="t.alerta.recurso.nombre">{{ t.alerta.recurso.nombre }}</b>
+                  <span class="rdur">{{ hace(t.alerta.desde) }}</span>
+                </div>
+                <div class="rbar"><i [style.width.%]="t.pct" [attr.data-estado]="t.alerta.estado"></i></div>
+              </div>
+            </li>
+          }
+        </ol>
+      }
+    </section>
   </div>
 </div>
