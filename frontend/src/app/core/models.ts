@@ -131,6 +131,19 @@ export interface ReporteDisponibilidad {
   recursos: FilaDisponibilidad[];
 }
 
+export interface Pronostico {
+  recurso_id: number;
+  recurso_nombre: string;
+  metrica: string;
+  ts: string;
+  valor_actual: number;
+  pendiente_dia: number;
+  dias_restantes: number | null;
+  techo: number;
+  r2: number | null;
+  muestras: number;
+}
+
 export interface AuditoriaEntrada {
   id: number;
   ts: string;

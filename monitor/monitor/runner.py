@@ -213,6 +213,42 @@ def respaldar_configuraciones(db: Database, settings: Settings) -> None:
                 f"(detalle del recurso → Respaldos).", "warning")
 
 
+def pronosticar_capacidad(db: Database, settings: Settings) -> None:
+    """Forecasting de capacidad: regresión sobre el rollup diario de métricas %
+    (disco/mem) -> días hasta el techo. Guarda el pronóstico y avisa (sin
+    incidencia) cuando cruza por debajo del umbral de días."""
+    if not settings.forecast_enabled:
+        return
+    from . import forecast
+
+    series = repo.series_capacidad(db, settings.forecast_ventana_dias)
+    for (rid, nombre, metrica, _unidad), valores in series.items():
+        if len(valores) < settings.forecast_min_dias:
+            continue
+        p = forecast.proyectar(valores, techo=100.0)
+
+        # Solo confiamos en dias_restantes si el ajuste tiene señal suficiente.
+        dias = p.dias_restantes
+        if dias is not None and (p.r2 is None or p.r2 < settings.forecast_min_r2):
+            dias = None
+
+        previo = repo.pronostico_dias_previo(db, rid, metrica)
+        repo.guardar_pronostico(db, rid, metrica, p.valor_actual, p.pendiente_dia,
+                                dias, 100.0, p.r2, len(valores))
+
+        # Aviso por cruce: solo al pasar de "lejos" a "<= umbral" (evita repetir).
+        if dias is not None and 0 <= dias <= settings.forecast_alert_dias:
+            if previo is None or previo > settings.forecast_alert_dias:
+                log.warning("Pronóstico capacidad: %s · %s llega a %.0f%% en ~%.0f días",
+                            nombre, metrica, 100.0, dias)
+                notificar_simple(
+                    db, settings,
+                    f"Capacidad: {nombre} · {metrica} se llena en ~{round(dias)} días",
+                    f"La métrica '{metrica}' de {nombre} está en {p.valor_actual:.1f}% y, al ritmo "
+                    f"actual (+{p.pendiente_dia:.2f} %/día), alcanzaría el 100% en ~{round(dias)} días. "
+                    f"Revisa capacidad/limpieza antes de que se agote.", "warning")
+
+
 def latido_externo(db: Database, settings: Settings) -> None:
     """Dead-man's switch: envía un latido a una URL externa solo si la BD responde.
     Si el worker/servidor cae (o la BD no responde), el latido se detiene y el

@@ -1,6 +1,6 @@
 import { DecimalPipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { FilaDisponibilidad } from '../../core/models';
+import { FilaDisponibilidad, Pronostico } from '../../core/models';
 import { ReportesService } from '../../core/reportes.service';
 import { EstadoBadge } from '../../shared/estado-badge';
 
@@ -21,6 +21,10 @@ export class Reportes implements OnInit {
   desde = signal<string | null>(null);
   cargando = signal(true);
 
+  // Pronósticos de capacidad (calculados por el worker). Urgentes primero.
+  pronosticos = signal<Pronostico[]>([]);
+  pronosticosAlerta = computed(() => this.pronosticos().filter((p) => p.dias_restantes != null));
+
   rangos: Rango[] = ['24h', '7d', '30d'];
 
   // Peor disponibilidad primero (los recursos con problemas arriba).
@@ -37,6 +41,15 @@ export class Reportes implements OnInit {
 
   ngOnInit(): void {
     this.cargar();
+    this.svc.pronosticos().subscribe((p) => this.pronosticos.set(p));
+  }
+
+  // Clase de urgencia según días restantes para llegar al techo.
+  claseDias(d: number | null): string {
+    if (d == null) return 'sd';
+    if (d <= 7) return 'mal';
+    if (d <= 30) return 'warn';
+    return 'bien';
   }
 
   cambiarRango(r: Rango): void {

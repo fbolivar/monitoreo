@@ -65,6 +65,14 @@ class Settings:
     # Mantenimiento de datos (rollup/purga)
     tareas_mantenimiento: bool = _bool("TAREAS_MANTENIMIENTO", True)
 
+    # Forecasting de capacidad: regresión sobre rollup diario de métricas % (disco/mem).
+    # Avisa (sin incidencia) cuando una métrica llegará al techo en <= FORECAST_ALERT_DIAS.
+    forecast_enabled: bool = _bool("FORECAST_ENABLED", True)
+    forecast_ventana_dias: int = _int("FORECAST_VENTANA_DIAS", 30)   # historia a considerar
+    forecast_min_dias: int = _int("FORECAST_MIN_DIAS", 5)            # mínimo de puntos para fiarse
+    forecast_min_r2: float = float(os.getenv("FORECAST_MIN_R2", "0.5"))  # confianza mínima del ajuste
+    forecast_alert_dias: int = _int("FORECAST_ALERT_DIAS", 14)       # umbral de aviso
+
     # Notificaciones (FASE 5)
     notif_enabled: bool = _bool("NOTIF_ENABLED", True)
     # Anti-flapping: no reenviar "apertura" del mismo recurso dentro de esta ventana.

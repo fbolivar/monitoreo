@@ -10,6 +10,7 @@ use App\Http\Controllers\IncidenciaController;
 use App\Http\Controllers\MantenimientoController;
 use App\Http\Controllers\MetricaController;
 use App\Http\Controllers\PerfilController;
+use App\Http\Controllers\PronosticoController;
 use App\Http\Controllers\RecursoController;
 use App\Http\Controllers\ReglaController;
 use App\Http\Controllers\ReporteController;
@@ -70,6 +71,9 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
 
     // Reportes (lectura): disponibilidad/SLA por recurso en un periodo.
     Route::get('reportes/disponibilidad', [ReporteController::class, 'disponibilidad']);
+
+    // Pronósticos de capacidad (lectura): los calcula el worker.
+    Route::get('pronosticos', [PronosticoController::class, 'index']);
 
     // SNMP traps recibidos (lectura).
     Route::get('traps', [TrapController::class, 'index']);

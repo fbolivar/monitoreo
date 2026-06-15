@@ -219,6 +219,22 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
   Nota: el motor (Python) se validó con tests puros; la E/S contra equipos reales y la API/UI las verifica
   el usuario en el servidor (sin php/ng aquí salvo `ng build`).
 
+- ✅ MEJORAS 6ª OLA — Profundidad técnica (Tier 2) (2026-06-15), worker verificado (77 tests) + `ng build` OK,
+  DESPLEGADO en producción:
+  - **ICMP enriquecido** [sin migración]: el probe ICMP emite además `jitter`, `rtt_min`, `rtt_max`
+    (antes solo latency+loss). Distingue "enlace degradado" (pérdida/jitter alto) de "caído" en WAN/Starlink
+    vía umbrales/reglas. Helper puro `construir_muestras_icmp` (testeable).
+  - **Forecasting de capacidad** [migr. 0015, tabla `pronosticos`]: job diario `pronosticar_capacidad`
+    (00:30, tras el rollup) que ajusta una **regresión lineal pura** (`monitor/forecast.py`, sin numpy)
+    sobre el rollup diario de métricas % (disco_*/mem) y proyecta los **días hasta el 100%**. Avisa
+    (sin incidencia, `notificar_simple`) al cruzar por debajo de `FORECAST_ALERT_DIAS` (def 14); solo si
+    el ajuste tiene confianza `r2 >= FORECAST_MIN_R2` (def 0.5) y ≥ `FORECAST_MIN_DIAS` (def 5) de historia.
+    API `GET /pronosticos` (lectura; los calcula el worker). UI: panel "Pronóstico de capacidad" en Reportes.
+  - **Ajuste de scheduler** (de la 5ª ola, consolidado en repo): `SCHEDULER_MAX_WORKERS=50`, `MISFIRE_GRACE=90`
+    (evita que sondas SNMP lentas descarten jobs web por misfire).
+  - DEFERIDO: baselining estacional / detección de anomalías (Tier 2 #5) — requiere calibración con datos
+    maduros para no meter ruido en el lazo de alertas; se hará en iteración propia.
+
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.
 

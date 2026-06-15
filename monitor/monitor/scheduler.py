@@ -18,6 +18,7 @@ from .runner import (
     escalar_incidencias,
     latido_externo,
     marcar_obsoletos,
+    pronosticar_capacidad,
     respaldar_configuraciones,
 )
 
@@ -137,6 +138,11 @@ def registrar_tareas_internas(scheduler: BackgroundScheduler, db: Database, sett
                       id="rollup-horario", replace_existing=True)
     scheduler.add_job(repo.rollup_diario, CronTrigger(hour=0, minute=15), args=[db],
                       id="rollup-diario", replace_existing=True)
+    # Forecasting de capacidad (00:30, tras el rollup diario). Usa el rollup diario.
+    if settings.forecast_enabled:
+        scheduler.add_job(pronosticar_capacidad, CronTrigger(hour=0, minute=30), args=[db, settings],
+                          id="forecast", replace_existing=True)
+
     # Purga según retención (03:30).
     scheduler.add_job(repo.purgar_datos, CronTrigger(hour=3, minute=30), args=[db],
                       id="purga", replace_existing=True)

@@ -61,4 +61,39 @@
       }
     </tbody>
   </table>
+
+  <!-- ════════ PRONÓSTICO DE CAPACIDAD ════════ -->
+  @if (pronosticos().length > 0) {
+    <h2 class="sub">Pronóstico de capacidad</h2>
+    <p class="text-dim nota">
+      Proyección por regresión lineal sobre el histórico diario (disco/memoria). «Días al 100%»
+      estima cuándo se agota al ritmo actual; vacío = estable o sin tendencia fiable.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Recurso</th><th>Métrica</th>
+          <th class="num">Actual</th><th class="num">Tendencia</th>
+          <th class="num">Días al 100%</th><th class="num">Confianza (R²)</th><th class="num">Días datos</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (p of pronosticos(); track p.recurso_id + ':' + p.metrica) {
+          <tr>
+            <td><b>{{ p.recurso_nombre }}</b></td>
+            <td class="text-dim">{{ p.metrica }}</td>
+            <td class="num">{{ p.valor_actual | number: '1.0-1' }}%</td>
+            <td class="num" [class.malo]="p.pendiente_dia > 0">
+              {{ p.pendiente_dia > 0 ? '+' : '' }}{{ p.pendiente_dia | number: '1.0-2' }} %/día
+            </td>
+            <td class="num"><b [class]="claseDias(p.dias_restantes)">
+              {{ p.dias_restantes != null ? (p.dias_restantes | number: '1.0-0') : '—' }}
+            </b></td>
+            <td class="num text-dim">{{ p.r2 != null ? (p.r2 | number: '1.2-2') : '—' }}</td>
+            <td class="num text-dim">{{ p.muestras }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  }
 }

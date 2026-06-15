@@ -629,6 +629,61 @@ def marcar_notificacion(db: Database, notif_id: int, estado: str, error: str | N
         )
 
 
+def series_capacidad(db: Database, ventana_dias: int) -> dict[tuple, dict]:
+    """Series diarias de las métricas de capacidad (disco_*, mem) por recurso.
+
+    Devuelve {(recurso_id, nombre, metrica, unidad): [valor_avg ordenado por día]}
+    para alimentar la regresión del forecasting."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT r.id AS recurso_id, r.nombre, d.metrica, d.unidad, d.valor_avg
+            FROM metricas_rollup_diario d
+            JOIN recursos r ON r.id = d.recurso_id AND r.activo = true
+            WHERE d.bucket >= (now() - make_interval(days => %s))::date
+              AND d.unidad = '%%'
+              AND (d.metrica LIKE 'disco%%' OR d.metrica = 'mem')
+            ORDER BY r.id, d.metrica, d.bucket
+            """,
+            (ventana_dias,),
+        )
+        series: dict[tuple, list[float]] = {}
+        for row in cur.fetchall():
+            clave = (row["recurso_id"], row["nombre"], row["metrica"], row["unidad"])
+            series.setdefault(clave, []).append(float(row["valor_avg"]))
+        return series
+
+
+def pronostico_dias_previo(db: Database, recurso_id: int, metrica: str) -> float | None:
+    """dias_restantes del último pronóstico guardado (para detectar cruces de umbral)."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT dias_restantes FROM pronosticos WHERE recurso_id = %s AND metrica = %s",
+            (recurso_id, metrica),
+        )
+        row = cur.fetchone()
+        return row["dias_restantes"] if row else None
+
+
+def guardar_pronostico(db: Database, recurso_id: int, metrica: str, valor_actual: float,
+                       pendiente_dia: float, dias_restantes: float | None, techo: float,
+                       r2: float | None, muestras: int) -> None:
+    """Upsert del último pronóstico por (recurso, métrica)."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO pronosticos
+                (recurso_id, metrica, ts, valor_actual, pendiente_dia, dias_restantes, techo, r2, muestras)
+            VALUES (%s, %s, now(), %s, %s, %s, %s, %s, %s)
+            ON CONFLICT (recurso_id, metrica) DO UPDATE SET
+                ts = now(), valor_actual = EXCLUDED.valor_actual,
+                pendiente_dia = EXCLUDED.pendiente_dia, dias_restantes = EXCLUDED.dias_restantes,
+                techo = EXCLUDED.techo, r2 = EXCLUDED.r2, muestras = EXCLUDED.muestras
+            """,
+            (recurso_id, metrica, valor_actual, pendiente_dia, dias_restantes, techo, r2, muestras),
+        )
+
+
 def rollup_horario(db: Database) -> None:
     with db.connection() as conn, conn.cursor() as cur:
         cur.execute("SELECT fn_rollup_metricas_horario()")

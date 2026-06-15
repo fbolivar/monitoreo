@@ -1,8 +1,25 @@
-"""Probe ICMP (ping): mide RTT y pérdida de paquetes. Para cualquier recurso
-con IP/hostname. Mayor cobertura, mínimo costo."""
+"""Probe ICMP (ping): mide RTT, pérdida y jitter. Para cualquier recurso con
+IP/hostname. Mayor cobertura, mínimo costo.
+
+Métricas emitidas: latency (avg RTT), loss (% pérdida), jitter (variación media
+entre RTTs consecutivos), rtt_min, rtt_max. Útiles para distinguir "enlace
+degradado" (pérdida/jitter) de "enlace caído" en WAN/Starlink (umbrales/reglas).
+"""
 from __future__ import annotations
 
 from .base import Muestra, ResultadoProbe
+
+
+def construir_muestras_icmp(avg_rtt: float, min_rtt: float, max_rtt: float,
+                            jitter: float, loss_pct: float, alive: bool) -> list[Muestra]:
+    """Arma las métricas ICMP (función pura, testeable sin red)."""
+    muestras: list[Muestra] = [Muestra("loss", round(loss_pct, 1), "%")]
+    if alive:
+        muestras.insert(0, Muestra("latency", round(avg_rtt, 2), "ms"))
+        muestras.append(Muestra("jitter", round(jitter, 2), "ms"))
+        muestras.append(Muestra("rtt_min", round(min_rtt, 2), "ms"))
+        muestras.append(Muestra("rtt_max", round(max_rtt, 2), "ms"))
+    return muestras
 
 
 class IcmpProbe:
@@ -30,18 +47,21 @@ class IcmpProbe:
                                   [Muestra("loss", 100.0, "%")],
                                   {"error": str(e), "host": host})
 
-        loss_pct = round(h.packet_loss * 100, 1)
-        metricas = [Muestra("loss", loss_pct, "%")]
+        loss_pct = h.packet_loss * 100
+        # icmplib expone jitter (variación media entre RTTs consecutivos); 0 si no aplica.
+        jitter = getattr(h, "jitter", 0.0) or 0.0
+        metricas = construir_muestras_icmp(
+            h.avg_rtt, h.min_rtt, h.max_rtt, jitter, loss_pct, h.is_alive)
         detalle = {
             "host": host,
             "enviados": h.packets_sent,
             "recibidos": h.packets_received,
             "rtt_min": h.min_rtt,
             "rtt_max": h.max_rtt,
+            "jitter": round(jitter, 2),
         }
 
         if h.is_alive:
-            metricas.insert(0, Muestra("latency", round(h.avg_rtt, 2), "ms"))
             return ResultadoProbe(True, "up", round(h.avg_rtt, 2), metricas, detalle)
 
         detalle["motivo"] = "sin respuesta ICMP (100% pérdida)"
