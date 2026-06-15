@@ -1,10 +1,13 @@
-"""Micro-benchmark del polling SNMP: cuantifica el coste del SnmpEngine y mide
-varios chequeos SNMP EN PARALELO con el cliente thread-local nuevo.
+"""Diagnóstico del polling SNMP: ¿dónde está el cuello y cuánto paraleliza?
 
-Uso (en el servidor, dentro de /opt/monitoreo/monitor con el venv):
-    .venv/bin/python ../infra/deploy/bench_snmp.py 23 32 33 34 35 36 37 38
+Mide, con el cliente SNMP actual:
+  A) coste de construir 1 SnmpEngine,
+  B) N chequeos SECUENCIALES (1 hebra, engine caliente) -> wall total,
+  C) N chequeos CONCURRENTES (M hebras, engines calientes) -> wall total,
+  speedup = B/C. Si speedup ~1, el GIL (pysnmp en Python puro) es el muro y las
+  hebras no ayudan; si speedup >> 1, el paralelismo por hebras sí escala.
 
-Sin argumentos usa una lista por defecto de switches/servidores.
+Uso (en el servidor):  PYTHONPATH=/opt/monitoreo/monitor .venv/bin/python bench_snmp.py [ids...]
 """
 from __future__ import annotations
 
@@ -23,13 +26,11 @@ def main() -> int:
     settings = cargar_settings()
     db = Database(settings)
 
-    # 1) Coste de construir UN SnmpEngine (lo que antes se pagaba por operación).
     from pysnmp.hlapi.asyncio import SnmpEngine
     t = time.perf_counter()
     SnmpEngine()
     coste_engine = time.perf_counter() - t
-    print(f"Construir 1 SnmpEngine: {coste_engine:.2f}s "
-          f"(antes ~7 por chequeo -> ~{7 * coste_engine:.1f}s de CPU desperdiciada/chequeo)")
+    print(f"A) Construir 1 SnmpEngine: {coste_engine:.2f}s")
 
     recursos = [r for r in (repo.cargar_recurso(db, i) for i in ids) if r]
     if not recursos:
@@ -40,23 +41,32 @@ def main() -> int:
         t0 = time.perf_counter()
         try:
             res = _ejecutar_probe(db, settings, r)
-            return (r.id, round(time.perf_counter() - t0, 1), res.estado_base)
+            return (r.id, time.perf_counter() - t0, res.estado_base)
         except Exception as e:  # noqa: BLE001
-            return (r.id, round(time.perf_counter() - t0, 1), f"ERROR {e}")
+            return (r.id, time.perf_counter() - t0, f"ERR {e}")
 
-    # 2) Dos rondas: la 1ª construye el engine por hebra (frío); la 2ª lo reutiliza (tibio).
-    for ronda in ("FRIA (construye engine/hebra)", "TIBIA (engine reutilizado)"):
-        t = time.perf_counter()
-        with cf.ThreadPoolExecutor(max_workers=min(20, len(recursos))) as ex:
-            out = sorted(ex.map(probar, recursos))
-        total = time.perf_counter() - t
-        pmax = max(o[1] for o in out)
-        psum = sum(o[1] for o in out)
-        print(f"\n[{ronda}] {len(recursos)} chequeos | wall total {total:.1f}s | "
-              f"por-probe max {pmax:.1f}s | suma secuencial {psum:.1f}s | "
-              f"speedup ~{psum / total:.1f}x")
-        for rid, dt, est in out:
-            print(f"  id {rid:>3}  {dt:>5.1f}s  {est}")
+    # Calentamiento: cada hebra construye su engine una vez (no se mide).
+    with cf.ThreadPoolExecutor(max_workers=min(20, len(recursos))) as ex:
+        list(ex.map(probar, recursos))
+
+    # B) SECUENCIAL (1 hebra, engine caliente).
+    t = time.perf_counter()
+    seq = [probar(r) for r in recursos]
+    wall_seq = time.perf_counter() - t
+    print(f"B) SECUENCIAL  {len(recursos)} chequeos: wall {wall_seq:.1f}s "
+          f"(por-probe medio {wall_seq/len(recursos):.1f}s)")
+
+    # C) CONCURRENTE (M hebras, engines calientes del calentamiento).
+    ex = cf.ThreadPoolExecutor(max_workers=min(20, len(recursos)))
+    t = time.perf_counter()
+    con = sorted(ex.map(probar, recursos))
+    wall_con = time.perf_counter() - t
+    ex.shutdown(wait=True)
+    print(f"C) CONCURRENTE {len(recursos)} chequeos: wall {wall_con:.1f}s "
+          f"(por-probe max {max(c[1] for c in con):.1f}s)")
+
+    print(f"\n>> speedup hebras = B/C = {wall_seq/wall_con:.2f}x "
+          f"(={'el GIL es el muro' if wall_seq/wall_con < 1.6 else 'las hebras escalan'})")
     return 0
 
 
