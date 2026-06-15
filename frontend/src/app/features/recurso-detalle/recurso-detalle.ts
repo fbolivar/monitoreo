@@ -2,7 +2,7 @@ import { DecimalPipe, JsonPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Chequeo, Incidencia, Interfaz, Metrica, MuestraInterfaz, Recurso, Respaldo, RespaldoDetalle } from '../../core/models';
+import { Baseline, Chequeo, Incidencia, Interfaz, Metrica, MuestraInterfaz, Recurso, Respaldo, RespaldoDetalle } from '../../core/models';
 import { AuthService } from '../../core/auth.service';
 import { RecursosService } from '../../core/recursos.service';
 import { TelemetriaService } from '../../core/telemetria.service';
@@ -32,6 +32,7 @@ export class RecursoDetalle {
   incidencias = signal<Incidencia[]>([]);
   interfaces = signal<Interfaz[]>([]);
   respaldos = signal<Respaldo[]>([]);
+  baselines = signal<Baseline[]>([]);
   respaldoSel = signal<RespaldoDetalle | null>(null);
   respaldoVista = signal<'diff' | 'completo'>('diff');
   rango = signal<'1h' | '24h' | '7d'>('24h');
@@ -50,6 +51,23 @@ export class RecursoDetalle {
   hace = hace;
   duracion = duracion;
   max = (a?: number | null, b?: number | null) => Math.max(a ?? 0, b ?? 0);
+
+  // ── Línea base / anomalías ──
+  horaUtc = new Date().getUTCHours();
+  // Métricas con detección de anomalías activada (opt-in en parametros).
+  baselineMetricas = computed<string[]>(() => {
+    const p = this.recurso()?.parametros as Record<string, unknown> | undefined;
+    const v = p?.['baseline_metricas'];
+    return Array.isArray(v) ? (v as string[]) : [];
+  });
+  // Líneas base de la hora actual (UTC), ordenadas por métrica.
+  baselineHoraActual = computed<Baseline[]>(() =>
+    this.baselines().filter((b) => b.hora === this.horaUtc).sort((a, b) => a.metrica.localeCompare(b.metrica)),
+  );
+  // Límite de anomalía ≈ media + max(3σ, 5) (defaults del worker).
+  limiteAnomalia(b: Baseline): number {
+    return b.media + Math.max(3 * b.desviacion, 5);
+  }
 
   series = computed<SerieMetrica[]>(() => {
     const porMetrica = new Map<string, Metrica[]>();
@@ -92,6 +110,11 @@ export class RecursoDetalle {
     this.recursosSvc.respaldos(this.id).subscribe({
       next: (rs) => this.respaldos.set(rs),
       error: () => this.respaldos.set([]),
+    });
+    this.baselines.set([]);
+    this.recursosSvc.baselines(this.id).subscribe({
+      next: (bs) => this.baselines.set(bs),
+      error: () => this.baselines.set([]),
     });
     this.tele.chequeos({ recurso_id: this.id, per_page: 1 }).subscribe({
       next: (p) => this.ultimoChequeo.set(p.data[0] ?? null),

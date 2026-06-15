@@ -19,6 +19,7 @@ from .runner import (
     latido_externo,
     marcar_obsoletos,
     pronosticar_capacidad,
+    recalcular_baselines,
     respaldar_configuraciones,
 )
 
@@ -142,6 +143,11 @@ def registrar_tareas_internas(scheduler: BackgroundScheduler, db: Database, sett
     if settings.forecast_enabled:
         scheduler.add_job(pronosticar_capacidad, CronTrigger(hour=0, minute=30), args=[db, settings],
                           id="forecast", replace_existing=True)
+
+    # Línea base estacional / anomalías (00:45, tras el rollup). Usa el rollup horario.
+    if settings.baseline_enabled:
+        scheduler.add_job(recalcular_baselines, CronTrigger(hour=0, minute=45), args=[db, settings],
+                          id="baselines", replace_existing=True)
 
     # Purga según retención (03:30).
     scheduler.add_job(repo.purgar_datos, CronTrigger(hour=3, minute=30), args=[db],

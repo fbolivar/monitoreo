@@ -232,8 +232,14 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
     API `GET /pronosticos` (lectura; los calcula el worker). UI: panel "Pronóstico de capacidad" en Reportes.
   - **Ajuste de scheduler** (de la 5ª ola, consolidado en repo): `SCHEDULER_MAX_WORKERS=50`, `MISFIRE_GRACE=90`
     (evita que sondas SNMP lentas descarten jobs web por misfire).
-  - DEFERIDO: baselining estacional / detección de anomalías (Tier 2 #5) — requiere calibración con datos
-    maduros para no meter ruido en el lazo de alertas; se hará en iteración propia.
+  - **Baselining estacional / anomalías** (Tier 2 #5) [migr. 0016, tabla `baselines`] (2026-06-15):
+    job diario (00:45) `recalcular_baselines` calcula media/σ por (recurso, métrica, hora-del-día UTC)
+    desde el rollup horario (SQL `stddev_samp`). En el chequeo vivo, `_detectar_anomalias` degrada si una
+    métrica supera su banda normal `media + max(k·σ, piso)` de esa hora. Guardas anti-ruido: **opt-in** por
+    recurso (`parametros.baseline_metricas`, p.ej. `["cpu","mem"]`), `BASELINE_K=3` (3σ), piso absoluto
+    `BASELINE_MIN_DESVIACION=5`, mínimo `BASELINE_MIN_MUESTRAS=7` días por franja, solo desviación hacia
+    arriba, y confirmación SOFT/HARD (un pico aislado no alerta). Lógica pura `monitor/baseline.py`.
+    API `GET /recursos/{id}/baselines`; UI: panel "Línea base · anomalías" en el detalle. Madura en días.
 
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.

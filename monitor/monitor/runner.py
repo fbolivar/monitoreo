@@ -53,6 +53,9 @@ def chequear(db: Database, settings: Settings, recurso: Recurso) -> str:
 
     # 4b. Detección de failover de clúster (genérica: si el probe reporta ha_primary)
     ev = _detectar_failover(db, recurso, resultado, ev)
+    # 4c. Anomalías por línea base estacional (opt-in; degrada si una métrica
+    #     se dispara fuera de su banda normal de esta hora).
+    ev = _detectar_anomalias(db, settings, recurso, resultado, ev, ahora)
     crudo = ev.estado  # estado de ESTE chequeo (sin confirmar)
 
     # 5. Mantenimiento
@@ -172,6 +175,55 @@ def _detectar_failover(db: Database, recurso: Recurso, resultado: ResultadoProbe
             return Evaluacion("degraded", "warning", [motivo])
         ev.motivos.append(motivo)
     return ev
+
+
+def _detectar_anomalias(db: Database, settings: Settings, recurso: Recurso,
+                        resultado: ResultadoProbe, ev: Evaluacion, ahora: datetime) -> Evaluacion:
+    """Si el recurso opta por baseline (parametros.baseline_metricas) y una métrica
+    medida supera su banda normal (media + max(k·σ, piso)) de esta hora, degrada.
+
+    Solo aplica sobre estados up/degraded (no down/unknown). Aporta severidad
+    'warning' como mucho; la confirmación SOFT/HARD evita alertar por un pico."""
+    if not settings.baseline_enabled or ev.estado not in ("up", "degraded"):
+        return ev
+    opt = (recurso.parametros or {}).get("baseline_metricas")
+    if not opt or not isinstance(opt, (list, tuple)):
+        return ev
+
+    base = repo.cargar_baselines_hora(db, recurso.id, ahora.hour)
+    if not base:
+        return ev
+
+    from . import baseline as bl
+    medidas = {m.nombre: m.valor for m in resultado.metricas}
+    motivos = list(ev.motivos)
+    hubo = False
+    for metrica in opt:
+        if metrica not in medidas or metrica not in base:
+            continue
+        media, desviacion, muestras = base[metrica]
+        if muestras < settings.baseline_min_muestras:   # franja sin historia suficiente
+            continue
+        a = bl.evaluar_anomalia(metrica, medidas[metrica], media, desviacion,
+                                settings.baseline_k, settings.baseline_min_desviacion)
+        if a:
+            hubo = True
+            z = f", z={a.z:.1f}σ" if a.z is not None else ""
+            motivos.append(f"anomalía {a.metrica}={a.valor:.1f} > base {a.media:.1f}+{a.banda:.1f}"
+                           f"{z} (hora {ahora.hour}h UTC)")
+
+    if not hubo:
+        return ev
+    severidad = ev.severidad if ev.severidad in ("warning", "critical") else "warning"
+    return Evaluacion("degraded", severidad, motivos)
+
+
+def recalcular_baselines(db: Database, settings: Settings) -> None:
+    """Job periódico: recalcula la línea base estacional desde el rollup horario."""
+    if not settings.baseline_enabled:
+        return
+    n = repo.recalcular_baselines(db, settings.baseline_ventana_dias)
+    log.info("Líneas base recalculadas: %s franjas (recurso·métrica·hora).", n)
 
 
 def respaldar_configuraciones(db: Database, settings: Settings) -> None:

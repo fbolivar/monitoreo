@@ -73,6 +73,15 @@ class Settings:
     forecast_min_r2: float = float(os.getenv("FORECAST_MIN_R2", "0.5"))  # confianza mínima del ajuste
     forecast_alert_dias: int = _int("FORECAST_ALERT_DIAS", 14)       # umbral de aviso
 
+    # Línea base estacional / detección de anomalías (umbral dinámico).
+    # Opt-in por recurso (parametros.baseline_metricas). Una métrica que supera
+    # media + max(k·σ, piso) de su franja horaria -> degradado (vía SOFT/HARD).
+    baseline_enabled: bool = _bool("BASELINE_ENABLED", True)
+    baseline_ventana_dias: int = _int("BASELINE_VENTANA_DIAS", 30)   # historia para la línea base
+    baseline_min_muestras: int = _int("BASELINE_MIN_MUESTRAS", 7)    # mínimo de días por franja horaria
+    baseline_k: float = float(os.getenv("BASELINE_K", "3"))          # nº de desviaciones (3σ ~ 99.7%)
+    baseline_min_desviacion: float = float(os.getenv("BASELINE_MIN_DESVIACION", "5"))  # piso absoluto
+
     # Notificaciones (FASE 5)
     notif_enabled: bool = _bool("NOTIF_ENABLED", True)
     # Anti-flapping: no reenviar "apertura" del mismo recurso dentro de esta ventana.

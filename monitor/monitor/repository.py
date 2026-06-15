@@ -684,6 +684,43 @@ def guardar_pronostico(db: Database, recurso_id: int, metrica: str, valor_actual
         )
 
 
+# ── Línea base / anomalías ────────────────────────────────────────────
+def recalcular_baselines(db: Database, ventana_dias: int) -> int:
+    """Recalcula la línea base (media/σ por recurso+métrica+hora-UTC) desde el
+    rollup horario. Idempotente (upsert). Devuelve nº de franjas actualizadas."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO baselines AS b (recurso_id, metrica, hora, media, desviacion, muestras, actualizado_at)
+            SELECT recurso_id, metrica,
+                   EXTRACT(HOUR FROM bucket AT TIME ZONE 'UTC')::smallint AS hora,
+                   avg(valor_avg),
+                   COALESCE(stddev_samp(valor_avg), 0),
+                   count(*)::int,
+                   now()
+            FROM metricas_rollup_horario
+            WHERE bucket >= now() - make_interval(days => %s)
+            GROUP BY recurso_id, metrica, EXTRACT(HOUR FROM bucket AT TIME ZONE 'UTC')
+            ON CONFLICT (recurso_id, metrica, hora) DO UPDATE SET
+                media = EXCLUDED.media, desviacion = EXCLUDED.desviacion,
+                muestras = EXCLUDED.muestras, actualizado_at = now()
+            """,
+            (ventana_dias,),
+        )
+        return cur.rowcount
+
+
+def cargar_baselines_hora(db: Database, recurso_id: int, hora: int) -> dict[str, tuple]:
+    """Líneas base del recurso para una hora-del-día: {metrica: (media, desviacion, muestras)}."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT metrica, media, desviacion, muestras FROM baselines "
+            "WHERE recurso_id = %s AND hora = %s",
+            (recurso_id, hora),
+        )
+        return {r["metrica"]: (r["media"], r["desviacion"], r["muestras"]) for r in cur.fetchall()}
+
+
 def rollup_horario(db: Database) -> None:
     with db.connection() as conn, conn.cursor() as cur:
         cur.execute("SELECT fn_rollup_metricas_horario()")

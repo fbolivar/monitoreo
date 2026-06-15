@@ -100,6 +100,19 @@ class RecursoController extends Controller
         return response()->json($row);
     }
 
+    /** Línea base estacional (media/σ por métrica y hora) calculada por el worker. */
+    public function baselines(int $id): JsonResponse
+    {
+        Recurso::findOrFail($id);
+
+        $rows = DB::table('baselines')
+            ->where('recurso_id', $id)
+            ->orderBy('metrica')->orderBy('hora')
+            ->get(['metrica', 'hora', 'media', 'desviacion', 'muestras', 'actualizado_at']);
+
+        return response()->json($rows);
+    }
+
     /** Histórico de throughput (Mbps in/out) de una interfaz para graficar. */
     public function interfazHistorico(Request $request, int $id, int $ifIndex): JsonResponse
     {

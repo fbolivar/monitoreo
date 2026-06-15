@@ -75,6 +75,9 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
     // Pronósticos de capacidad (lectura): los calcula el worker.
     Route::get('pronosticos', [PronosticoController::class, 'index']);
 
+    // Línea base estacional / anomalías de un recurso (lectura).
+    Route::get('recursos/{id}/baselines', [RecursoController::class, 'baselines'])->whereNumber('id');
+
     // SNMP traps recibidos (lectura).
     Route::get('traps', [TrapController::class, 'index']);
 

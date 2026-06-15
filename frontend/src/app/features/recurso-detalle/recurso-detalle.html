@@ -60,6 +60,44 @@
     }
   </section>
 
+  <!-- Línea base estacional / anomalías -->
+  @if (baselines().length > 0 || baselineMetricas().length > 0) {
+    <section>
+      <h2>Línea base · anomalías
+        <span class="text-dim">(hora {{ horaUtc }}h UTC)</span>
+      </h2>
+      @if (baselineMetricas().length > 0) {
+        <p class="text-dim sub">Detección de anomalías activa en:
+          @for (m of baselineMetricas(); track m) { <code>{{ m }}</code> }
+        </p>
+      } @else {
+        <p class="text-dim sub">Sin métricas opt-in. Actívalo en <b>parámetros</b> del recurso:
+          <code>"baseline_metricas":["cpu","mem"]</code>.</p>
+      }
+      @if (baselineHoraActual().length === 0) {
+        <p class="text-dim">Aún no hay línea base para esta hora (necesita varios días de histórico).</p>
+      } @else {
+        <table>
+          <thead><tr>
+            <th>Métrica</th><th class="num">Media</th><th class="num">σ</th>
+            <th class="num">Límite anomalía</th><th class="num">Días</th>
+          </tr></thead>
+          <tbody>
+            @for (b of baselineHoraActual(); track b.metrica) {
+              <tr>
+                <td>{{ b.metrica }}</td>
+                <td class="num">{{ b.media | number: '1.0-1' }}</td>
+                <td class="num text-dim">{{ b.desviacion | number: '1.0-2' }}</td>
+                <td class="num"><b>{{ limiteAnomalia(b) | number: '1.0-1' }}</b></td>
+                <td class="num text-dim">{{ b.muestras }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    </section>
+  }
+
   <!-- Interfaces de red (IF-MIB) -->
   @if (interfaces().length > 0) {
     <section>

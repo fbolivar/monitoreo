@@ -95,6 +95,15 @@ export interface MuestraInterfaz {
   out_mbps: number | null;
 }
 
+export interface Baseline {
+  metrica: string;
+  hora: number;          // 0-23 (UTC)
+  media: number;
+  desviacion: number;
+  muestras: number;
+  actualizado_at: string;
+}
+
 export interface Respaldo {
   id: number;
   ts: string;
