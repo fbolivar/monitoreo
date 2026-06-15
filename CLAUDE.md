@@ -198,6 +198,27 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
     para firmar con la CA de AD (los PCs del dominio ya la confían por GPO); luego instalar .crt +
     ajustar nginx (ssl_certificate, server_name bc360.pnnc.local). NO ejecutado (requiere la CA del usuario).
 
+- ✅ MEJORAS 5ª OLA — Profundidad técnica del monitoreo (Tier 1) (2026-06-15), worker verificado (67 tests) + `ng build` OK:
+  - **Estados SOFT/HARD (anti-falsos-positivos)** [migr. 0013]: un estado "malo" (down/degraded/unknown)
+    solo se confirma como HARD tras N chequeos consecutivos (`MAX_CHECK_ATTEMPTS`, def 3; override por
+    recurso en `recursos.max_check_attempts`); solo las transiciones HARD abren/cierran incidencias y
+    notifican. Recuperación a 'up' configurable (`RECOVERY_ATTEMPTS`, def 1 = inmediata). `recursos.estado_actual`
+    pasa a reflejar el HARD (dashboard estable); `chequeos` guarda el estado CRUDO + `detalle.soft`
+    (candidato/intentos). Máquina pura `evaluacion.confirmar_estado`. Mata los falsos positivos por un
+    timeout/paquete perdido puntual (clave con Starlink).
+  - **Triggers compuestos (multi-condición)** [migr. 0014, tabla `reglas`]: expresión booleana AST en jsonb
+    sobre varias métricas (`and`/`or`/`not` + hojas `{metrica,op,valor}`), evaluada por un intérprete puro
+    seguro (`monitor/reglas.py`, sin `eval`); al cumplirse, degrada con la severidad indicada (peor de
+    umbrales+reglas). Lógica trivaluada: una métrica ausente no dispara (sin falsas alarmas). API
+    `ReglaController` (CRUD + validación del AST, espejo en PHP), rutas en `$crud`, auditada. UI: pestaña
+    "Reglas" en Configuración (editor de expresión JSON con ejemplo).
+  - **Freshness / stale-data** [sin migración]: job `marcar_obsoletos` (`FRESHNESS_CHECK_SEG`); si un recurso
+    activo lleva más de `FRESHNESS_FACTOR`×intervalo (piso `FRESHNESS_MIN_SEG`) sin chequeo, se marca
+    'unknown' (cubre un job muerto o un recurso que dejó de responder en silencio). Respeta mantenimiento y
+    pollers distribuidos. No abre incidencia (política de 'unknown').
+  Nota: el motor (Python) se validó con tests puros; la E/S contra equipos reales y la API/UI las verifica
+  el usuario en el servidor (sin php/ng aquí salvo `ng build`).
+
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.
 

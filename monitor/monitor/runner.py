@@ -18,7 +18,7 @@ from datetime import datetime, timezone
 from . import repository as repo
 from .config import Settings
 from .db import Database
-from .evaluacion import Evaluacion, evaluar
+from .evaluacion import Evaluacion, confirmar_estado, evaluar
 from .models import Recurso, Umbral
 from .notificaciones import SEV_ORDEN, notificar, notificar_simple
 from .probes import seleccionar_probe
@@ -46,47 +46,94 @@ def chequear(db: Database, settings: Settings, recurso: Recurso) -> str:
     # 2-3. Probe + secretos + ejecución
     resultado = _ejecutar_probe(db, settings, recurso)
 
-    # 4. Evaluación contra umbrales
+    # 4. Evaluación contra umbrales + triggers compuestos (reglas)
     umbrales = repo.cargar_umbrales(db, recurso)
-    ev = evaluar(resultado, umbrales)
+    reglas = repo.cargar_reglas(db, recurso)
+    ev = evaluar(resultado, umbrales, reglas)
 
     # 4b. Detección de failover de clúster (genérica: si el probe reporta ha_primary)
     ev = _detectar_failover(db, recurso, resultado, ev)
+    crudo = ev.estado  # estado de ESTE chequeo (sin confirmar)
 
     # 5. Mantenimiento
     en_mant = repo.en_mantenimiento(db, recurso, ahora)
-    estado_persistido = "maintenance" if en_mant else ev.estado
+
+    # 5a. Confirmación SOFT/HARD: un estado "malo" no se consolida hasta repetirse
+    #     N chequeos. Durante mantenimiento la máquina se congela (alertas silenciadas).
+    if en_mant:
+        conf = None
+        estado_persistido = "maintenance"
+        estado_hard = recurso.estado_hard  # para la lógica de incidencias/dependencias
+    else:
+        max_intentos = recurso.max_check_attempts or settings.max_check_attempts
+        conf = confirmar_estado(
+            recurso.estado_hard, recurso.estado_candidato, recurso.intentos_estado,
+            crudo, max_intentos, settings.recovery_attempts,
+        )
+        estado_persistido = conf.estado_hard
+        estado_hard = conf.estado_hard
 
     # 5b. Dependencia: ¿un ancestro (enlace/firewall aguas arriba) está caído?
-    #     Si es así, la caída de este recurso es consecuencia, no causa raíz.
+    #     Se evalúa sobre el estado HARD (no por un blip puntual).
     dep_caida = None
-    if recurso.depende_de_id and ev.estado in ("down", "degraded", "unknown"):
+    if recurso.depende_de_id and estado_hard in ("down", "degraded", "unknown"):
         dep_caida = repo.ancestro_caido(db, recurso.id)
 
-    # 6. Persistencia de chequeo + métricas + estado
+    # 6. Persistencia. En `chequeos` va el estado CRUDO (verdad histórica); en
+    #    `recursos.estado_actual` va el HARD/maintenance (dashboard estable).
+    estado_chequeo = "maintenance" if en_mant else crudo
     detalle = dict(resultado.detalle)
     detalle["evaluacion"] = {"estado": ev.estado, "severidad": ev.severidad, "motivos": ev.motivos}
     detalle["mantenimiento"] = en_mant
+    if conf is not None:
+        detalle["soft"] = {
+            "estado_hard": conf.estado_hard,
+            "candidato": conf.estado_candidato,
+            "intentos": conf.intentos,
+            "max": (recurso.max_check_attempts or settings.max_check_attempts),
+            "transicion": conf.transicion,
+        }
     if dep_caida:
         detalle["dependencia_caida"] = dep_caida
 
-    chequeo_id = repo.guardar_chequeo(db, recurso.id, estado_persistido,
+    chequeo_id = repo.guardar_chequeo(db, recurso.id, estado_chequeo,
                                       resultado.latencia_ms, detalle, ahora)
     repo.guardar_metricas(db, recurso.id, resultado.muestras_tuplas(), ahora)
     if resultado.interfaces:
         repo.guardar_interfaces(db, recurso.id, resultado.interfaces)
         repo.guardar_interfaces_historico(db, recurso.id, resultado.interfaces)
-    repo.actualizar_estado_recurso(db, recurso.id, estado_persistido, ahora)
+    if conf is None:
+        repo.actualizar_estado_recurso(db, recurso.id, estado_persistido, ahora)
+    else:
+        repo.actualizar_estado_recurso(db, recurso.id, estado_persistido, ahora,
+                                       conf.estado_hard, conf.estado_candidato, conf.intentos)
 
-    # 7. Incidencias + notificaciones (silenciadas durante mantenimiento)
+    # 7. Incidencias + notificaciones (silenciadas durante mantenimiento). Operan
+    #    sobre el estado HARD confirmado, no sobre el crudo.
     if not en_mant:
-        _gestionar_incidencia(db, settings, recurso, ev, umbrales, chequeo_id, ahora, dep_caida)
+        ev_hard = _evaluacion_hard(estado_hard, ev)
+        _gestionar_incidencia(db, settings, recurso, ev_hard, umbrales, chequeo_id, ahora, dep_caida)
         # Incidencias por interfaz monitoreada (uplinks/WAN). Se suprimen si un
         # ancestro está caído (la causa raíz ya alerta).
         if resultado.interfaces and not dep_caida:
             _gestionar_incidencias_interfaces(db, settings, recurso, ahora)
 
     return estado_persistido
+
+
+def _evaluacion_hard(estado_hard: str, ev: Evaluacion) -> Evaluacion:
+    """Construye la Evaluación que ven las incidencias usando el estado HARD.
+
+    La severidad se toma de la evaluación cruda cuando coincide con el estado
+    confirmado; si no, se usa el default del estado HARD (down->critical)."""
+    if estado_hard == "down":
+        return Evaluacion("down", "critical", ev.motivos or ["sin respuesta"])
+    if estado_hard == "degraded":
+        sev = ev.severidad if (ev.estado == "degraded" and ev.severidad) else "warning"
+        return Evaluacion("degraded", sev, ev.motivos)
+    if estado_hard == "unknown":
+        return Evaluacion("unknown", "warning", ev.motivos)
+    return Evaluacion("up", None, [])
 
 
 def _ejecutar_probe(db: Database, settings: Settings, recurso: Recurso) -> ResultadoProbe:
@@ -182,6 +229,21 @@ def latido_externo(db: Database, settings: Settings) -> None:
         httpx.get(settings.deadman_url, timeout=10)
     except Exception:  # noqa: BLE001
         log.debug("Dead-man's switch: no se pudo enviar el latido (¿red?).")
+
+
+def marcar_obsoletos(db: Database, settings: Settings) -> None:
+    """Freshness/stale-data: marca 'unknown' los recursos sin chequeo reciente.
+
+    Cubre el punto ciego en que un job muere o un recurso deja de responder en
+    silencio (sin disparar 'down'). No genera incidencia (política de 'unknown')."""
+    if not settings.freshness_enabled:
+        return
+    sitios = settings.sitios_filtro() or None
+    obsoletos = repo.marcar_recursos_obsoletos(
+        db, settings.freshness_factor, settings.freshness_min_seg, sitios)
+    for o in obsoletos:
+        log.warning("Freshness: recurso %s (%s) sin datos -> unknown (último: %s)",
+                    o["id"], o["nombre"], o["ultimo_chequeo_at"])
 
 
 def escalar_incidencias(db: Database, settings: Settings) -> None:

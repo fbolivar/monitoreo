@@ -48,6 +48,10 @@
       <label>Intervalo (s)
         <input type="number" name="intervalo" [(ngModel)]="form.intervalo_segundos" min="5" max="86400" />
       </label>
+      <label>Confirmaciones (SOFT/HARD)
+        <input type="number" name="mca" [(ngModel)]="form.max_check_attempts" min="1" max="10"
+               placeholder="global" />
+      </label>
       <label>Depende de
         <select name="depende_de_id" [(ngModel)]="form.depende_de_id">
           <option [ngValue]="null">— Ninguno —</option>
@@ -60,7 +64,8 @@
         <input type="checkbox" name="activo" [(ngModel)]="form.activo" /> Activo
       </label>
     </div>
-    <p class="text-dim hint">Si el recurso padre (enlace, firewall) está caído, se silencian las alertas de este recurso.</p>
+    <p class="text-dim hint">Si el recurso padre (enlace, firewall) está caído, se silencian las alertas de este recurso.
+      «Confirmaciones» = chequeos consecutivos antes de confirmar una caída/degradación (vacío = valor global).</p>
     <label>Parámetros (JSON, no sensible)
       <textarea name="parametros" rows="4" [(ngModel)]="form.parametrosTexto"></textarea>
     </label>

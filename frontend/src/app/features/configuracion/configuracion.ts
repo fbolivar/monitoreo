@@ -3,12 +3,19 @@ import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth.service';
 import { ConfigService } from '../../core/config.service';
 import {
-  Canal, LdapConfig, Mantenimiento, OPERADORES, Recurso, Sitio, TIPOS_CANAL, TipoRecurso, Umbral,
+  Canal, LdapConfig, Mantenimiento, OPERADORES, Recurso, Regla, SEVERIDADES, Sitio,
+  TIPOS_CANAL, TipoRecurso, Umbral,
 } from '../../core/models';
 import { RecursosService } from '../../core/recursos.service';
 import { fecha } from '../../shared/tiempo';
 
-type Tab = 'umbrales' | 'mantenimientos' | 'canales' | 'autenticacion';
+type Tab = 'umbrales' | 'reglas' | 'mantenimientos' | 'canales' | 'autenticacion';
+
+// Ejemplo precargado al crear una regla nueva (AST de expresión compuesta).
+const EJEMPLO_EXPRESION = JSON.stringify(
+  { and: [{ metrica: 'cpu', op: '>', valor: 90 }, { metrica: 'mem', op: '>', valor: 85 }] },
+  null, 2,
+);
 
 @Component({
   selector: 'app-configuracion',
@@ -24,6 +31,7 @@ export class Configuracion implements OnInit {
 
   readonly operadores = OPERADORES;
   readonly tiposCanal = TIPOS_CANAL;
+  readonly severidades = SEVERIDADES;
   fecha = fecha;
 
   tab = signal<Tab>('umbrales');
@@ -36,6 +44,7 @@ export class Configuracion implements OnInit {
 
   // Datos
   umbrales = signal<Umbral[]>([]);
+  reglas = signal<Regla[]>([]);
   mantenimientos = signal<Mantenimiento[]>([]);
   canales = signal<Canal[]>([]);
 
@@ -44,6 +53,7 @@ export class Configuracion implements OnInit {
   creando = signal(false);
 
   fUmbral = this.umbralVacio();
+  fRegla = this.reglaVacia();
   fMant = this.mantVacio();
   fCanal = this.canalVacio();
 
@@ -71,6 +81,7 @@ export class Configuracion implements OnInit {
   recargar(): void {
     this.error.set(null);
     if (this.tab() === 'umbrales') this.cfg.umbrales().subscribe((p) => this.umbrales.set(p.data));
+    if (this.tab() === 'reglas') this.cfg.reglas().subscribe((p) => this.reglas.set(p.data));
     if (this.tab() === 'mantenimientos') this.cfg.mantenimientos().subscribe((p) => this.mantenimientos.set(p.data));
     if (this.tab() === 'canales') this.cfg.canales().subscribe((p) => this.canales.set(p.data));
     if (this.tab() === 'autenticacion') {
@@ -159,6 +170,56 @@ export class Configuracion implements OnInit {
   eliminarUmbral(u: Umbral): void {
     if (!confirm('¿Eliminar umbral?')) return;
     this.cfg.eliminarUmbral(u.id).subscribe({ next: () => this.recargar(), error: (e) => this.error.set(this.msg(e)) });
+  }
+
+  // ── REGLAS (triggers compuestos) ──────────────────────────────────
+  private reglaVacia() {
+    return {
+      ambito: 'tipo' as 'tipo' | 'recurso',
+      recurso_id: null as number | null,
+      tipo_id: null as number | null,
+      nombre: '', descripcion: '',
+      expresionTexto: EJEMPLO_EXPRESION,
+      severidad: 'warning', duracion_segundos: 0, activo: true,
+    };
+  }
+  nuevaRegla(): void { this.creando.set(true); this.editId.set(null); this.fRegla = this.reglaVacia(); }
+  editarRegla(r: Regla): void {
+    this.creando.set(false); this.editId.set(r.id);
+    this.fRegla = {
+      ambito: r.recurso_id ? 'recurso' : 'tipo',
+      recurso_id: r.recurso_id ?? null, tipo_id: r.tipo_id ?? null,
+      nombre: r.nombre, descripcion: r.descripcion ?? '',
+      expresionTexto: JSON.stringify(r.expresion ?? {}, null, 2),
+      severidad: r.severidad, duracion_segundos: r.duracion_segundos, activo: r.activo,
+    };
+  }
+  guardarRegla(): void {
+    const f = this.fRegla;
+    this.error.set(null);
+    if (f.ambito === 'recurso' && !f.recurso_id) { this.error.set('Selecciona un recurso.'); return; }
+    if (f.ambito === 'tipo' && !f.tipo_id) { this.error.set('Selecciona un tipo.'); return; }
+    if (!f.nombre.trim()) { this.error.set('Indica un nombre para la regla.'); return; }
+    let expresion: unknown;
+    try { expresion = JSON.parse(f.expresionTexto); }
+    catch { this.error.set('Expresión: JSON inválido.'); return; }
+    const body: Record<string, unknown> = {
+      recurso_id: f.ambito === 'recurso' ? f.recurso_id : null,
+      tipo_id: f.ambito === 'tipo' ? f.tipo_id : null,
+      nombre: f.nombre, descripcion: f.descripcion || null,
+      expresion, severidad: f.severidad,
+      duracion_segundos: f.duracion_segundos, activo: f.activo,
+    };
+    const id = this.editId();
+    const obs = id ? this.cfg.actualizarRegla(id, body) : this.cfg.crearRegla(body);
+    obs.subscribe({ next: () => { this.cancelar(); this.recargar(); }, error: (e) => this.error.set(this.msg(e)) });
+  }
+  eliminarRegla(r: Regla): void {
+    if (!confirm('¿Eliminar regla?')) return;
+    this.cfg.eliminarRegla(r.id).subscribe({ next: () => this.recargar(), error: (e) => this.error.set(this.msg(e)) });
+  }
+  resumenExpresion(r: Regla): string {
+    return JSON.stringify(r.expresion ?? {});
   }
 
   // ── MANTENIMIENTOS ────────────────────────────────────────────────

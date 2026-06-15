@@ -47,6 +47,20 @@ class Settings:
     misfire_grace: int = _int("MISFIRE_GRACE", 30)
     sync_interval_seg: int = _int("SYNC_INTERVAL_SEG", 60)
 
+    # Estados SOFT/HARD (anti-falsos-positivos). Un estado "malo" se confirma como
+    # HARD tras N chequeos consecutivos; solo entonces se abre incidencia/notifica.
+    # La recuperación a 'up' suele quererse inmediata (cerrar rápido) -> 1.
+    max_check_attempts: int = _int("MAX_CHECK_ATTEMPTS", 3)
+    recovery_attempts: int = _int("RECOVERY_ATTEMPTS", 1)
+
+    # Freshness / stale-data: si un recurso lleva más de FRESHNESS_FACTOR×intervalo
+    # sin chequeo (job muerto, recurso que dejó de responder en silencio), se marca
+    # 'unknown'. FRESHNESS_MIN_SEG es un piso absoluto para intervalos muy cortos.
+    freshness_enabled: bool = _bool("FRESHNESS_ENABLED", True)
+    freshness_factor: int = _int("FRESHNESS_FACTOR", 3)
+    freshness_min_seg: int = _int("FRESHNESS_MIN_SEG", 120)
+    freshness_check_seg: int = _int("FRESHNESS_CHECK_SEG", 60)
+
     # Mantenimiento de datos (rollup/purga)
     tareas_mantenimiento: bool = _bool("TAREAS_MANTENIMIENTO", True)
 

@@ -17,6 +17,11 @@ class Recurso:
     estado_actual: str = "unknown"
     sitio_id: int | None = None
     depende_de_id: int | None = None
+    # Estados SOFT/HARD (ver evaluacion.confirmar_estado).
+    estado_hard: str = "unknown"
+    estado_candidato: str = "unknown"
+    intentos_estado: int = 0
+    max_check_attempts: int | None = None  # None => default global del worker
 
 
 @dataclass
@@ -26,6 +31,21 @@ class Umbral:
     valor_warning: float | None
     valor_critical: float | None
     duracion_segundos: int = 0
+
+
+@dataclass
+class Regla:
+    """Trigger compuesto: expresión booleana sobre varias métricas.
+
+    `expresion` es un AST JSON (ver reglas.py): hojas {metrica, op, valor} y
+    nodos {and:[...]}, {or:[...]}, {not:{...}}. Al cumplirse, aporta `severidad`.
+    """
+    id: int
+    nombre: str
+    expresion: dict[str, Any]
+    severidad: str = "warning"
+    duracion_segundos: int = 0
+    descripcion: str | None = None
 
 
 @dataclass

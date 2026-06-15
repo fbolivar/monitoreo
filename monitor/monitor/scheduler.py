@@ -17,6 +17,7 @@ from .runner import (
     ejecutar_chequeo_por_id,
     escalar_incidencias,
     latido_externo,
+    marcar_obsoletos,
     respaldar_configuraciones,
 )
 
@@ -85,6 +86,18 @@ def registrar_tareas_internas(scheduler: BackgroundScheduler, db: Database, sett
         id="sync-jobs",
         replace_existing=True,
     )
+
+    # Freshness/stale-data: marca 'unknown' los recursos sin chequeo reciente.
+    if settings.freshness_enabled:
+        scheduler.add_job(
+            marcar_obsoletos,
+            trigger=IntervalTrigger(seconds=settings.freshness_check_seg),
+            args=[db, settings],
+            id="freshness",
+            replace_existing=True,
+        )
+        log.info("Freshness activo (cada %ss, factor %s, piso %ss).",
+                 settings.freshness_check_seg, settings.freshness_factor, settings.freshness_min_seg)
 
     # Dead-man's switch: latido a un servicio externo.
     if settings.deadman_url:

@@ -35,6 +35,7 @@ export interface Recurso {
   ultimo_chequeo_at?: string | null;
   parametros?: Record<string, unknown>;
   depende_de_id?: number | null;
+  max_check_attempts?: number | null;
   tipo?: TipoRecurso;
   sitio?: Sitio;
   depende_de?: { id: number; nombre: string } | null;
@@ -179,6 +180,18 @@ export interface Umbral {
   activo: boolean;
 }
 
+export interface Regla {
+  id: number;
+  recurso_id?: number | null;
+  tipo_id?: number | null;
+  nombre: string;
+  descripcion?: string | null;
+  expresion: Record<string, unknown>;
+  severidad: Severidad;
+  duracion_segundos: number;
+  activo: boolean;
+}
+
 export interface Mantenimiento {
   id: number;
   recurso_id?: number | null;
@@ -214,6 +227,7 @@ export interface LdapConfig {
 export const OPERADORES = ['>', '>=', '<', '<=', '==', '!='];
 export const TIPOS_CANAL = ['email', 'sms', 'webhook', 'slack', 'telegram', 'teams'];
 export const ROLES: Rol[] = ['admin', 'operador', 'viewer'];
+export const SEVERIDADES: Severidad[] = ['info', 'warning', 'critical'];
 
 // Paginador de Laravel.
 export interface Paginated<T> {

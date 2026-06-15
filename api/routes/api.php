@@ -11,6 +11,7 @@ use App\Http\Controllers\MantenimientoController;
 use App\Http\Controllers\MetricaController;
 use App\Http\Controllers\PerfilController;
 use App\Http\Controllers\RecursoController;
+use App\Http\Controllers\ReglaController;
 use App\Http\Controllers\ReporteController;
 use App\Http\Controllers\SitioController;
 use App\Http\Controllers\TrapController;
@@ -41,6 +42,7 @@ $crud = [
     'sitios'               => SitioController::class,
     'recursos'             => RecursoController::class,
     'umbrales'             => UmbralController::class,
+    'reglas'               => ReglaController::class,
     'mantenimientos'       => MantenimientoController::class,
     'canales-notificacion' => CanalNotificacionController::class,
 ];

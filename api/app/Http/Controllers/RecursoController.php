@@ -173,6 +173,8 @@ class RecursoController extends Controller
             'intervalo_segundos' => ['nullable', 'integer', 'between:5,86400'],
             'activo'             => ['boolean'],
             'depende_de_id'      => ['nullable', 'integer', 'exists:recursos,id'],
+            // Confirmaciones SOFT/HARD antes de consolidar un estado malo (NULL = default global).
+            'max_check_attempts' => ['nullable', 'integer', 'between:1,10'],
             // Secretos en claro (jsonb). Se cifran de forma transparente. Nunca se devuelven.
             'secretos'           => ['nullable', 'array'],
         ];

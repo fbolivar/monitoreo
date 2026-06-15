@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { Canal, LdapConfig, Mantenimiento, Paginated, Umbral } from './models';
+import { Canal, LdapConfig, Mantenimiento, Paginated, Regla, Umbral } from './models';
 
 /** CRUD de configuración: umbrales, mantenimientos y canales de notificación. */
 @Injectable({ providedIn: 'root' })
@@ -20,6 +20,20 @@ export class ConfigService {
   }
   eliminarUmbral(id: number): Observable<void> {
     return this.api.delete<void>(`/umbrales/${id}`);
+  }
+
+  // ── Reglas (triggers compuestos) ──
+  reglas(query?: Record<string, unknown>): Observable<Paginated<Regla>> {
+    return this.api.get<Paginated<Regla>>('/reglas', { per_page: 200, ...query });
+  }
+  crearRegla(b: Record<string, unknown>): Observable<Regla> {
+    return this.api.post<Regla>('/reglas', b);
+  }
+  actualizarRegla(id: number, b: Record<string, unknown>): Observable<Regla> {
+    return this.api.put<Regla>(`/reglas/${id}`, b);
+  }
+  eliminarRegla(id: number): Observable<void> {
+    return this.api.delete<void>(`/reglas/${id}`);
   }
 
   // ── Mantenimientos ──

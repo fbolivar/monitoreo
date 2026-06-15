@@ -18,7 +18,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .models import Umbral
+from . import reglas as reglas_mod
+from .models import Regla, Umbral
 from .probes.base import ResultadoProbe
 
 OPERADORES = {
@@ -44,7 +45,8 @@ def _peor(a: str | None, b: str | None) -> str | None:
     return a if _SEVERIDAD[a] >= _SEVERIDAD[b] else b
 
 
-def evaluar(resultado: ResultadoProbe, umbrales: list[Umbral]) -> Evaluacion:
+def evaluar(resultado: ResultadoProbe, umbrales: list[Umbral],
+            reglas: list[Regla] | None = None) -> Evaluacion:
     if resultado.estado_base == "unknown":
         motivo = resultado.detalle.get("motivo") or resultado.detalle.get("error") or "no evaluable"
         return Evaluacion("unknown", "warning", [motivo])
@@ -78,7 +80,51 @@ def evaluar(resultado: ResultadoProbe, umbrales: list[Umbral]) -> Evaluacion:
             peor_sev = _peor(peor_sev, "warning")
             motivos.append(f"{u.metrica}={valor} {u.operador} {u.valor_warning} (warning)")
 
+    # Triggers compuestos (multi-condición). Cada regla que dispara aporta su
+    # severidad; se queda la peor de umbrales + reglas.
+    for severidad, descripcion in reglas_mod.evaluar_reglas(metricas, reglas or []):
+        peor_sev = _peor(peor_sev, severidad)
+        motivos.append(descripcion)
+
     if peor_sev in ("warning", "critical"):
         return Evaluacion("degraded", peor_sev, motivos)
 
     return Evaluacion("up", None, [])
+
+
+# ── Máquina de estados SOFT/HARD (anti-falsos-positivos) ──────────────────
+@dataclass
+class Confirmacion:
+    estado_hard: str           # estado confirmado tras la máquina
+    estado_candidato: str      # candidato en curso (== hard si está estable)
+    intentos: int              # confirmaciones acumuladas del candidato
+    transicion: bool           # ¿cambió el estado_hard en este chequeo?
+
+
+def confirmar_estado(prev_hard: str, prev_candidato: str, prev_intentos: int,
+                     crudo: str, max_intentos: int, recovery_intentos: int = 1) -> Confirmacion:
+    """Confirma un estado crudo contra el HARD previo (estilo Nagios SOFT/HARD).
+
+    Un estado distinto al HARD actual es un "candidato" que debe repetirse
+    `objetivo` chequeos consecutivos para consolidarse. La recuperación a 'up'
+    usa `recovery_intentos` (típicamente 1 = inmediato); el resto, `max_intentos`.
+
+    - Si el crudo coincide con el HARD actual: se cancela cualquier candidato.
+    - Si difiere y repite el candidato anterior: incrementa el contador.
+    - Si difiere y es un candidato nuevo: reinicia el contador a 1.
+    - Al alcanzar el objetivo: el candidato se vuelve HARD (transición).
+    """
+    objetivo = recovery_intentos if crudo == "up" else max_intentos
+    objetivo = max(1, objetivo)
+
+    if crudo == prev_hard:
+        return Confirmacion(prev_hard, prev_hard, 0, False)
+
+    if crudo == prev_candidato and prev_candidato != prev_hard:
+        intentos = prev_intentos + 1
+    else:
+        intentos = 1
+
+    if intentos >= objetivo:
+        return Confirmacion(crudo, crudo, 0, True)
+    return Confirmacion(prev_hard, crudo, intentos, False)

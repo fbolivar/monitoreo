@@ -14,6 +14,7 @@ interface FormRecurso {
   intervalo_segundos: number;
   activo: boolean;
   depende_de_id: number | null;
+  max_check_attempts: number | null;
   parametrosTexto: string;
   secretosTexto: string;
 }
@@ -73,7 +74,7 @@ export class Recursos implements OnInit {
   private vacio(): FormRecurso {
     return {
       nombre: '', tipo_id: null, sitio_id: null, hostname: '',
-      intervalo_segundos: 60, activo: true, depende_de_id: null,
+      intervalo_segundos: 60, activo: true, depende_de_id: null, max_check_attempts: null,
       parametrosTexto: '{}', secretosTexto: '',
     };
   }
@@ -95,6 +96,7 @@ export class Recursos implements OnInit {
       intervalo_segundos: r.intervalo_segundos,
       activo: r.activo,
       depende_de_id: r.depende_de_id ?? null,
+      max_check_attempts: r.max_check_attempts ?? null,
       parametrosTexto: JSON.stringify(r.parametros ?? {}, null, 2),
       secretosTexto: '',
     };
@@ -122,6 +124,7 @@ export class Recursos implements OnInit {
       intervalo_segundos: f.intervalo_segundos,
       activo: f.activo,
       depende_de_id: f.depende_de_id,
+      max_check_attempts: f.max_check_attempts || null,
       parametros,
     };
 

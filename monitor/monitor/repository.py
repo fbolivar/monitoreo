@@ -13,7 +13,7 @@ from typing import Any
 from psycopg.types.json import Json
 
 from .db import Database
-from .models import Canal, Recurso, Umbral
+from .models import Canal, Recurso, Regla, Umbral
 
 log = logging.getLogger(__name__)
 
@@ -21,8 +21,9 @@ log = logging.getLogger(__name__)
 # ── Recursos ──────────────────────────────────────────────────────────
 _SELECT_RECURSO = """
     SELECT r.id, r.nombre, r.hostname, r.parametros, r.intervalo_segundos,
-           r.estado_actual, r.sitio_id, r.depende_de_id, t.codigo AS tipo_codigo,
-           t.protocolo_default
+           r.estado_actual, r.sitio_id, r.depende_de_id,
+           r.estado_hard, r.estado_candidato, r.intentos_estado, r.max_check_attempts,
+           t.codigo AS tipo_codigo, t.protocolo_default
     FROM recursos r
     JOIN tipos_recurso t ON t.id = r.tipo_id
 """
@@ -40,6 +41,10 @@ def _fila_a_recurso(row: dict[str, Any]) -> Recurso:
         estado_actual=row["estado_actual"],
         sitio_id=row["sitio_id"],
         depende_de_id=row.get("depende_de_id"),
+        estado_hard=row.get("estado_hard") or row["estado_actual"],
+        estado_candidato=row.get("estado_candidato") or row["estado_actual"],
+        intentos_estado=row.get("intentos_estado") or 0,
+        max_check_attempts=row.get("max_check_attempts"),
     )
 
 
@@ -154,6 +159,34 @@ def cargar_umbrales(db: Database, recurso: Recurso) -> list[Umbral]:
                 duracion_segundos=r["duracion_segundos"],
             ))
         return umbrales
+
+
+# ── Reglas (triggers compuestos) ──────────────────────────────────────
+def cargar_reglas(db: Database, recurso: Recurso) -> list[Regla]:
+    """Reglas activas aplicables: específicas del recurso + las del tipo."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT id, nombre, descripcion, expresion, severidad, duracion_segundos
+            FROM reglas
+            WHERE activo = true
+              AND (recurso_id = %s OR tipo_id = (
+                    SELECT tipo_id FROM recursos WHERE id = %s))
+            ORDER BY id
+            """,
+            (recurso.id, recurso.id),
+        )
+        return [
+            Regla(
+                id=r["id"],
+                nombre=r["nombre"],
+                expresion=r["expresion"] or {},
+                severidad=r["severidad"],
+                duracion_segundos=r["duracion_segundos"],
+                descripcion=r["descripcion"],
+            )
+            for r in cur.fetchall()
+        ]
 
 
 # ── Mantenimientos ────────────────────────────────────────────────────
@@ -303,12 +336,64 @@ def abrir_incidencia_interfaz(db: Database, recurso_id: int, if_index: int, if_n
         return row["id"] if row else None
 
 
-def actualizar_estado_recurso(db: Database, recurso_id: int, estado: str, ts: datetime) -> None:
+def actualizar_estado_recurso(db: Database, recurso_id: int, estado: str, ts: datetime,
+                              estado_hard: str | None = None, estado_candidato: str | None = None,
+                              intentos: int | None = None) -> None:
+    """Persiste el estado del recurso. Si se pasan los campos SOFT/HARD, también
+    actualiza la máquina de confirmación (estado_hard/candidato/intentos)."""
+    with db.connection() as conn, conn.cursor() as cur:
+        if estado_hard is None:
+            cur.execute(
+                "UPDATE recursos SET estado_actual = %s, ultimo_chequeo_at = %s WHERE id = %s",
+                (estado, ts, recurso_id),
+            )
+        else:
+            cur.execute(
+                "UPDATE recursos SET estado_actual = %s, ultimo_chequeo_at = %s, "
+                "estado_hard = %s, estado_candidato = %s, intentos_estado = %s WHERE id = %s",
+                (estado, ts, estado_hard, estado_candidato, intentos, recurso_id),
+            )
+
+
+def marcar_recursos_obsoletos(db: Database, factor: int, piso_seg: int,
+                              sitios: list[int] | None = None) -> list[dict[str, Any]]:
+    """Freshness/stale-data: marca 'unknown' (HARD) los recursos activos cuyo último
+    chequeo es más viejo que max(factor×intervalo, piso_seg). Cubre el punto ciego de
+    un job muerto o un recurso que dejó de responder sin disparar 'down'.
+
+    Devuelve los recursos recién marcados (no re-marca los que ya estaban unknown HARD).
+    No toca recursos en mantenimiento. Respeta el filtro de pollers distribuidos.
+    """
+    filtro_sitio = ""
+    params: list[Any] = [factor, piso_seg]
+    if sitios:
+        filtro_sitio = " AND r.sitio_id = ANY(%s)"
+        params.append(sitios)
     with db.connection() as conn, conn.cursor() as cur:
         cur.execute(
-            "UPDATE recursos SET estado_actual = %s, ultimo_chequeo_at = %s WHERE id = %s",
-            (estado, ts, recurso_id),
+            f"""
+            WITH obsoletos AS (
+                SELECT r.id
+                FROM recursos r
+                WHERE r.activo = true
+                  AND r.estado_hard <> 'maintenance'
+                  AND r.estado_hard <> 'unknown'
+                  AND r.ultimo_chequeo_at IS NOT NULL
+                  AND r.ultimo_chequeo_at <
+                      now() - make_interval(secs => GREATEST(r.intervalo_segundos * %s, %s))
+                  {filtro_sitio}
+                FOR UPDATE OF r SKIP LOCKED
+            )
+            UPDATE recursos r
+            SET estado_actual = 'unknown', estado_hard = 'unknown',
+                estado_candidato = 'unknown', intentos_estado = 0
+            FROM obsoletos o
+            WHERE r.id = o.id
+            RETURNING r.id, r.nombre, r.ultimo_chequeo_at
+            """,
+            params,
         )
+        return cur.fetchall()
 
 
 # ── Incidencias ───────────────────────────────────────────────────────

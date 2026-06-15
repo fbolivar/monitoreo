@@ -18,16 +18,19 @@ class Recurso extends Model
     protected $fillable = [
         'tipo_id', 'sitio_id', 'nombre', 'hostname', 'descripcion',
         'parametros', 'intervalo_segundos', 'activo', 'depende_de_id',
+        'max_check_attempts',
     ];
 
     // La columna binaria cifrada nunca se serializa.
     protected $hidden = ['secretos'];
 
     protected $casts = [
-        'parametros'        => 'array',
+        'parametros'         => 'array',
         'intervalo_segundos' => 'integer',
-        'activo'            => 'boolean',
-        'ultimo_chequeo_at' => 'datetime',
+        'activo'             => 'boolean',
+        'ultimo_chequeo_at'  => 'datetime',
+        'max_check_attempts' => 'integer',
+        'intentos_estado'    => 'integer',
     ];
 
     protected $attributes = [

@@ -2,6 +2,7 @@
   <h1>Configuración</h1>
   <div class="tabs">
     <button class="btn" [class.btn-primary]="tab() === 'umbrales'" (click)="cambiarTab('umbrales')">Umbrales</button>
+    <button class="btn" [class.btn-primary]="tab() === 'reglas'" (click)="cambiarTab('reglas')">Reglas</button>
     <button class="btn" [class.btn-primary]="tab() === 'mantenimientos'" (click)="cambiarTab('mantenimientos')">Mantenimientos</button>
     <button class="btn" [class.btn-primary]="tab() === 'canales'" (click)="cambiarTab('canales')">Canales</button>
     @if (auth.esAdmin()) {
@@ -72,6 +73,85 @@
             @if (auth.puedeEditar()) {
               <button class="btn" (click)="editarUmbral(u)">Editar</button>
               <button class="btn" (click)="eliminarUmbral(u)">Eliminar</button>
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}
+
+<!-- ════════ REGLAS (triggers compuestos) ════════ -->
+@if (tab() === 'reglas') {
+  <p class="text-dim mb">Triggers <b>multi-condición</b>: una expresión booleana sobre varias
+    métricas (<code>and</code>/<code>or</code>/<code>not</code>) que, al cumplirse, degrada el
+    recurso con la severidad indicada. Complementa a los umbrales (1 métrica).</p>
+
+  @if (auth.puedeEditar()) { <button class="btn btn-primary mb" (click)="nuevaRegla()">+ Nueva regla</button> }
+
+  @if (creando() || editId() !== null) {
+    <form class="card form" (ngSubmit)="guardarRegla()">
+      <div class="grid">
+        <label>Ámbito
+          <select name="ambito" [(ngModel)]="fRegla.ambito">
+            <option value="tipo">Por tipo</option>
+            <option value="recurso">Por recurso</option>
+          </select>
+        </label>
+        @if (fRegla.ambito === 'tipo') {
+          <label>Tipo
+            <select name="tipo_id" [(ngModel)]="fRegla.tipo_id">
+              <option [ngValue]="null" disabled>Seleccionar…</option>
+              @for (t of tipos(); track t.id) { <option [ngValue]="t.id">{{ t.nombre }}</option> }
+            </select>
+          </label>
+        } @else {
+          <label>Recurso
+            <select name="recurso_id" [(ngModel)]="fRegla.recurso_id">
+              <option [ngValue]="null" disabled>Seleccionar…</option>
+              @for (r of recursos(); track r.id) { <option [ngValue]="r.id">{{ r.nombre }}</option> }
+            </select>
+          </label>
+        }
+        <label>Nombre <input name="nombre" [(ngModel)]="fRegla.nombre" required /></label>
+        <label>Severidad
+          <select name="sev" [(ngModel)]="fRegla.severidad">
+            @for (s of severidades; track s) { <option [value]="s">{{ s }}</option> }
+          </select>
+        </label>
+        <label>Duración (s) <input type="number" name="dur" [(ngModel)]="fRegla.duracion_segundos" min="0" /></label>
+        <label class="check"><input type="checkbox" name="act" [(ngModel)]="fRegla.activo" /> Activo</label>
+        <label class="wide">Descripción (opcional) <input name="desc" [(ngModel)]="fRegla.descripcion" /></label>
+      </div>
+      <label>Expresión (AST JSON)
+        <textarea name="expr" rows="6" [(ngModel)]="fRegla.expresionTexto" spellcheck="false"></textarea>
+      </label>
+      <p class="text-dim hint2">Hoja: <code>&#123;"metrica":"cpu","op":"&gt;","valor":90&#125;</code> ·
+        operadores: <code>&gt; &gt;= &lt; &lt;= == !=</code> ·
+        combinadores: <code>&#123;"and":[…]&#125;</code> <code>&#123;"or":[…]&#125;</code> <code>&#123;"not":&#123;…&#125;&#125;</code>.
+        Una métrica no medida deja la regla sin disparar (sin falsas alarmas).</p>
+      <div class="acciones">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <button type="button" class="btn" (click)="cancelar()">Cancelar</button>
+      </div>
+    </form>
+  }
+
+  <table>
+    <thead><tr><th>Ámbito</th><th>Nombre</th><th>Severidad</th><th>Expresión</th><th>Dur</th><th>Activo</th><th></th></tr></thead>
+    <tbody>
+      @for (r of reglas(); track r.id) {
+        <tr>
+          <td>{{ r.recurso_id ? nombreRecurso(r.recurso_id) : nombreTipo(r.tipo_id) }}</td>
+          <td>{{ r.nombre }}</td>
+          <td>{{ r.severidad }}</td>
+          <td><code class="expr">{{ resumenExpresion(r) }}</code></td>
+          <td>{{ r.duracion_segundos }}s</td>
+          <td>{{ r.activo ? 'Sí' : 'No' }}</td>
+          <td class="acc">
+            @if (auth.puedeEditar()) {
+              <button class="btn" (click)="editarRegla(r)">Editar</button>
+              <button class="btn" (click)="eliminarRegla(r)">Eliminar</button>
             }
           </td>
         </tr>
