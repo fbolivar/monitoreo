@@ -42,9 +42,10 @@ class Settings:
     icmp_privileged: bool = _bool("ICMP_PRIVILEGED", True)
     icmp_count: int = _int("ICMP_COUNT", 4)
 
-    # Scheduler
-    scheduler_max_workers: int = _int("SCHEDULER_MAX_WORKERS", 20)
-    misfire_grace: int = _int("MISFIRE_GRACE", 30)
+    # Scheduler. Chequeos I/O-bound -> conviene un pool amplio para que las sondas
+    # SNMP lentas no starven a las web (120s) y estas no se descarten por misfire.
+    scheduler_max_workers: int = _int("SCHEDULER_MAX_WORKERS", 50)
+    misfire_grace: int = _int("MISFIRE_GRACE", 90)
     sync_interval_seg: int = _int("SYNC_INTERVAL_SEG", 60)
 
     # Estados SOFT/HARD (anti-falsos-positivos). Un estado "malo" se confirma como
