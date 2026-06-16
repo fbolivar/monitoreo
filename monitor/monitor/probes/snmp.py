@@ -16,6 +16,24 @@ from . import interfaces as ifmib
 from .base import Muestra, ResultadoProbe
 from .snmp_client import Credenciales, snmp_get, snmp_walk
 
+# Última recolección de interfaces por recurso (reloj monotónico), para
+# desacoplar el walk IF-MIB (caro) del chequeo base. Estado a nivel de módulo
+# porque el probe se instancia fresco en cada chequeo.
+_ultima_interfaces: dict[int, float] = {}
+
+
+def _debe_recolectar_interfaces(recurso_id: int, intervalo_seg: int,
+                                ahora: float | None = None) -> bool:
+    """¿Toca recolectar interfaces este ciclo? (intervalo<=0 -> siempre)."""
+    if intervalo_seg <= 0:
+        return True
+    t = time.monotonic() if ahora is None else ahora
+    ult = _ultima_interfaces.get(recurso_id)
+    if ult is None or (t - ult) >= intervalo_seg:
+        _ultima_interfaces[recurso_id] = t
+        return True
+    return False
+
 # Reachability
 SYS_UPTIME = "1.3.6.1.2.1.1.3.0"
 
@@ -203,9 +221,12 @@ class SnmpProbe:
         retries = int(params.get("snmp_retries", 1))
 
         # Perfil HOST-RESOURCES (Windows/Linux): CPU promedio + memoria %.
+        recolectar_if = bool(params.get("interfaces")) and _debe_recolectar_interfaces(
+            recurso.id, settings.interfaces_intervalo_seg)
+
         if params.get("perfil") == "hostresources":
             res = self._run_hostresources(host, port, cred, timeout, retries)
-            if res.alcanzable and params.get("interfaces"):
+            if res.alcanzable and recolectar_if:
                 res.interfaces = self._interfaces(recurso.id, cred, host, port, timeout, retries)
             return res
 
@@ -248,7 +269,7 @@ class SnmpProbe:
             detalle["motivo"] = "sin respuesta SNMP"
 
         ifaces = None
-        if alcanzable and params.get("interfaces"):
+        if alcanzable and recolectar_if:
             ifaces = self._interfaces(recurso.id, cred, host, port, timeout, retries)
 
         return ResultadoProbe(alcanzable, estado_base, latencia, muestras, detalle, interfaces=ifaces)

@@ -41,6 +41,11 @@ class Settings:
     probe_timeout_ms: int = _int("PROBE_TIMEOUT_MS", 3000)
     icmp_privileged: bool = _bool("ICMP_PRIVILEGED", True)
     icmp_count: int = _int("ICMP_COUNT", 4)
+    # Recolección de interfaces (IF-MIB) DESACOPLADA del chequeo base: el walk de
+    # interfaces es el grueso del coste SNMP (cientos de varbinds). La base
+    # (cpu/mem/disco) corre cada ciclo; las interfaces solo cada N segundos. Los
+    # eventos de enlace en tiempo real los cubren los traps. 0 = en cada chequeo.
+    interfaces_intervalo_seg: int = _int("INTERFACES_INTERVALO_SEG", 300)
 
     # Scheduler. Chequeos I/O-bound -> conviene un pool amplio para que las sondas
     # SNMP lentas no starven a las web (120s) y estas no se descarten por misfire.
