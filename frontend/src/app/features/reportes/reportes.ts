@@ -142,4 +142,49 @@ export class Reportes implements OnInit {
     a.click();
     URL.revokeObjectURL(url);
   }
+
+  /** Abre una vista de impresión maquetada; el navegador la guarda como PDF. */
+  descargarPdf(): void {
+    const esc = (v: unknown): string =>
+      String(v ?? '').replace(/[&<>"]/g, (c) =>
+        (({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }) as Record<string, string>)[c]);
+    const rangoTxt = ({ '24h': 'últimas 24 horas', '7d': 'últimos 7 días', '30d': 'últimos 30 días' } as Record<string, string>)[this.rango()];
+    const prom = this.promedio();
+    const generado = new Date().toLocaleString('es-CO');
+    const col = (d: number | null) => (d == null ? '#777' : d >= 99 ? '#1b8a3a' : d >= 95 ? '#c88c00' : '#c81e1e');
+
+    const filas = this.ordenadas().map((f) => `
+      <tr><td>${esc(f.nombre)}</td><td>${esc(f.tipo_nombre)}</td><td>${esc(f.sitio_nombre ?? '—')}</td>
+      <td>${esc(f.estado_actual)}</td>
+      <td class="num" style="color:${col(f.disponibilidad)};font-weight:700">${f.disponibilidad != null ? f.disponibilidad.toFixed(3) + '%' : 'sin datos'}</td>
+      <td class="num">${f.up}</td><td class="num">${f.degraded}</td><td class="num">${f.down}</td><td class="num">${f.incidencias}</td></tr>`).join('');
+
+    const html = `<!doctype html><html lang="es"><head><meta charset="utf-8">
+      <title>Reporte de disponibilidad ${esc(this.rango())}</title><style>
+      *{font-family:Arial,Helvetica,sans-serif} body{margin:24px;color:#1a1a1a}
+      h1{font-size:18px;margin:0 0 2px;color:#256a36} .meta{color:#666;font-size:12px;margin-bottom:12px}
+      .kpis{display:flex;gap:28px;margin:10px 0 16px} .kpi b{font-size:20px;display:block} .kpi span{font-size:11px;color:#666;text-transform:uppercase}
+      table{width:100%;border-collapse:collapse;font-size:11px} th,td{border:1px solid #cfd8d0;padding:4px 6px;text-align:left}
+      th{background:#e8f0e9} .num{text-align:right} .pie{margin-top:16px;color:#888;font-size:10px}
+      @media print{body{margin:10mm}}</style></head><body>
+      <h1>SIMON · Reporte de disponibilidad</h1>
+      <div class="meta">Periodo: ${rangoTxt} · Generado: ${esc(generado)}</div>
+      <div class="kpis">
+        <div class="kpi"><b>${this.filas().length}</b><span>Recursos</span></div>
+        <div class="kpi"><b>${prom != null ? prom.toFixed(2) + '%' : '—'}</b><span>Disponibilidad promedio</span></div>
+        <div class="kpi"><b>${this.totalIncidencias()}</b><span>Incidencias</span></div>
+      </div>
+      <table><thead><tr><th>Recurso</th><th>Tipo</th><th>Sitio</th><th>Estado</th>
+        <th class="num">Disponibilidad</th><th class="num">Up</th><th class="num">Degr.</th><th class="num">Caído</th><th class="num">Incid.</th></tr></thead>
+      <tbody>${filas}</tbody></table>
+      <div class="pie">Parques Nacionales Naturales de Colombia — SIMON, Sistema Integral de Monitoreo</div>
+      </body></html>`;
+
+    const w = window.open('', '_blank');
+    if (!w) { alert('Permite las ventanas emergentes para generar el PDF.'); return; }
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(() => w.print(), 350);
+  }
 }
