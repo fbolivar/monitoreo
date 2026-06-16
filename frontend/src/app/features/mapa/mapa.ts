@@ -3,13 +3,16 @@ import { RouterLink } from '@angular/router';
 import { Estado, Recurso, Sitio } from '../../core/models';
 import { RecursosService } from '../../core/recursos.service';
 
-interface Marcador {
+interface Sede {
   sitio: Sitio;
-  x: number;
-  y: number;
-  estado: Estado;
+  estado: Estado;          // peor estado de sus recursos
   total: number;
-  caidos: number;
+  up: number;
+  degraded: number;
+  down: number;
+  otros: number;           // unknown + maintenance
+  x: number | null;        // proyección (null si la sede no tiene coordenadas)
+  y: number | null;
 }
 
 // Contorno simplificado de Colombia (lon, lat). Se proyecta con la MISMA
@@ -46,33 +49,52 @@ export class Mapa implements OnInit {
   sitios = signal<Sitio[]>([]);
   recursos = signal<Recurso[]>([]);
   cargando = signal(true);
+  hoverId = signal<number | null>(null);   // sincroniza marcador <-> fila de la lista
 
   outline = COLOMBIA.map(([lon, lat]) => this.proj(lon, lat));
   outlinePath = 'M ' + this.outline.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ') + ' Z';
 
-  marcadores = computed<Marcador[]>(() => {
+  // Todas las sedes con sus conteos (tengan o no coordenadas).
+  sedes = computed<Sede[]>(() => {
     const porSitio = new Map<number, Recurso[]>();
     for (const r of this.recursos()) {
       if (r.sitio_id == null) continue;
       (porSitio.get(r.sitio_id) ?? porSitio.set(r.sitio_id, []).get(r.sitio_id)!).push(r);
     }
-    return this.sitios()
-      .filter((s) => s.latitud != null && s.longitud != null)
-      .map((s) => {
-        const rs = porSitio.get(s.id) ?? [];
-        const estado = rs.reduce<Estado>(
-          (peor, r) => (PESO[r.estado_actual] > PESO[peor] ? r.estado_actual : peor), 'up');
-        const p = this.proj(s.longitud!, s.latitud!);
-        return {
-          sitio: s, x: p.x, y: p.y,
-          estado: rs.length ? estado : 'unknown',
-          total: rs.length,
-          caidos: rs.filter((r) => r.estado_actual === 'down').length,
-        };
-      });
+    return this.sitios().map((s) => {
+      const rs = porSitio.get(s.id) ?? [];
+      const peor = rs.reduce<Estado>(
+        (acc, r) => (PESO[r.estado_actual] > PESO[acc] ? r.estado_actual : acc), 'up');
+      const cuenta = (e: Estado) => rs.filter((r) => r.estado_actual === e).length;
+      const tieneCoords = s.latitud != null && s.longitud != null;
+      const p = tieneCoords ? this.proj(s.longitud!, s.latitud!) : null;
+      return {
+        sitio: s,
+        estado: rs.length ? peor : 'unknown',
+        total: rs.length,
+        up: cuenta('up'),
+        degraded: cuenta('degraded'),
+        down: cuenta('down'),
+        otros: cuenta('unknown') + cuenta('maintenance'),
+        x: p ? p.x : null,
+        y: p ? p.y : null,
+      };
+    });
   });
 
-  sinCoords = computed(() => this.sitios().filter((s) => s.latitud == null || s.longitud == null));
+  // Marcadores: solo las sedes con coordenadas.
+  marcadores = computed<Sede[]>(() => this.sedes().filter((s) => s.x != null));
+
+  // Lista: peor estado primero, luego más recursos primero.
+  sedesOrdenadas = computed<Sede[]>(() =>
+    [...this.sedes()].sort((a, b) =>
+      PESO[b.estado] - PESO[a.estado] || b.total - a.total || a.sitio.nombre.localeCompare(b.sitio.nombre)),
+  );
+
+  // KPIs de cabecera.
+  totalSedes = computed(() => this.sedes().length);
+  sedesConProblemas = computed(() => this.sedes().filter((s) => s.down > 0 || s.degraded > 0).length);
+  recursosCaidos = computed(() => this.sedes().reduce((n, s) => n + s.down, 0));
 
   ngOnInit(): void {
     this.svc.sitios().subscribe((p) => this.sitios.set(p.data));
@@ -94,8 +116,12 @@ export class Mapa implements OnInit {
              unknown: '#9aa0a6', maintenance: '#3b82f6' }[estado];
   }
 
-  // Radio según número de recursos (mínimo legible).
-  radio(m: Marcador): number {
-    return Math.min(16, 7 + m.total);
+  // Radio según número de recursos (mínimo legible, tope para no tapar).
+  radio(s: Sede): number {
+    return Math.max(9, Math.min(20, 8 + Math.sqrt(s.total) * 3));
+  }
+
+  hayProblema(s: Sede): boolean {
+    return s.down > 0 || s.degraded > 0;
   }
 }

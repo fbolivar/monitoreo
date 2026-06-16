@@ -1,16 +1,57 @@
-.head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 8px 0 14px; flex-wrap: wrap; }
+.head { display: flex; align-items: center; gap: 18px; margin: 8px 0 14px; flex-wrap: wrap; }
 h1 { font-size: 18px; margin: 0; }
 
-.leyenda { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; }
+.kpis { display: flex; gap: 18px; }
+.kpi { display: flex; flex-direction: column; line-height: 1.1; }
+.kpi b { font-size: 20px; }
+.kpi span { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .03em; }
+.kpi.alerta b { color: var(--sev-critical); }
+
+.leyenda { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; margin-left: auto; }
 .leyenda span { display: inline-flex; align-items: center; gap: 5px; }
 .leyenda i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
 
+/* Dos paneles: mapa + lista de sedes */
+.grid { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.1fr); gap: 16px; align-items: start; }
+@media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
+
 .lienzo { padding: 12px; display: flex; justify-content: center; }
-svg { width: 100%; max-width: 520px; height: auto; }
-
+svg { width: 100%; max-width: 460px; height: auto; }
 .pais { fill: var(--primary-50, #eaf3ec); stroke: var(--primary, #2e7d3a); stroke-width: 1.2; }
-.sede { stroke: #fff; stroke-width: 1.5; cursor: pointer; transition: opacity .15s; }
-.sede:hover { opacity: .8; }
-.etq { font-size: 11px; fill: var(--text, #222); font-weight: 600; }
 
-.nota { font-size: 12px; margin-top: 8px; }
+.sede { stroke: #fff; stroke-width: 1.5; transition: r .12s; }
+.num { fill: #fff; font-size: 11px; font-weight: 700; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
+a { cursor: pointer; }
+g.activo .sede { stroke: #111; stroke-width: 2.5; }
+g.activo .num { font-size: 12px; }
+
+/* Anillo que pulsa en sedes con problemas */
+.pulso { opacity: .35; transform-origin: center; transform-box: fill-box; animation: pulso 1.6s ease-out infinite; }
+@keyframes pulso {
+  0%   { transform: scale(.7); opacity: .5; }
+  70%  { transform: scale(1.5); opacity: 0; }
+  100% { opacity: 0; }
+}
+
+/* Panel lista de sedes */
+.panel { padding: 6px; max-height: 600px; overflow: auto; }
+.panel-h { padding: 8px 10px; font-weight: 600; font-size: 13px; border-bottom: 1px solid var(--border); }
+.lista { list-style: none; margin: 0; padding: 0; }
+.lista a {
+  display: flex; align-items: center; gap: 10px; padding: 9px 10px;
+  border-bottom: 1px solid var(--border); color: var(--text); text-decoration: none;
+  border-left: 3px solid transparent;
+}
+.lista a:hover, .lista a.activo { background: var(--bg-2); border-left-color: var(--primary); }
+.dot { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; }
+.info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.info b { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.info span { font-size: 11px; }
+.info em { color: var(--sev-warning); font-style: normal; }
+
+.chips { display: flex; gap: 4px; align-items: center; }
+.chip { font-size: 11px; padding: 1px 7px; border-radius: 10px; font-weight: 600; }
+.chip.tot { background: var(--bg-2); color: var(--text-dim); border: 1px solid var(--border); }
+.chip.down { background: #fdecec; color: var(--sev-critical); }
+.chip.degr { background: #fdf4e3; color: #9a6b00; }
+.ir { color: var(--text-dim); font-size: 18px; flex: 0 0 auto; }

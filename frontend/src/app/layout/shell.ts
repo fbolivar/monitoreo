@@ -22,7 +22,7 @@ import { IdleService } from '../core/idle.service';
           <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Dashboard</a>
           <a routerLink="/recursos" routerLinkActive="active">Recursos</a>
           <a routerLink="/sitios" routerLinkActive="active">Sitios</a>
-          <a routerLink="/mapa" routerLinkActive="active">Mapa</a>
+          <a routerLink="/mapa" routerLinkActive="active">Sedes</a>
           <a routerLink="/incidencias" routerLinkActive="active">Incidencias</a>
           <a routerLink="/traps" routerLinkActive="active">Traps</a>
           <a routerLink="/reportes" routerLinkActive="active">Reportes</a>

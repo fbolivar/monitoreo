@@ -1,5 +1,14 @@
 <div class="head">
-  <h1>Mapa de sedes</h1>
+  <h1>Sedes</h1>
+  <div class="kpis">
+    <div class="kpi"><b>{{ totalSedes() }}</b><span>Sedes</span></div>
+    <div class="kpi" [class.alerta]="sedesConProblemas() > 0">
+      <b>{{ sedesConProblemas() }}</b><span>Con problemas</span>
+    </div>
+    <div class="kpi" [class.alerta]="recursosCaidos() > 0">
+      <b>{{ recursosCaidos() }}</b><span>Recursos caídos</span>
+    </div>
+  </div>
   <div class="leyenda">
     <span><i style="background:#1b8a3a"></i>Operativo</span>
     <span><i style="background:#e0a400"></i>Degradado</span>
@@ -12,28 +21,60 @@
 @if (cargando()) {
   <p class="text-dim">Cargando…</p>
 } @else {
-  <div class="lienzo card">
-    <svg [attr.viewBox]="'0 0 ' + W + ' ' + H" preserveAspectRatio="xMidYMid meet">
-      <path [attr.d]="outlinePath" class="pais" />
-      @for (m of marcadores(); track m.sitio.id) {
-        <a [routerLink]="['/']">
-          <circle [attr.cx]="m.x" [attr.cy]="m.y" [attr.r]="radio(m)"
-                  [attr.fill]="color(m.estado)" class="sede">
-            <title>{{ m.sitio.nombre }} — {{ m.total }} recurso(s){{ m.caidos ? ', ' + m.caidos + ' caído(s)' : '' }}</title>
-          </circle>
-          <text [attr.x]="m.x + radio(m) + 3" [attr.y]="m.y + 4" class="etq">{{ m.sitio.nombre }}</text>
-        </a>
-      }
-    </svg>
+  <div class="grid">
+    <!-- Mapa geográfico -->
+    <div class="lienzo card">
+      <svg [attr.viewBox]="'0 0 ' + W + ' ' + H" preserveAspectRatio="xMidYMid meet">
+        <path [attr.d]="outlinePath" class="pais" />
+        @for (m of marcadores(); track m.sitio.id) {
+          <a [routerLink]="['/recursos']" [queryParams]="{ sitio: m.sitio.id }"
+             (mouseenter)="hoverId.set(m.sitio.id)" (mouseleave)="hoverId.set(null)">
+            <g [class.activo]="hoverId() === m.sitio.id">
+              @if (hayProblema(m)) {
+                <circle [attr.cx]="m.x" [attr.cy]="m.y" [attr.r]="radio(m) + 5"
+                        [attr.fill]="color(m.estado)" class="pulso" />
+              }
+              <circle [attr.cx]="m.x" [attr.cy]="m.y" [attr.r]="radio(m)"
+                      [attr.fill]="color(m.estado)" class="sede" />
+              <text [attr.x]="m.x" [attr.y]="m.y" class="num">{{ m.total }}</text>
+              <title>{{ m.sitio.nombre }} — {{ m.total }} recurso(s){{ m.down ? ', ' + m.down + ' caído(s)' : '' }}</title>
+            </g>
+          </a>
+        }
+      </svg>
+    </div>
+
+    <!-- Panel de sedes (incluye las sin coordenadas) -->
+    <div class="panel card">
+      <div class="panel-h">Sedes <span class="text-dim">· peor estado primero</span></div>
+      <ul class="lista">
+        @for (s of sedesOrdenadas(); track s.sitio.id) {
+          <li>
+            <a [routerLink]="['/recursos']" [queryParams]="{ sitio: s.sitio.id }"
+               [class.activo]="hoverId() === s.sitio.id"
+               (mouseenter)="hoverId.set(s.sitio.id)" (mouseleave)="hoverId.set(null)">
+              <i class="dot" [style.background]="color(s.estado)"></i>
+              <div class="info">
+                <b>{{ s.sitio.nombre }}</b>
+                <span class="text-dim">
+                  {{ s.sitio.ciudad || '—' }}
+                  @if (s.x === null) { · <em>sin ubicación</em> }
+                </span>
+              </div>
+              <div class="chips">
+                @if (s.down > 0) { <span class="chip down">{{ s.down }} caído</span> }
+                @if (s.degraded > 0) { <span class="chip degr">{{ s.degraded }} degr.</span> }
+                <span class="chip tot">{{ s.total }}</span>
+              </div>
+              <span class="ir">›</span>
+            </a>
+          </li>
+        }
+      </ul>
+    </div>
   </div>
 
-  @if (marcadores().length === 0) {
-    <p class="text-dim">Ningún sitio tiene coordenadas (latitud/longitud) cargadas todavía.</p>
-  }
-  @if (sinCoords().length > 0) {
-    <p class="text-dim nota">
-      Sin coordenadas (no se muestran en el mapa):
-      {{ sinCoords().length }} sitio(s) — edítalos en Sitios para ubicarlos.
-    </p>
+  @if (totalSedes() === 0) {
+    <p class="text-dim">No hay sedes cargadas todavía.</p>
   }
 }

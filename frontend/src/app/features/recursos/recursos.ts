@@ -1,6 +1,6 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../core/auth.service';
 import { Recurso, Sitio, TipoRecurso } from '../../core/models';
 import { RecursosService } from '../../core/recursos.service';
@@ -28,6 +28,7 @@ interface FormRecurso {
 })
 export class Recursos implements OnInit {
   private svc = inject(RecursosService);
+  private route = inject(ActivatedRoute);
   auth = inject(AuthService);
 
   recursos = signal<Recurso[]>([]);
@@ -61,6 +62,9 @@ export class Recursos implements OnInit {
     this.cargar();
     this.svc.tipos().subscribe((p) => this.tipos.set(p.data));
     this.svc.sitios().subscribe((p) => this.sitios.set(p.data));
+    // Filtro inicial por sede (drill-down desde el Mapa: /recursos?sitio=ID).
+    const sitio = this.route.snapshot.queryParamMap.get('sitio');
+    if (sitio) this.fSitio.set(Number(sitio));
   }
 
   private cargar(): void {
