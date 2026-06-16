@@ -65,7 +65,10 @@ def test_csv_tiene_cabecera_y_filas_ordenadas():
 
 
 def test_pdf_genera_bytes_o_none():
-    out = generar_pdf(FILAS, "Reporte", "últimos 30 días", "2026-06-15 06:00 UTC", kpis(FILAS))
+    # Título con em-dash y acentos: la fuente base de fpdf2 es latin-1, así que
+    # debe sanearse sin reventar (regresión del UnicodeEncodingException).
+    out = generar_pdf(FILAS, "Reporte de disponibilidad — Mensuál",
+                      "últimos 30 días", "2026-06-15 06:00 UTC", kpis(FILAS))
     # fpdf2 puede no estar instalado en este entorno -> None es válido.
     if out is not None:
         assert isinstance(out, (bytes, bytearray))

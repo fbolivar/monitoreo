@@ -48,6 +48,19 @@ def _fmt_disp(v) -> str:
     return f"{v:.3f}%" if v is not None else "sin datos"
 
 
+# Las fuentes base de fpdf2 (Helvetica) solo cubren latin-1. Los acentos españoles
+# (á,é,í,ó,ú,ñ) sí entran; el em-dash y las comillas tipográficas no -> se mapean.
+_REEMPLAZOS = {"—": "-", "–": "-", "…": "...", "‘": "'",
+               "’": "'", "“": '"', "”": '"', "•": "*", " ": " "}
+
+
+def _latin1(texto: str) -> str:
+    """Hace el texto seguro para las fuentes base de fpdf2 (latin-1)."""
+    for k, v in _REEMPLAZOS.items():
+        texto = texto.replace(k, v)
+    return texto.encode("latin-1", "replace").decode("latin-1")
+
+
 def generar_csv(filas: list[dict]) -> bytes:
     """CSV (UTF-8 con BOM) con la tabla de disponibilidad. Mismo orden que la UI."""
     cab = ["Recurso", "Tipo", "Sitio", "Estado", "Disponibilidad %",
@@ -80,14 +93,15 @@ def generar_pdf(filas: list[dict], titulo: str, periodo_txt: str,
     pdf.add_page()
 
     pdf.set_font("Helvetica", "B", 15)
-    pdf.cell(0, 9, titulo, new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 9, _latin1(titulo), new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Helvetica", "", 9)
     pdf.set_text_color(90, 90, 90)
-    pdf.cell(0, 5, f"Periodo: {periodo_txt}  ·  Generado: {generado}", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 5, _latin1(f"Periodo: {periodo_txt}  -  Generado: {generado}"),
+             new_x="LMARGIN", new_y="NEXT")
     prom = resumen.get("disponibilidad_promedio")
-    pdf.cell(0, 5, f"Recursos: {resumen['recursos']}  ·  "
-                   f"Disponibilidad promedio: {_fmt_disp(prom)}  ·  "
-                   f"Incidencias en el periodo: {resumen['incidencias']}",
+    pdf.cell(0, 5, _latin1(f"Recursos: {resumen['recursos']}  -  "
+                           f"Disponibilidad promedio: {_fmt_disp(prom)}  -  "
+                           f"Incidencias en el periodo: {resumen['incidencias']}"),
              new_x="LMARGIN", new_y="NEXT")
     pdf.ln(3)
 
@@ -97,7 +111,7 @@ def generar_pdf(filas: list[dict], titulo: str, periodo_txt: str,
     pdf.set_fill_color(232, 240, 233)
     pdf.set_text_color(20, 20, 20)
     for nombre, w in cols:
-        pdf.cell(w, 7, nombre, border=1, fill=True, align="C")
+        pdf.cell(w, 7, _latin1(nombre), border=1, fill=True, align="C")
     pdf.ln()
 
     pdf.set_font("Helvetica", "", 8)
@@ -126,7 +140,7 @@ def generar_pdf(filas: list[dict], titulo: str, periodo_txt: str,
             (str(f.get("incidencias", 0)), "R"),
         ]
         for (texto, align), (_n, w) in zip(valores, cols):
-            pdf.cell(w, 6, texto, border=1, align=align)
+            pdf.cell(w, 6, _latin1(texto), border=1, align=align)
         pdf.ln()
 
     salida = pdf.output()  # fpdf2 devuelve bytearray
