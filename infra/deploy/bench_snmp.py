@@ -41,9 +41,10 @@ def main() -> int:
         t0 = time.perf_counter()
         try:
             res = _ejecutar_probe(db, settings, r)
-            return (r.id, time.perf_counter() - t0, res.estado_base)
+            return (r.id, time.perf_counter() - t0, res.estado_base,
+                    len(res.metricas), len(res.interfaces or []))
         except Exception as e:  # noqa: BLE001
-            return (r.id, time.perf_counter() - t0, f"ERR {e}")
+            return (r.id, time.perf_counter() - t0, f"ERR {e}", 0, 0)
 
     # Calentamiento: cada hebra construye su engine una vez (no se mide).
     with cf.ThreadPoolExecutor(max_workers=min(20, len(recursos))) as ex:
@@ -65,8 +66,11 @@ def main() -> int:
     print(f"C) CONCURRENTE {len(recursos)} chequeos: wall {wall_con:.1f}s "
           f"(por-probe max {max(c[1] for c in con):.1f}s)")
 
-    print(f"\n>> speedup hebras = B/C = {wall_seq/wall_con:.2f}x "
-          f"(={'el GIL es el muro' if wall_seq/wall_con < 1.6 else 'las hebras escalan'})")
+    print(f"\n>> speedup hebras = B/C = {wall_seq/wall_con:.2f}x")
+    # Verifica que GETBULK no rompió la recolección (métricas/ifaces por chequeo).
+    print(">> recolección por chequeo (id: dt estado metricas ifaces):")
+    for rid, dt, est, nm, ni in con:
+        print(f"   id {rid:>3}  {dt:>5.1f}s  {est:<10} metricas={nm} ifaces={ni}")
     return 0
 
 

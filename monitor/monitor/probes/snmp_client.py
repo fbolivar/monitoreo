@@ -4,49 +4,24 @@ Soporta SNMP v1/v2c (community) y v3 (USM: noAuth/authNoPriv/authPriv), con GET
 y WALK. Compatible con pysnmp 6.x (getCmd/walkCmd, UdpTransportTarget()) y
 7.x (get_cmd/walk_cmd, UdpTransportTarget.create()).
 
-CONCURRENCIA (polling paralelo): construir un `SnmpEngine` es CARO (carga de
-MIBs + dispatcher) y `asyncio.run()` crea/destruye un event loop en cada llamada.
-Hacerlo por operación, multiplicado por las ~7 operaciones de un perfil
-`hostresources` y por decenas de hebras del scheduler, saturaba el GIL con
-trabajo CPU-bound y serializaba todo (un chequeo de ~7s se inflaba a ~70s).
+RENDIMIENTO: el WALK usa GETBULK (bulkWalkCmd) en v2c/v3, que trae varios
+varbinds por PDU (maxRepetitions) en vez de uno por GETNEXT. En tablas grandes
+(IF-MIB de un switch con decenas de puertos) reduce ~20x el nº de round-trips y
+de codificación/decodificación ASN.1 en Python — el verdadero coste de un chequeo
+SNMP. SNMPv1 no soporta GETBULK, así que cae a GETNEXT (walkCmd).
 
-Solución: un `SnmpEngine` y un event loop REUTILIZABLES por hebra (thread-local).
-El coste de arranque se amortiza (una vez por hebra) y las transacciones de
-distintas hebras corren en paralelo, cada una sobre su propio engine/loop sin
-estado compartido (pysnmp no es seguro compartiendo engine entre hebras).
+Nota: pysnmp es CPU-bound en Python puro (ASN.1/MIB), así que el GIL limita el
+paralelismo entre hebras a ~1.5x; la palanca real es REDUCIR el trabajo por
+chequeo (GETBULK), no repartirlo entre más hebras.
 """
 from __future__ import annotations
 
 import asyncio
-import threading
 from dataclasses import dataclass
 
-# Estado por hebra: event loop + SnmpEngine reutilizables (ver docstring).
-_local = threading.local()
-
-
-def _hebra_loop() -> asyncio.AbstractEventLoop:
-    """Event loop persistente de ESTA hebra (se crea una sola vez)."""
-    loop = getattr(_local, "loop", None)
-    if loop is None or loop.is_closed():
-        loop = asyncio.new_event_loop()
-        _local.loop = loop
-    return loop
-
-
-def _hebra_engine():
-    """SnmpEngine persistente de ESTA hebra (se construye una sola vez)."""
-    eng = getattr(_local, "engine", None)
-    if eng is None:
-        from pysnmp.hlapi.asyncio import SnmpEngine
-        eng = SnmpEngine()
-        _local.engine = eng
-    return eng
-
-
-def _ejecutar(coro):
-    """Ejecuta una corrutina en el loop persistente de la hebra (no crea uno nuevo)."""
-    return _hebra_loop().run_until_complete(coro)
+# maxRepetitions de GETBULK: varbinds por PDU. 25 equilibra round-trips vs
+# tamaño de respuesta UDP (evita fragmentación excesiva).
+_BULK_MAX_REP = 25
 
 
 @dataclass
@@ -102,11 +77,13 @@ async def _construir_target(host, port, timeout, retries):
 def snmp_get(host: str, port: int, cred: Credenciales, oids: dict[str, str],
              timeout: float, retries: int) -> tuple[bool, dict[str, object], str | None]:
     """GET de varios OIDs. Devuelve (ok, {nombre: valor}, error)."""
-    return _ejecutar(_snmp_get_async(host, port, cred, oids, timeout, retries))
+    return asyncio.run(_snmp_get_async(host, port, cred, oids, timeout, retries))
 
 
 async def _snmp_get_async(host, port, cred, oids, timeout, retries):
-    from pysnmp.hlapi.asyncio import ContextData, ObjectIdentity, ObjectType
+    from pysnmp.hlapi.asyncio import (
+        ContextData, ObjectIdentity, ObjectType, SnmpEngine,
+    )
     try:
         from pysnmp.hlapi.asyncio import get_cmd as _get_cmd   # pysnmp 7.x
     except ImportError:
@@ -120,7 +97,7 @@ async def _snmp_get_async(host, port, cred, oids, timeout, retries):
     objetos = [ObjectType(ObjectIdentity(oids[n])) for n in nombres]
 
     error_indication, error_status, error_index, var_binds = await _get_cmd(
-        _hebra_engine(), auth_data, target, ContextData(), *objetos
+        SnmpEngine(), auth_data, target, ContextData(), *objetos
     )
 
     _no_existe = (rfc1905.NoSuchObject, rfc1905.NoSuchInstance, rfc1905.EndOfMibView)
@@ -141,29 +118,46 @@ async def _snmp_get_async(host, port, cred, oids, timeout, retries):
     return ok, valores, error
 
 
+def _resolver_walk_cmd(version: str):
+    """Devuelve (fn_walk, es_bulk). GETBULK en v2c/v3; GETNEXT en v1."""
+    from pysnmp.hlapi import asyncio as hlapi
+    if version != "1":  # v2c / v3 -> GETBULK
+        fn = getattr(hlapi, "bulk_walk_cmd", None) or getattr(hlapi, "bulkWalkCmd", None)
+        if fn is not None:
+            return fn, True
+    # v1 o sin soporte bulk -> GETNEXT
+    fn = getattr(hlapi, "walk_cmd", None) or getattr(hlapi, "walkCmd")
+    return fn, False
+
+
 def snmp_walk(host: str, port: int, cred: Credenciales, base_oid: str,
               timeout: float, retries: int) -> tuple[list[tuple[str, object]], str | None]:
-    """WALK de un subárbol. Devuelve ([(oid, valor), ...], error)."""
-    return _ejecutar(_snmp_walk_async(host, port, cred, base_oid, timeout, retries))
+    """WALK de un subárbol (GETBULK en v2c/v3). Devuelve ([(oid, valor), ...], error)."""
+    return asyncio.run(_snmp_walk_async(host, port, cred, base_oid, timeout, retries))
 
 
 async def _snmp_walk_async(host, port, cred, base_oid, timeout, retries):
-    from pysnmp.hlapi.asyncio import ContextData, ObjectIdentity, ObjectType
-    try:
-        from pysnmp.hlapi.asyncio import walk_cmd as _walk_cmd   # pysnmp 7.x
-    except ImportError:
-        from pysnmp.hlapi.asyncio import walkCmd as _walk_cmd     # pysnmp 6.x
+    from pysnmp.hlapi.asyncio import (
+        ContextData, ObjectIdentity, ObjectType, SnmpEngine,
+    )
+    walk_cmd, es_bulk = _resolver_walk_cmd(cred.version)
 
     auth_data = _construir_auth(cred)
     target = await _construir_target(host, port, timeout, retries)
+    objeto = ObjectType(ObjectIdentity(base_oid))
+    engine = SnmpEngine()
+
+    if es_bulk:
+        # GETBULK: nonRepeaters=0, maxRepetitions=_BULK_MAX_REP.
+        gen = walk_cmd(engine, auth_data, target, ContextData(),
+                       0, _BULK_MAX_REP, objeto, lexicographicMode=False)
+    else:
+        gen = walk_cmd(engine, auth_data, target, ContextData(),
+                       objeto, lexicographicMode=False)
 
     resultados: list[tuple[str, object]] = []
     error: str | None = None
-    objeto = ObjectType(ObjectIdentity(base_oid))
-
-    async for (err_ind, err_stat, err_idx, var_binds) in _walk_cmd(
-        _hebra_engine(), auth_data, target, ContextData(), objeto, lexicographicMode=False
-    ):
+    async for (err_ind, err_stat, err_idx, var_binds) in gen:
         if err_ind:
             error = str(err_ind); break
         if err_stat:
