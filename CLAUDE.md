@@ -241,6 +241,15 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
     arriba, y confirmación SOFT/HARD (un pico aislado no alerta). Lógica pura `monitor/baseline.py`.
     API `GET /recursos/{id}/baselines`; UI: panel "Línea base · anomalías" en el detalle. Madura en días.
 
+- ✅ RENDIMIENTO SNMP — GETBULK en los walks (2026-06-15, commit 35ba95d), medido en producción:
+  El walk usa **GETBULK** (bulkWalkCmd, maxRepetitions 25) en v2c/v3 en vez de GETNEXT; cae a GETNEXT
+  en v1. Benchmark (`infra/deploy/bench_snmp.py`): construir un SnmpEngine = 0.10s (no era el cuello);
+  el paralelismo por hebras topa en ~1.5x porque pysnmp decodifica varbinds en Python puro y el **GIL**
+  lo serializa. GETBULK reduce round-trips → en LAN no cambia, pero en **WAN/alta latencia es ~8×**
+  (servidor remoto 76s → 9s); por eso los servidores remotos volvieron de 300s a 120s de intervalo.
+  Pendiente (decisión del usuario) para los switches LAN, limitados por el decode (GIL): desacoplar/
+  reducir el walk IF-MIB, librería SNMP en C (easysnmp), o multiprocessing.
+
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.
 
