@@ -1,0 +1,149 @@
+<div class="head">
+  <div>
+    <h1>Servicios · Observabilidad</h1>
+    <p class="text-dim sub">De «el servidor está UP» a entender <b>por qué el usuario percibe lentitud</b> y dónde está el cuello de botella.</p>
+  </div>
+  @if (auth.puedeEditar()) { <button class="btn btn-primary" (click)="nuevo()">+ Nueva transacción</button> }
+</div>
+
+@if (error()) { <p class="err">{{ error() }}</p> }
+
+<!-- ════════ FORMULARIO ════════ -->
+@if (creando() || editId() !== null) {
+  <form class="card form" (ngSubmit)="guardar()">
+    <div class="grid">
+      <label>Nombre <input name="nombre" [(ngModel)]="fServ.nombre" required placeholder="Página de ventas" /></label>
+      <label>Objetivo de experiencia (ms)
+        <input type="number" name="obj" [(ngModel)]="fServ.objetivo_ms" min="1" /></label>
+      <label class="check"><input type="checkbox" name="act" [(ngModel)]="fServ.activo" /> Activo</label>
+      <label class="wide">Descripción <input name="desc" [(ngModel)]="fServ.descripcion" /></label>
+      <label class="wide">Impacto al negocio
+        <input name="imp" [(ngModel)]="fServ.impacto_negocio" placeholder="Mayor abandono de carrito; afecta conversión y ventas" /></label>
+    </div>
+
+    <div class="comps">
+      <div class="comps-h">
+        <b>Cadena de la transacción</b>
+        <span class="text-dim">cada salto toma su latencia/estado del recurso enlazado</span>
+        <button type="button" class="btn" (click)="addComp()">+ Componente</button>
+      </div>
+      @for (c of fServ.componentes; track $index) {
+        <div class="comp-row">
+          <span class="ord">{{ $index + 1 }}</span>
+          <input name="cn{{ $index }}" [(ngModel)]="c.nombre" placeholder="Web, API Gateway, Catálogo, BD…" />
+          <select name="ct{{ $index }}" [(ngModel)]="c.tipo">
+            @for (t of tipos; track t) { <option [value]="t">{{ t }}</option> }
+          </select>
+          <select name="cr{{ $index }}" [(ngModel)]="c.recurso_id">
+            <option [ngValue]="null">— recurso (latencia) —</option>
+            @for (r of recursos(); track r.id) { <option [ngValue]="r.id">{{ r.nombre }}</option> }
+          </select>
+          <input type="number" name="cu{{ $index }}" [(ngModel)]="c.umbral_ms" placeholder="umbral ms" />
+          <button type="button" class="btn x" (click)="removeComp($index)" title="Quitar">✕</button>
+        </div>
+      }
+    </div>
+
+    <div class="acciones">
+      <button type="submit" class="btn btn-primary">Guardar</button>
+      <button type="button" class="btn" (click)="cancelar()">Cancelar</button>
+    </div>
+  </form>
+}
+
+@if (cargando()) {
+  <p class="text-dim">Cargando…</p>
+} @else if (lista().length === 0 && !creando() && editId() === null) {
+  <p class="text-dim">No hay transacciones definidas. Crea una para empezar a correlacionar servicios y ubicar el cuello de botella.</p>
+} @else if (lista().length > 0) {
+  <div class="cols">
+    <!-- Lista de transacciones -->
+    <aside class="panel card">
+      @for (s of lista(); track s.id) {
+        <button class="item" [class.activo]="sel()?.id === s.id" (click)="verAnalisis(s.id)">
+          <span class="dot" [style.background]="color(s.estado)"></span>
+          <span class="nom">{{ s.nombre }}</span>
+          <span class="lat" [class.malo]="s.alto_impacto">{{ fmtMs(s.experiencia_ms) }}</span>
+        </button>
+      }
+    </aside>
+
+    <!-- Detalle / análisis de correlación -->
+    @if (sel(); as a) {
+      <section class="detalle">
+        <div class="d-head">
+          <h2>{{ a.nombre }}</h2>
+          <span class="badge" [style.background]="color(a.estado)">{{ a.estado }}</span>
+          @if (a.alto_impacto) { <span class="badge alto">⚠ ALTO IMPACTO</span> }
+          <div class="sp"></div>
+          @if (auth.puedeEditar()) {
+            <button class="btn" (click)="editar()">Editar</button>
+            <button class="btn" (click)="eliminar()">Eliminar</button>
+          }
+        </div>
+
+        <!-- Experiencia del usuario -->
+        <div class="card exp" [class.malo]="a.alto_impacto">
+          <div class="exp-num">
+            <span class="text-dim">Experiencia del usuario (latencia de entrada)</span>
+            <b class="big">{{ fmtMs(a.experiencia_ms) }}</b>
+            <span class="text-dim">objetivo: {{ fmtMs(a.objetivo_ms) }} · suma de la cadena: {{ fmtMs(a.total_ms) }}</span>
+          </div>
+          <div class="exp-flag">
+            @if (a.alto_impacto) { <span class="alto">Alto impacto ⚠</span> }
+            @else { <span class="ok">Dentro del objetivo ✓</span> }
+          </div>
+        </div>
+
+        <!-- Correlación de servicios (flujo) -->
+        <div class="card">
+          <h3>Correlación de servicios</h3>
+          <div class="flujo">
+            @for (c of a.componentes; track c.orden; let last = $last) {
+              <div class="nodo" [class.cuello]="esCuello(c)">
+                <span class="circ" [style.border-color]="color(c.estado)" [style.color]="color(c.estado)">{{ icono(c.tipo) }}</span>
+                <b>{{ c.nombre }}</b>
+                <span class="text-dim">{{ fmtMs(c.latencia_ms) }}</span>
+                @if (esCuello(c) && a.estado !== 'up') { <span class="tag">causa raíz</span> }
+              </div>
+              @if (!last) { <span class="flecha">→</span> }
+            }
+          </div>
+        </div>
+
+        <!-- Waterfall de latencia por salto -->
+        <div class="card">
+          <h3>Latencia por salto</h3>
+          @for (c of a.componentes; track c.orden) {
+            <div class="wf">
+              <span class="wf-n">{{ c.nombre }}</span>
+              <div class="wf-bar">
+                <div class="wf-fill" [style.width.%]="anchoBarra(c.latencia_ms)"
+                     [style.background]="esCuello(c) ? '#d11d1d' : color(c.estado)"></div>
+              </div>
+              <span class="wf-v" [class.malo]="c.supera_umbral || esCuello(c)">{{ fmtMs(c.latencia_ms) }}</span>
+            </div>
+          }
+        </div>
+
+        <!-- Causa raíz -->
+        @if (a.cuello) {
+          <div class="card causa">
+            <h3>Causa raíz identificada</h3>
+            <p><b>{{ a.cuello.nombre }}</b> es el salto {{ a.estado === 'up' ? 'más lento' : 'más afectado' }}
+              ({{ fmtMs(a.cuello.latencia_ms) }}, estado <b>{{ a.cuello.estado }}</b>).</p>
+            @if (a.causa) { <p class="motivo">{{ a.causa }}</p> }
+          </div>
+        }
+
+        <!-- Impacto -->
+        @if (a.impacto_negocio) {
+          <div class="card impacto">
+            <h3>Impacto al negocio</h3>
+            <p>{{ a.impacto_negocio }}</p>
+          </div>
+        }
+      </section>
+    }
+  </div>
+}

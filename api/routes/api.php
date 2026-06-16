@@ -15,6 +15,7 @@ use App\Http\Controllers\RecursoController;
 use App\Http\Controllers\ReglaController;
 use App\Http\Controllers\ReporteController;
 use App\Http\Controllers\ReporteProgramadoController;
+use App\Http\Controllers\ServicioController;
 use App\Http\Controllers\SitioController;
 use App\Http\Controllers\TrapController;
 use App\Http\Controllers\TipoRecursoController;
@@ -46,6 +47,7 @@ $crud = [
     'umbrales'             => UmbralController::class,
     'reglas'               => ReglaController::class,
     'reportes-programados' => ReporteProgramadoController::class,
+    'servicios'            => ServicioController::class,
     'mantenimientos'       => MantenimientoController::class,
     'canales-notificacion' => CanalNotificacionController::class,
 ];
@@ -79,6 +81,9 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
 
     // Línea base estacional / anomalías de un recurso (lectura).
     Route::get('recursos/{id}/baselines', [RecursoController::class, 'baselines'])->whereNumber('id');
+
+    // Observabilidad de servicios: analisis de correlacion de una transaccion.
+    Route::get('servicios/{id}/analisis', [ServicioController::class, 'analisis'])->whereNumber('id');
 
     // SNMP traps recibidos (lectura).
     Route::get('traps', [TrapController::class, 'index']);

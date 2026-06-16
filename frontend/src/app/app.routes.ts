@@ -52,6 +52,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/mapa/mapa').then((m) => m.Mapa),
       },
       {
+        path: 'servicios',
+        loadComponent: () => import('./features/servicios/servicios').then((m) => m.Servicios),
+      },
+      {
         path: 'configuracion',
         loadComponent: () =>
           import('./features/configuracion/configuracion').then((m) => m.Configuracion),

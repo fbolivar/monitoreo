@@ -1,0 +1,83 @@
+.head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin: 8px 0 14px; }
+h1 { font-size: 18px; margin: 0; }
+.sub { font-size: 12px; margin: 2px 0 0; max-width: 640px; }
+.err { color: var(--sev-critical); }
+
+/* ── Formulario ── */
+.form { padding: 14px 16px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 12px; }
+.form .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-dim); }
+.form label.check { flex-direction: row; align-items: center; gap: 6px; color: var(--text); }
+.form label.wide { grid-column: 1 / -1; }
+.comps { border-top: 1px solid var(--border); padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.comps-h { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.comps-h .btn { margin-left: auto; }
+.comp-row { display: grid; grid-template-columns: 24px 1.4fr 0.9fr 1.4fr 90px 30px; gap: 6px; align-items: center; }
+.comp-row .ord { text-align: center; color: var(--text-dim); font-weight: 700; }
+.comp-row .btn.x { padding: 4px 8px; }
+.acciones { display: flex; gap: 8px; }
+
+/* ── Dos columnas: lista + detalle ── */
+.cols { display: grid; grid-template-columns: minmax(220px, 280px) 1fr; gap: 16px; align-items: start; }
+@media (max-width: 880px) { .cols { grid-template-columns: 1fr; } }
+
+.panel { padding: 6px; }
+.item {
+  display: flex; align-items: center; gap: 9px; width: 100%; text-align: left;
+  padding: 10px; border: none; background: none; cursor: pointer;
+  border-bottom: 1px solid var(--border); border-left: 3px solid transparent; color: var(--text);
+}
+.item:hover, .item.activo { background: var(--bg-2); border-left-color: var(--primary); }
+.item .dot { width: 11px; height: 11px; border-radius: 50%; flex: 0 0 auto; }
+.item .nom { flex: 1; font-weight: 600; font-size: 13px; }
+.item .lat { font-size: 12px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+.item .lat.malo { color: var(--sev-critical); font-weight: 700; }
+
+/* ── Detalle ── */
+.detalle { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.d-head { display: flex; align-items: center; gap: 10px; }
+.d-head h2 { font-size: 16px; margin: 0; }
+.d-head .sp { flex: 1; }
+.badge { color: #fff; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 10px; text-transform: uppercase; }
+.badge.alto { background: var(--sev-critical) !important; }
+
+.card { padding: 14px 16px; }
+.card h3 { margin: 0 0 10px; font-size: 13px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .03em; }
+
+/* Experiencia */
+.exp { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.exp.malo { border: 1px solid #f0c2c2; background: #fdf6f6; }
+.exp-num { display: flex; flex-direction: column; }
+.exp-num .big { font-size: 34px; font-weight: 800; line-height: 1.1; }
+.exp.malo .big { color: var(--sev-critical); }
+.exp-flag .alto { color: var(--sev-critical); font-weight: 700; }
+.exp-flag .ok { color: var(--estado-up, #1b8a3a); font-weight: 700; }
+
+/* Flujo / correlación */
+.flujo { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.nodo { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 10px; border-radius: 10px; min-width: 84px; }
+.nodo.cuello { background: #fdecec; box-shadow: 0 0 0 2px #d11d1d33; }
+.nodo .circ {
+  width: 38px; height: 38px; border-radius: 50%; border: 2.5px solid; display: flex;
+  align-items: center; justify-content: center; font-size: 18px; background: #fff;
+}
+.nodo.cuello .circ { animation: pulso 1.5s ease-out infinite; }
+.nodo b { font-size: 12px; }
+.nodo .tag { font-size: 10px; font-weight: 700; color: #fff; background: var(--sev-critical); padding: 1px 7px; border-radius: 8px; }
+.flecha { color: var(--text-dim); font-size: 20px; }
+@keyframes pulso { 0% { box-shadow: 0 0 0 0 #d11d1d66; } 70% { box-shadow: 0 0 0 8px #d11d1d00; } 100% { box-shadow: 0 0 0 0 #d11d1d00; } }
+
+/* Waterfall */
+.wf { display: grid; grid-template-columns: 130px 1fr 70px; gap: 10px; align-items: center; margin: 5px 0; }
+.wf-n { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wf-bar { background: var(--bg-2); border-radius: 6px; height: 18px; overflow: hidden; }
+.wf-fill { height: 100%; border-radius: 6px; transition: width .3s; min-width: 2px; }
+.wf-v { text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; }
+.wf-v.malo { color: var(--sev-critical); font-weight: 700; }
+
+/* Causa raíz / impacto */
+.causa { border-left: 4px solid var(--sev-critical); }
+.causa h3 { color: var(--sev-critical); }
+.causa .motivo { background: var(--bg-2); padding: 8px 10px; border-radius: 6px; font-size: 13px; }
+.impacto { border-left: 4px solid var(--primary); }
+.impacto h3 { color: var(--primary-dark, #256a36); }

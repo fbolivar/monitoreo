@@ -140,6 +140,57 @@ export interface ReporteDisponibilidad {
   recursos: FilaDisponibilidad[];
 }
 
+export type TipoComponente = 'web' | 'api' | 'gateway' | 'cache' | 'db' | 'externo' | 'servicio';
+
+export interface ServicioComponente {
+  id?: number;
+  orden?: number;
+  nombre: string;
+  tipo: TipoComponente;
+  recurso_id?: number | null;
+  umbral_ms?: number | null;
+}
+
+export interface Servicio {
+  id: number;
+  nombre: string;
+  descripcion?: string | null;
+  objetivo_ms: number;
+  impacto_negocio?: string | null;
+  activo: boolean;
+  componentes?: ServicioComponente[];
+}
+
+export interface ComponenteAnalisis {
+  orden: number;
+  nombre: string;
+  tipo: TipoComponente;
+  recurso_id: number | null;
+  recurso_nombre: string | null;
+  estado: Estado;
+  latencia_ms: number | null;
+  umbral_ms: number | null;
+  supera_umbral: boolean;
+}
+
+export interface ServicioAnalisis {
+  id: number;
+  nombre: string;
+  descripcion?: string | null;
+  objetivo_ms: number;
+  impacto_negocio?: string | null;
+  activo: boolean;
+  estado: Estado;
+  experiencia_ms: number | null;
+  total_ms: number;
+  alto_impacto: boolean;
+  cuello: { nombre: string; latencia_ms: number | null; recurso_id: number | null; estado: Estado } | null;
+  causa: string | null;
+  componentes?: ComponenteAnalisis[];
+}
+
+export const TIPOS_COMPONENTE: TipoComponente[] = ['web', 'api', 'gateway', 'cache', 'db', 'externo', 'servicio'];
+
 export interface ReporteProgramado {
   id: number;
   nombre: string;

@@ -259,6 +259,19 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
   API `ReporteProgramadoController` (CRUD, valida correos, auditado), rutas en `$crud`. UI: sección
   "Programación de reportes" en la pantalla Reportes (gated por rol). Cierra el ciclo de informe a gerencia.
 
+- ✅ OBSERVABILIDAD DE SERVICIOS (Camino A) (2026-06-16) [migr. 0018, tablas `servicios` + `servicio_componentes`]:
+  pasa de "el servidor está UP" a "por qué el usuario percibe lentitud y dónde está el cuello de botella".
+  Una **transacción observable** es una cadena ordenada de componentes (Web→API Gateway→Catálogo→BD), cada
+  uno enlazado a un recurso que SIMON ya mide; toma su latencia (último `chequeos.latencia_ms`) y estado.
+  `ServicioController` CRUD (componentes anidados) + `GET /servicios/{id}/analisis` que correlaciona:
+  experiencia (latencia del salto de entrada) vs `objetivo_ms`, **cuello de botella** (peor estado, luego
+  mayor latencia) marcado como causa raíz (con el motivo de su incidencia abierta si la hay), suma de la
+  cadena, alto_impacto e impacto al negocio. UI: pantalla "Servicios" (lista + detalle con experiencia,
+  flujo de correlación, waterfall por salto, causa raíz e impacto; CRUD con editor de cadena, gated por rol).
+  NOTA: es observabilidad "desde afuera" con los datos que SIMON ya recoge — NO instrumenta las apps del
+  cliente. Camino B (pendiente, decisión del usuario): endpoint de ingesta `POST /ingest/rum|/span` + beacon
+  RUM/OTel para experiencia real del usuario y trazas distribuidas reales.
+
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.
 
