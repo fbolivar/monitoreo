@@ -250,6 +250,15 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
   Pendiente (decisión del usuario) para los switches LAN, limitados por el decode (GIL): desacoplar/
   reducir el walk IF-MIB, librería SNMP en C (easysnmp), o multiprocessing.
 
+- ✅ REPORTES PROGRAMADOS (SLA por correo) (2026-06-16) [migr. 0017, tabla `reportes_programados`]:
+  job diario del worker (`enviar_reportes_programados`, a las `REPORTE_HORA` UTC) que detecta qué
+  reportes toca enviar según su periodicidad (diario/semanal/mensual, vía `reporte_due`), calcula la
+  disponibilidad/SLA (réplica del ReporteController en `repository.disponibilidad`), genera **PDF**
+  (fpdf2, puro Python; cae a CSV si falta) y lo envía por el **canal email** activo a los destinatarios
+  del reporte (`senders.enviar_email_adjunto`, MIME multipart). Lógica pura en `monitor/reportes.py`.
+  API `ReporteProgramadoController` (CRUD, valida correos, auditado), rutas en `$crud`. UI: sección
+  "Programación de reportes" en la pantalla Reportes (gated por rol). Cierra el ciclo de informe a gerencia.
+
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.
 

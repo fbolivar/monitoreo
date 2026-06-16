@@ -96,4 +96,78 @@
       </tbody>
     </table>
   }
+
+  <!-- ════════ PROGRAMACIÓN DE REPORTES ════════ -->
+  <h2 class="sub">Programación de reportes</h2>
+  <p class="text-dim nota">Envío automático del informe de disponibilidad por correo (PDF/CSV) según la periodicidad.</p>
+  @if (!auth.puedeEditar()) { <p class="text-dim">Rol {{ auth.rol() }} · solo lectura.</p> }
+  @if (errorProg()) { <p class="err">{{ errorProg() }}</p> }
+  @if (auth.puedeEditar()) { <button class="btn btn-primary mb" (click)="nuevoProg()">+ Nuevo reporte</button> }
+
+  @if (creando() || editId() !== null) {
+    <form class="card form" (ngSubmit)="guardarProg()">
+      <div class="grid">
+        <label>Nombre <input name="nombre" [(ngModel)]="fProg.nombre" required /></label>
+        <label>Periodicidad
+          <select name="periodo" [(ngModel)]="fProg.periodo">
+            <option value="diario">Diario</option>
+            <option value="semanal">Semanal</option>
+            <option value="mensual">Mensual</option>
+          </select>
+        </label>
+        <label>Ventana de datos
+          <select name="rango" [(ngModel)]="fProg.rango">
+            <option value="24h">24 horas</option>
+            <option value="7d">7 días</option>
+            <option value="30d">30 días</option>
+          </select>
+        </label>
+        <label>Formato
+          <select name="formato" [(ngModel)]="fProg.formato">
+            <option value="pdf">PDF</option>
+            <option value="csv">CSV</option>
+          </select>
+        </label>
+        <label class="check"><input type="checkbox" name="activo" [(ngModel)]="fProg.activo" /> Activo</label>
+        <label class="wide">Destinatarios (correos separados por coma)
+          <input name="dest" [(ngModel)]="fProg.destinatarios"
+                 placeholder="gerencia@entidad.gov.co, ti@entidad.gov.co" required />
+        </label>
+      </div>
+      <div class="acciones">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <button type="button" class="btn" (click)="cancelarProg()">Cancelar</button>
+      </div>
+    </form>
+  }
+
+  @if (programados().length > 0) {
+    <table>
+      <thead><tr>
+        <th>Nombre</th><th>Periodicidad</th><th>Ventana</th><th>Formato</th>
+        <th>Destinatarios</th><th>Activo</th><th>Último envío</th><th></th>
+      </tr></thead>
+      <tbody>
+        @for (r of programados(); track r.id) {
+          <tr>
+            <td><b>{{ r.nombre }}</b></td>
+            <td>{{ r.periodo }}</td>
+            <td>{{ r.rango }}</td>
+            <td>{{ r.formato }}</td>
+            <td class="text-dim">{{ r.destinatarios }}</td>
+            <td>{{ r.activo ? 'Sí' : 'No' }}</td>
+            <td class="text-dim">{{ r.ultimo_envio_at ? fecha(r.ultimo_envio_at) : '—' }}</td>
+            <td class="acc">
+              @if (auth.puedeEditar()) {
+                <button class="btn" (click)="editarProg(r)">Editar</button>
+                <button class="btn" (click)="eliminarProg(r)">Eliminar</button>
+              }
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  } @else {
+    <p class="text-dim">No hay reportes programados.</p>
+  }
 }

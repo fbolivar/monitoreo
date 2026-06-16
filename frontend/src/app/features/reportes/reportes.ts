@@ -1,20 +1,25 @@
 import { DecimalPipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { FilaDisponibilidad, Pronostico } from '../../core/models';
+import { FilaDisponibilidad, Pronostico, ReporteProgramado } from '../../core/models';
+import { AuthService } from '../../core/auth.service';
 import { ReportesService } from '../../core/reportes.service';
 import { EstadoBadge } from '../../shared/estado-badge';
+import { fecha } from '../../shared/tiempo';
 
 type Rango = '24h' | '7d' | '30d';
 
 @Component({
   selector: 'app-reportes',
   standalone: true,
-  imports: [EstadoBadge, DecimalPipe],
+  imports: [EstadoBadge, DecimalPipe, FormsModule],
   templateUrl: './reportes.html',
   styleUrl: './reportes.scss',
 })
 export class Reportes implements OnInit {
   private svc = inject(ReportesService);
+  auth = inject(AuthService);
+  fecha = fecha;
 
   rango = signal<Rango>('7d');
   filas = signal<FilaDisponibilidad[]>([]);
@@ -39,9 +44,53 @@ export class Reportes implements OnInit {
 
   totalIncidencias = computed(() => this.filas().reduce((s, f) => s + f.incidencias, 0));
 
+  // Reportes programados (CRUD)
+  programados = signal<ReporteProgramado[]>([]);
+  editId = signal<number | null>(null);
+  creando = signal(false);
+  errorProg = signal<string | null>(null);
+  fProg = this.progVacio();
+
   ngOnInit(): void {
     this.cargar();
     this.svc.pronosticos().subscribe((p) => this.pronosticos.set(p));
+    this.cargarProgramados();
+  }
+
+  private progVacio() {
+    return {
+      nombre: '', periodo: 'mensual' as 'diario' | 'semanal' | 'mensual',
+      rango: '30d' as '24h' | '7d' | '30d', destinatarios: '',
+      formato: 'pdf' as 'pdf' | 'csv', activo: true,
+    };
+  }
+  private cargarProgramados(): void {
+    this.svc.programados().subscribe((p) => this.programados.set(p.data));
+  }
+  nuevoProg(): void { this.creando.set(true); this.editId.set(null); this.fProg = this.progVacio(); this.errorProg.set(null); }
+  editarProg(r: ReporteProgramado): void {
+    this.creando.set(false); this.editId.set(r.id); this.errorProg.set(null);
+    this.fProg = {
+      nombre: r.nombre, periodo: r.periodo, rango: r.rango,
+      destinatarios: r.destinatarios, formato: r.formato, activo: r.activo,
+    };
+  }
+  cancelarProg(): void { this.creando.set(false); this.editId.set(null); this.errorProg.set(null); }
+  guardarProg(): void {
+    const f = this.fProg;
+    this.errorProg.set(null);
+    if (!f.nombre.trim()) { this.errorProg.set('Indica un nombre.'); return; }
+    if (!f.destinatarios.trim()) { this.errorProg.set('Indica al menos un correo.'); return; }
+    const id = this.editId();
+    const obs = id ? this.svc.actualizarProgramado(id, f) : this.svc.crearProgramado(f);
+    obs.subscribe({
+      next: () => { this.cancelarProg(); this.cargarProgramados(); },
+      error: (e) => this.errorProg.set((e as { error?: { message?: string } })?.error?.message ?? 'Error al guardar.'),
+    });
+  }
+  eliminarProg(r: ReporteProgramado): void {
+    if (!confirm(`¿Eliminar el reporte programado "${r.nombre}"?`)) return;
+    this.svc.eliminarProgramado(r.id).subscribe({ next: () => this.cargarProgramados() });
   }
 
   // Clase de urgencia según días restantes para llegar al techo.

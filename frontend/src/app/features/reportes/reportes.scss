@@ -11,6 +11,17 @@ h1 { font-size: 18px; margin: 0; }
 
 .nota { font-size: 12px; margin: 12px 0 6px; }
 .sub { font-size: 15px; margin: 26px 0 4px; }
+.mb { margin-bottom: 12px; }
+.err { color: var(--sev-critical); }
+
+.form { padding: 14px 16px; margin-bottom: 16px; display: flex; flex-direction: column; gap: 10px; }
+.form .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-dim); }
+.form label.check { flex-direction: row; align-items: center; gap: 6px; color: var(--text); }
+.form label.wide { grid-column: 1 / -1; }
+.acciones { display: flex; gap: 8px; }
+.acc { display: flex; gap: 6px; }
+.acc .btn { padding: 4px 10px; }
 
 table { width: 100%; }
 .num { text-align: right; font-variant-numeric: tabular-nums; }

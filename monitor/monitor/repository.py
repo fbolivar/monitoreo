@@ -684,6 +684,57 @@ def guardar_pronostico(db: Database, recurso_id: int, metrica: str, valor_actual
         )
 
 
+# ── Reportes programados (SLA por correo) ─────────────────────────────
+def disponibilidad(db: Database, rango_seg: int) -> list[dict[str, Any]]:
+    """Disponibilidad por recurso en el periodo (réplica del ReporteController).
+    disponibilidad = (up+degraded)/(up+degraded+down) sobre chequeos evaluables."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT r.id, r.nombre, t.nombre AS tipo_nombre, s.nombre AS sitio_nombre,
+                   r.estado_actual,
+                   count(c.id) FILTER (WHERE c.estado = 'up')       AS up,
+                   count(c.id) FILTER (WHERE c.estado = 'degraded') AS degraded,
+                   count(c.id) FILTER (WHERE c.estado = 'down')     AS down,
+                   count(c.id) FILTER (WHERE c.estado = 'unknown')  AS unknown,
+                   (SELECT count(*) FROM incidencias i
+                      WHERE i.recurso_id = r.id
+                        AND i.abierta_at >= now() - make_interval(secs => %s)) AS incidencias
+            FROM recursos r
+            JOIN tipos_recurso t ON t.id = r.tipo_id
+            LEFT JOIN sitios s ON s.id = r.sitio_id
+            LEFT JOIN chequeos c ON c.recurso_id = r.id
+                 AND c.ts >= now() - make_interval(secs => %s)
+            WHERE r.activo = true
+            GROUP BY r.id, t.nombre, s.nombre
+            ORDER BY r.nombre
+            """,
+            (rango_seg, rango_seg),
+        )
+        filas = []
+        for r in cur.fetchall():
+            d = dict(r)
+            base = (d["up"] or 0) + (d["degraded"] or 0) + (d["down"] or 0)
+            d["disponibilidad"] = round((d["up"] + d["degraded"]) / base * 100, 3) if base > 0 else None
+            filas.append(d)
+        return filas
+
+
+def reportes_activos(db: Database) -> list[dict[str, Any]]:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, nombre, periodo, rango, destinatarios, formato, ultimo_envio_at "
+            "FROM reportes_programados WHERE activo = true ORDER BY id"
+        )
+        return cur.fetchall()
+
+
+def marcar_reporte_enviado(db: Database, reporte_id: int, ts: datetime) -> None:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute("UPDATE reportes_programados SET ultimo_envio_at = %s WHERE id = %s",
+                    (ts, reporte_id))
+
+
 # ── Línea base / anomalías ────────────────────────────────────────────
 def recalcular_baselines(db: Database, ventana_dias: int) -> int:
     """Recalcula la línea base (media/σ por recurso+métrica+hora-UTC) desde el

@@ -140,6 +140,17 @@ export interface ReporteDisponibilidad {
   recursos: FilaDisponibilidad[];
 }
 
+export interface ReporteProgramado {
+  id: number;
+  nombre: string;
+  periodo: 'diario' | 'semanal' | 'mensual';
+  rango: '24h' | '7d' | '30d';
+  destinatarios: string;
+  formato: 'pdf' | 'csv';
+  activo: boolean;
+  ultimo_envio_at?: string | null;
+}
+
 export interface Pronostico {
   recurso_id: number;
   recurso_nombre: string;

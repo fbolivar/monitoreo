@@ -15,6 +15,7 @@ from .db import Database
 from .notificaciones import reintentar_pendientes
 from .runner import (
     ejecutar_chequeo_por_id,
+    enviar_reportes_programados,
     escalar_incidencias,
     latido_externo,
     marcar_obsoletos,
@@ -130,6 +131,17 @@ def registrar_tareas_internas(scheduler: BackgroundScheduler, db: Database, sett
                 id="escalado",
                 replace_existing=True,
             )
+
+    # Reportes programados de SLA por correo (revisa a diario qué toca enviar).
+    if settings.reporte_enabled:
+        scheduler.add_job(
+            enviar_reportes_programados,
+            trigger=CronTrigger(hour=settings.reporte_hora, minute=0),
+            args=[db, settings],
+            id="reportes-programados",
+            replace_existing=True,
+        )
+        log.info("Reportes programados activos (chequeo diario a las %02d:00 UTC).", settings.reporte_hora)
 
     if not settings.tareas_mantenimiento:
         return

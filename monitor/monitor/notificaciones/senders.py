@@ -10,9 +10,58 @@ from __future__ import annotations
 
 import smtplib
 import ssl
+from email.mime.application import MIMEApplication
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 from ..models import Canal
+
+
+def _smtp_enviar(canal: Canal, remitente: str, destinatarios: list[str], mensaje) -> None:
+    """E/S SMTP común (STARTTLS o SSL según puerto)."""
+    cfg = canal.config or {}
+    sec = canal.secretos or {}
+    host = cfg.get("smtp_host")
+    port = int(cfg.get("smtp_port", 587))
+    if port == 465:
+        with smtplib.SMTP_SSL(host, port, timeout=30) as s:
+            if sec.get("smtp_user"):
+                s.login(sec["smtp_user"], sec.get("smtp_pass", ""))
+            s.sendmail(remitente, destinatarios, mensaje.as_string())
+    else:
+        with smtplib.SMTP(host, port, timeout=30) as s:
+            s.starttls(context=ssl.create_default_context())
+            if sec.get("smtp_user"):
+                s.login(sec["smtp_user"], sec.get("smtp_pass", ""))
+            s.sendmail(remitente, destinatarios, mensaje.as_string())
+
+
+def enviar_email_adjunto(canal: Canal, destinatarios: list[str], asunto: str, cuerpo: str,
+                         nombre_adjunto: str, datos: bytes,
+                         subtype: str) -> tuple[bool, str | None, str | None]:
+    """Envía un correo con un adjunto (PDF/CSV) por el canal email indicado, a
+    `destinatarios` (los del reporte, no los del canal). subtype: 'pdf'|'csv'."""
+    cfg = canal.config or {}
+    sec = canal.secretos or {}
+    remitente = cfg.get("from") or sec.get("smtp_user")
+    destino = ", ".join(destinatarios)
+    if not cfg.get("smtp_host") or not destinatarios or not remitente:
+        return False, "config de email incompleta (smtp_host/from/destinatarios)", destino
+
+    mime = MIMEMultipart()
+    mime["Subject"] = asunto
+    mime["From"] = remitente
+    mime["To"] = destino
+    mime.attach(MIMEText(cuerpo, "plain", "utf-8"))
+    adj = MIMEApplication(datos, _subtype=subtype)
+    adj.add_header("Content-Disposition", "attachment", filename=nombre_adjunto)
+    mime.attach(adj)
+
+    try:
+        _smtp_enviar(canal, remitente, destinatarios, mime)
+        return True, None, destino
+    except Exception as e:  # noqa: BLE001
+        return False, str(e), destino
 
 
 def enviar(canal: Canal, msg: dict) -> tuple[bool, str | None, str | None]:

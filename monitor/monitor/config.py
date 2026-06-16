@@ -98,6 +98,11 @@ class Settings:
     escalation_min: int = _int("ESCALATION_MIN", 15)
     escalation_check_seg: int = _int("ESCALATION_CHECK_SEG", 60)
 
+    # Reportes programados (SLA por correo). El worker revisa a diario qué toca
+    # enviar según la periodicidad de cada reporte (diario/semanal/mensual).
+    reporte_enabled: bool = _bool("REPORTE_PROGRAMADO_ENABLED", True)
+    reporte_hora: int = _int("REPORTE_HORA", 6)   # hora (UTC) del chequeo diario
+
     # Health
     health_enabled: bool = _bool("HEALTH_ENABLED", True)
     health_port: int = _int("HEALTH_PORT", 8090)

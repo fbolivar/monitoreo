@@ -8,6 +8,7 @@ use App\Models\Mantenimiento;
 use App\Models\Perfil;
 use App\Models\Recurso;
 use App\Models\Regla;
+use App\Models\ReporteProgramado;
 use App\Models\Sitio;
 use App\Models\TipoRecurso;
 use App\Models\Umbral;
@@ -27,7 +28,7 @@ class AppServiceProvider extends ServiceProvider
         foreach ([
             Recurso::class, Sitio::class, TipoRecurso::class, Umbral::class,
             Mantenimiento::class, CanalNotificacion::class, Perfil::class, Incidencia::class,
-            Regla::class,
+            Regla::class, ReporteProgramado::class,
         ] as $modelo) {
             $modelo::observe(AuditObserver::class);
         }

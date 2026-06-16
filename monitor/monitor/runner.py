@@ -301,6 +301,62 @@ def pronosticar_capacidad(db: Database, settings: Settings) -> None:
                     f"Revisa capacidad/limpieza antes de que se agote.", "warning")
 
 
+def enviar_reportes_programados(db: Database, settings: Settings) -> None:
+    """Job diario: envía por correo los reportes de disponibilidad cuya periodicidad
+    toca (diario/semanal/mensual), generando PDF (o CSV) y adjuntándolo."""
+    if not settings.reporte_enabled:
+        return
+    from . import reportes as rep
+    from .notificaciones import senders
+
+    ahora = datetime.now(timezone.utc)
+    programados = repo.reportes_activos(db)
+    if not programados:
+        return
+
+    canales = repo.canales_activos(db, settings.app_crypto_key) if settings.app_crypto_key else []
+    email = next((c for c in canales if c.tipo == "email"), None)
+    if email is None:
+        log.warning("Reportes programados: no hay canal email activo; no se pueden enviar.")
+        return
+
+    for r in programados:
+        if not rep.reporte_due(r["periodo"], r["ultimo_envio_at"], ahora):
+            continue
+        destinatarios = [d.strip() for d in (r["destinatarios"] or "").split(",") if d.strip()]
+        if not destinatarios:
+            continue
+
+        filas = repo.disponibilidad(db, rep.rango_segundos(r["rango"]))
+        resumen = rep.kpis(filas)
+        periodo_txt = rep.RANGO_ETIQUETA.get(r["rango"], r["rango"])
+        generado = ahora.strftime("%Y-%m-%d %H:%M UTC")
+        titulo = f"Reporte de disponibilidad — {r['nombre']}"
+
+        datos = rep.generar_pdf(filas, titulo, periodo_txt, generado, resumen) if r["formato"] == "pdf" else None
+        if datos is not None:
+            nombre, subtype = f"disponibilidad_{r['rango']}.pdf", "pdf"
+        else:  # CSV (elegido, o fallback si fpdf2 no está)
+            datos, nombre, subtype = rep.generar_csv(filas), f"disponibilidad_{r['rango']}.csv", "csv"
+
+        prom = resumen["disponibilidad_promedio"]
+        cuerpo = (
+            f"{titulo}\n\nPeriodo: {periodo_txt}\nGenerado: {generado}\n\n"
+            f"Recursos: {resumen['recursos']}\n"
+            f"Disponibilidad promedio: {('%.3f%%' % prom) if prom is not None else 'sin datos'}\n"
+            f"Incidencias en el periodo: {resumen['incidencias']}\n\n"
+            f"Se adjunta el detalle por recurso ({nombre}).\n\n"
+            f"SIMON — Sistema Integral de Monitoreo"
+        )
+        ok, err, destino = senders.enviar_email_adjunto(
+            email, destinatarios, f"[SIMON] {titulo} ({periodo_txt})", cuerpo, nombre, datos, subtype)
+        if ok:
+            repo.marcar_reporte_enviado(db, r["id"], ahora)
+            log.info("Reporte '%s' enviado a %s (%s).", r["nombre"], destino, nombre)
+        else:
+            log.warning("Reporte '%s' falló al enviar a %s: %s", r["nombre"], destino, err)
+
+
 def latido_externo(db: Database, settings: Settings) -> None:
     """Dead-man's switch: envía un latido a una URL externa solo si la BD responde.
     Si el worker/servidor cae (o la BD no responde), el latido se detiene y el

@@ -14,6 +14,7 @@ use App\Http\Controllers\PronosticoController;
 use App\Http\Controllers\RecursoController;
 use App\Http\Controllers\ReglaController;
 use App\Http\Controllers\ReporteController;
+use App\Http\Controllers\ReporteProgramadoController;
 use App\Http\Controllers\SitioController;
 use App\Http\Controllers\TrapController;
 use App\Http\Controllers\TipoRecursoController;
@@ -44,6 +45,7 @@ $crud = [
     'recursos'             => RecursoController::class,
     'umbrales'             => UmbralController::class,
     'reglas'               => ReglaController::class,
+    'reportes-programados' => ReporteProgramadoController::class,
     'mantenimientos'       => MantenimientoController::class,
     'canales-notificacion' => CanalNotificacionController::class,
 ];
