@@ -169,6 +169,7 @@ export interface ComponenteAnalisis {
   recurso_nombre: string | null;
   estado: Estado;
   latencia_ms: number | null;
+  infra: boolean;            // equipo SNMP: aporta salud, no latencia de servicio
   umbral_ms: number | null;
   supera_umbral: boolean;
 }

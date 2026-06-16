@@ -73,6 +73,10 @@ export class Servicios implements OnInit {
     if (ms == null) return '—';
     return ms >= 1000 ? (ms / 1000).toFixed(2) + ' s' : Math.round(ms) + ' ms';
   }
+  estadoLabel(e: Estado): string {
+    return { up: 'operativo', degraded: 'degradado', down: 'caído',
+             unknown: 'sin datos', maintenance: 'mantenim.' }[e];
+  }
   anchoBarra(ms: number | null): number {
     return ms == null ? 0 : Math.max(2, Math.round((ms / this.maxLat()) * 100));
   }

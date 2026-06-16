@@ -74,6 +74,8 @@ h1 { font-size: 18px; margin: 0; }
 .wf-fill { height: 100%; border-radius: 6px; transition: width .3s; min-width: 2px; }
 .wf-v { text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; }
 .wf-v.malo { color: var(--sev-critical); font-weight: 700; }
+.wf-salud { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; }
+.wf-salud i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 
 /* Causa raíz / impacto */
 .causa { border-left: 4px solid var(--sev-critical); }

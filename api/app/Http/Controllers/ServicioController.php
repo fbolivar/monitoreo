@@ -18,6 +18,10 @@ class ServicioController extends Controller
 {
     private const PESO = ['down' => 5, 'degraded' => 4, 'unknown' => 3, 'maintenance' => 2, 'up' => 1];
 
+    // Tipos sondeados por SNMP: su latencia es el TIEMPO DE SONDEO (no la latencia
+    // de servicio), así que aportan SALUD al análisis, no latencia.
+    private const SNMP_TIPOS = ['servidor', 'switch_lan', 'switch_san', 'nas', 'ups'];
+
     public function index(Request $request): JsonResponse
     {
         $servicios = Servicio::with('componentes')->orderBy('nombre')->get();
@@ -82,16 +86,20 @@ class ServicioController extends Controller
         $comps = $s->componentes;
         $ids = $comps->pluck('recurso_id')->filter()->unique()->values();
 
-        // Última latencia + estado por recurso enlazado.
+        // Última latencia + estado + tipo por recurso enlazado.
         $latencias = [];   // recurso_id => latencia_ms
         $estados = [];     // recurso_id => estado_actual
         $nombres = [];     // recurso_id => nombre
+        $tiposRec = [];    // recurso_id => tipo_codigo
         if ($ids->isNotEmpty()) {
-            $rows = DB::table('recursos')->whereIn('id', $ids->all())
-                ->get(['id', 'nombre', 'estado_actual']);
+            $rows = DB::table('recursos as r')
+                ->join('tipos_recurso as t', 't.id', '=', 'r.tipo_id')
+                ->whereIn('r.id', $ids->all())
+                ->get(['r.id', 'r.nombre', 'r.estado_actual', 't.codigo as tipo_codigo']);
             foreach ($rows as $r) {
                 $estados[$r->id] = $r->estado_actual;
                 $nombres[$r->id] = $r->nombre;
+                $tiposRec[$r->id] = $r->tipo_codigo;
             }
             $lat = DB::table('chequeos')
                 ->select('recurso_id', DB::raw('max(ts) as ts'))
@@ -111,15 +119,20 @@ class ServicioController extends Controller
 
         foreach ($comps as $i => $c) {
             $estado = $c->recurso_id ? ($estados[$c->recurso_id] ?? 'unknown') : 'unknown';
-            $lat = $c->recurso_id ? ($latencias[$c->recurso_id] ?? null) : null;
+            $tipoRec = $c->recurso_id ? ($tiposRec[$c->recurso_id] ?? null) : null;
+            // Equipos SNMP -> su latencia es tiempo de sondeo, no de servicio: se oculta.
+            $infra = in_array($tipoRec, self::SNMP_TIPOS, true);
+            $latReal = $c->recurso_id ? ($latencias[$c->recurso_id] ?? null) : null;
+            $lat = $infra ? null : ($latReal !== null ? (int) $latReal : null);
+
             if (self::PESO[$estado] > self::PESO[$peorEstado]) {
                 $peorEstado = $estado;
             }
             if ($lat !== null) {
-                $total += (int) $lat;
-            }
-            if ($i === 0) {
-                $experiencia = $lat;   // el primer salto = experiencia que percibe el usuario
+                $total += $lat;
+                if ($experiencia === null) {
+                    $experiencia = $lat;   // 1er salto con latencia real = experiencia del usuario
+                }
             }
             $componentes[] = [
                 'orden'          => $c->orden,
@@ -128,7 +141,8 @@ class ServicioController extends Controller
                 'recurso_id'     => $c->recurso_id,
                 'recurso_nombre' => $c->recurso_id ? ($nombres[$c->recurso_id] ?? null) : null,
                 'estado'         => $estado,
-                'latencia_ms'    => $lat !== null ? (int) $lat : null,
+                'latencia_ms'    => $lat,
+                'infra'          => $infra,      // salud (SNMP), sin latencia de servicio
                 'umbral_ms'      => $c->umbral_ms,
                 'supera_umbral'  => $c->umbral_ms !== null && $lat !== null && $lat > $c->umbral_ms,
             ];

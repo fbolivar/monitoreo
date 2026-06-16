@@ -103,7 +103,11 @@
               <div class="nodo" [class.cuello]="esCuello(c)">
                 <span class="circ" [style.border-color]="color(c.estado)" [style.color]="color(c.estado)">{{ icono(c.tipo) }}</span>
                 <b>{{ c.nombre }}</b>
-                <span class="text-dim">{{ fmtMs(c.latencia_ms) }}</span>
+                @if (c.infra) {
+                  <span [style.color]="color(c.estado)">{{ estadoLabel(c.estado) }}</span>
+                } @else {
+                  <span class="text-dim">{{ fmtMs(c.latencia_ms) }}</span>
+                }
                 @if (esCuello(c) && a.estado !== 'up') { <span class="tag">causa raíz</span> }
               </div>
               @if (!last) { <span class="flecha">→</span> }
@@ -117,11 +121,18 @@
           @for (c of a.componentes; track c.orden) {
             <div class="wf">
               <span class="wf-n">{{ c.nombre }}</span>
-              <div class="wf-bar">
-                <div class="wf-fill" [style.width.%]="anchoBarra(c.latencia_ms)"
-                     [style.background]="esCuello(c) ? '#d11d1d' : color(c.estado)"></div>
-              </div>
-              <span class="wf-v" [class.malo]="c.supera_umbral || esCuello(c)">{{ fmtMs(c.latencia_ms) }}</span>
+              @if (c.infra) {
+                <span class="wf-salud" [style.color]="color(c.estado)">
+                  <i [style.background]="color(c.estado)"></i>salud del equipo · {{ estadoLabel(c.estado) }}
+                </span>
+                <span class="wf-v" [style.color]="color(c.estado)">●</span>
+              } @else {
+                <div class="wf-bar">
+                  <div class="wf-fill" [style.width.%]="anchoBarra(c.latencia_ms)"
+                       [style.background]="esCuello(c) ? '#d11d1d' : color(c.estado)"></div>
+                </div>
+                <span class="wf-v" [class.malo]="c.supera_umbral || esCuello(c)">{{ fmtMs(c.latencia_ms) }}</span>
+              }
             </div>
           }
         </div>
