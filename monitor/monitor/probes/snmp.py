@@ -24,12 +24,23 @@ _ultima_interfaces: dict[int, float] = {}
 
 def _debe_recolectar_interfaces(recurso_id: int, intervalo_seg: int,
                                 ahora: float | None = None) -> bool:
-    """¿Toca recolectar interfaces este ciclo? (intervalo<=0 -> siempre)."""
+    """¿Toca recolectar interfaces este ciclo? (intervalo<=0 -> siempre).
+
+    La primera vez NO recolecta: fija un "última vez" ESCALONADO por recurso para
+    repartir los walks a lo largo de la ventana del intervalo. Así, tras un
+    reinicio, los recursos no recolectan todos a la vez (ráfaga que inflaría los
+    chequeos bajo el GIL y dispararía skips); se distribuyen de forma estable.
+    """
     if intervalo_seg <= 0:
         return True
     t = time.monotonic() if ahora is None else ahora
     ult = _ultima_interfaces.get(recurso_id)
-    if ult is None or (t - ult) >= intervalo_seg:
+    if ult is None:
+        # Desfase determinista por recurso en [0, intervalo): reparte el 1er walk.
+        desfase = (recurso_id * 97) % intervalo_seg
+        _ultima_interfaces[recurso_id] = t - desfase
+        return False
+    if (t - ult) >= intervalo_seg:
         _ultima_interfaces[recurso_id] = t
         return True
     return False
