@@ -77,6 +77,17 @@ export class Servicios implements OnInit {
     return { up: 'operativo', degraded: 'degradado', down: 'caído',
              unknown: 'sin datos', maintenance: 'mantenim.' }[e];
   }
+  // ¿La latencia de entrada supera el objetivo? (impacto por lentitud real)
+  expLenta(a: ServicioAnalisis): boolean {
+    return a.experiencia_ms != null && a.experiencia_ms > a.objetivo_ms;
+  }
+  // Texto del flag de impacto: distingue lentitud real de dependencia mal-sana.
+  flagImpacto(a: ServicioAnalisis): string {
+    if (this.expLenta(a)) return 'Experiencia lenta';
+    if (a.estado === 'down') return 'Dependencia caída';
+    if (a.estado === 'degraded') return 'Dependencia degradada';
+    return 'Dentro del objetivo';
+  }
   anchoBarra(ms: number | null): number {
     return ms == null ? 0 : Math.max(2, Math.round((ms / this.maxLat()) * 100));
   }

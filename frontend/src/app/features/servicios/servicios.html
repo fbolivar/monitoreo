@@ -86,11 +86,11 @@
         <div class="card exp" [class.malo]="a.alto_impacto">
           <div class="exp-num">
             <span class="text-dim">Experiencia del usuario (latencia de entrada)</span>
-            <b class="big">{{ fmtMs(a.experiencia_ms) }}</b>
+            <b class="big" [style.color]="expLenta(a) ? '#d11d1d' : '#1b8a3a'">{{ fmtMs(a.experiencia_ms) }}</b>
             <span class="text-dim">objetivo: {{ fmtMs(a.objetivo_ms) }} · suma de la cadena: {{ fmtMs(a.total_ms) }}</span>
           </div>
           <div class="exp-flag">
-            @if (a.alto_impacto) { <span class="alto">Alto impacto ⚠</span> }
+            @if (a.alto_impacto) { <span class="alto">{{ flagImpacto(a) }} ⚠</span> }
             @else { <span class="ok">Dentro del objetivo ✓</span> }
           </div>
         </div>
