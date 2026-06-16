@@ -140,9 +140,14 @@
         <!-- Causa raíz -->
         @if (a.cuello) {
           <div class="card causa">
-            <h3>Causa raíz identificada</h3>
-            <p><b>{{ a.cuello.nombre }}</b> es el salto {{ a.estado === 'up' ? 'más lento' : 'más afectado' }}
-              ({{ fmtMs(a.cuello.latencia_ms) }}, estado <b>{{ a.cuello.estado }}</b>).</p>
+            <h3>{{ a.estado === 'up' ? 'Salto más lento' : 'Causa raíz identificada' }}</h3>
+            @if (a.cuello.latencia_ms != null) {
+              <p><b>{{ a.cuello.nombre }}</b> es el salto más lento
+                ({{ fmtMs(a.cuello.latencia_ms) }}, estado <b>{{ estadoLabel(a.cuello.estado) }}</b>).</p>
+            } @else {
+              <p><b>{{ a.cuello.nombre }}</b> está <b>{{ estadoLabel(a.cuello.estado) }}</b>
+                y es el componente que más afecta al servicio.</p>
+            }
             @if (a.causa) { <p class="motivo">{{ a.causa }}</p> }
           </div>
         }
