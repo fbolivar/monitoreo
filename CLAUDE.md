@@ -323,8 +323,11 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
     serial CNCMS0017400YT, vía Redfish, salud up). Como su iDRAC no responde SNMP, su estado base se vigila
     por ping con el nuevo override `parametros.metodo='icmp'` (en `seleccionar_probe`; útil para BMC/hosts sin
     SNMP). PENDIENTE: el resto de servidores requiere sus IP de iDRAC (solo se conocen .10.34/.35).
-  - FortiSwitches de piso: backup SSH NO disponible — rechazan credenciales del core (gestionados por FortiLink,
-    SSH propio que el usuario no aportó). Su config va embebida en el backup del FortiGate (ya se respalda).
+  - FortiSwitches de piso: backup SSH VERIFICADO EN VIVO (2026-06-17) — los 14 (.10.41-.54) respaldados por
+    SSH con `admin`/clave propia (vendor 'fortiswitch'). Requirió soporte FortiOS en `ssh_config`: el paginador
+    se desactiva con la secuencia `config system console / set output standard / end` (enviada línea a línea),
+    el comando es `show full-configuration`, y el prompt FortiOS ('NOMBRE # ') se reconoce por no-indentación.
+    Cada config ~126-173 KB; el job tarda ~2.5 min para los 14 (diario a las 02:00, aceptable).
   - Pendiente de la secuencia (decisión del usuario): (4) **Backup config por SSH
     (switches) + topología L2 automática (LLDP)**.
 
