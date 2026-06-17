@@ -81,19 +81,19 @@ class ReporteExport
             $r = 3;
             $cols = $t['columnas'];
             $ult = self::colLetra(count($cols));
-            foreach ($cols as $j => $c) {
-                $h->setCellValueByColumnAndRow($j + 1, $r, $c);
+            foreach (array_values($cols) as $j => $c) {
+                $h->setCellValue(self::colLetra($j + 1).$r, $c);
             }
             self::cabecera($h, "A$r:$ult$r", $verde);
             $r++;
             foreach ($t['filas'] as $f) {
                 foreach (array_values($f) as $j => $c) {
-                    $h->setCellValueByColumnAndRow($j + 1, $r, is_numeric($c) ? $c + 0 : (string) $c);
+                    $h->setCellValue(self::colLetra($j + 1).$r, is_numeric($c) ? $c + 0 : (string) $c);
                 }
                 $r++;
             }
             for ($j = 1; $j <= count($cols); $j++) {
-                $h->getColumnDimensionByColumn($j)->setAutoSize(true);
+                $h->getColumnDimension(self::colLetra($j))->setAutoSize(true);
             }
         }
 
