@@ -445,7 +445,33 @@ def recolectar_topologia(db: Database, settings: Settings) -> None:
     from .probes.snmp_client import snmp_walk
 
     timeout = settings.probe_timeout_ms / 1000
-    for recurso in repo.recursos_switches(db):
+    switches = repo.recursos_switches(db)
+
+    # 1ª pasada: chassis-id (MAC) propio de cada switch -> recurso, para enlazar
+    # vecinos por MAC cuando el sysName/IP de gestión no coincide.
+    mac_a_recurso: dict[str, int] = {}
+    for recurso in switches:
+        host = (recurso.hostname or "").split(":", 1)[0].strip()
+        if not host:
+            continue
+        params = recurso.parametros or {}
+        secretos = (repo.descifrar_secretos(db, recurso.id, settings.app_crypto_key)
+                    if settings.app_crypto_key else None)
+        cred = construir_credenciales(params, secretos)
+        if cred is None:
+            continue
+        try:
+            res = snmp_walk(host, int(params.get("snmp_port", 161)), cred, lldp.LOC_CHASSIS, timeout, 1)[0]
+        except Exception:  # noqa: BLE001
+            res = []
+        for _oid, val in res:
+            mac = lldp.fmt_chassis(val)
+            if mac:
+                mac_a_recurso[mac] = recurso.id
+                break
+
+    # 2ª pasada: vecinos por switch.
+    for recurso in switches:
         host = (recurso.hostname or "").split(":", 1)[0].strip()
         if not host:
             continue
@@ -474,6 +500,10 @@ def recolectar_topologia(db: Database, settings: Settings) -> None:
         locales = lldp.parse_puertos_locales(loc_id, loc_desc)
         direcciones = lldp.parse_direcciones_gestion(manaddr)
         vecinos = lldp.parse_vecinos(walks, locales, direcciones)
+        # Enlace por MAC (no se enlaza un switch consigo mismo).
+        for v in vecinos:
+            rid = mac_a_recurso.get(v.get("remote_chassis"))
+            v["recurso_remoto_id"] = rid if rid and rid != recurso.id else None
         repo.guardar_vecinos_lldp(db, recurso.id, vecinos)
         log.info("LLDP %s (%s): %d vecino(s).", recurso.id, recurso.nombre, len(vecinos))
 

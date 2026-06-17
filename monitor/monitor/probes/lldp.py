@@ -23,6 +23,10 @@ REM_SYSDESC = f"{REM_BASE}.10"
 LOC_PORTID = "1.0.8802.1.1.2.1.3.7.1.3"
 LOC_PORTDESC = "1.0.8802.1.1.2.1.3.7.1.4"
 
+# lldpLocChassisId (escalar): chassis-id del PROPIO equipo (MAC). Sirve para
+# enlazar un vecino a un recurso gestionado por su MAC cuando el sysName no coincide.
+LOC_CHASSIS = "1.0.8802.1.1.2.1.3.2"
+
 # lldpRemManAddrTable: la dirección de gestión del vecino va en el ÍNDICE del OID
 # (timeMark.localPortNum.remIndex.addrSubtype.addrLen.<octetos addr>). Caminamos
 # una columna cualquiera (IfSubtype) y leemos la IP del propio índice.

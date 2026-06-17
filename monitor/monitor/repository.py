@@ -116,6 +116,7 @@ def guardar_vecinos_lldp(db: Database, recurso_id: int, vecinos: list[dict]) -> 
                      remote_port, remote_sysdesc, remote_mgmt, recurso_remoto_id, ts)
                 VALUES (%s, %s, %s, %s, %s, %s, %s, %s,
                         COALESCE(
+                          %s::bigint,
                           (SELECT id FROM recursos
                             WHERE split_part(hostname, ':', 1) = %s::text AND %s::text <> ''
                             ORDER BY id LIMIT 1),
@@ -127,6 +128,7 @@ def guardar_vecinos_lldp(db: Database, recurso_id: int, vecinos: list[dict]) -> 
                 [(recurso_id, v.get("local_port_num"), v.get("local_port"),
                   v.get("remote_sysname"), v.get("remote_chassis"), v.get("remote_port"),
                   v.get("remote_sysdesc"), v.get("remote_mgmt"),
+                  v.get("recurso_remoto_id"),
                   v.get("remote_mgmt") or "", v.get("remote_mgmt") or "", v.get("remote_sysname"))
                  for v in vecinos],
             )
