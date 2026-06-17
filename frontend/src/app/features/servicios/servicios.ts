@@ -9,6 +9,8 @@ import { ServiciosService } from '../../core/servicios.service';
 
 interface FormComp { nombre: string; tipo: TipoComponente; recurso_id: number | null; umbral_ms: number | null; }
 
+const PESO: Record<Estado, number> = { down: 5, degraded: 4, unknown: 3, maintenance: 2, up: 1 };
+
 @Component({
   selector: 'app-servicios',
   standalone: true,
@@ -39,6 +41,18 @@ export class Servicios implements OnInit {
     const cs = this.sel()?.componentes ?? [];
     return Math.max(1, ...cs.map((c) => c.latencia_ms ?? 0));
   });
+
+  // ── Cockpit: resumen + orden peor-primero ──
+  listaOrdenada = computed<ServicioAnalisis[]>(() =>
+    [...this.lista()].sort((a, b) => {
+      if (PESO[b.estado] !== PESO[a.estado]) return PESO[b.estado] - PESO[a.estado];
+      if (a.alto_impacto !== b.alto_impacto) return a.alto_impacto ? -1 : 1;
+      return (b.experiencia_ms ?? 0) - (a.experiencia_ms ?? 0);
+    }),
+  );
+  totalSvc = computed(() => this.lista().length);
+  afectados = computed(() => this.lista().filter((s) => s.alto_impacto).length);
+  sanos = computed(() => this.lista().filter((s) => !s.alto_impacto).length);
 
   ngOnInit(): void {
     this.recSvc.listar({ per_page: 200 }).subscribe((p) => this.recursos.set(p.data));
@@ -87,6 +101,23 @@ export class Servicios implements OnInit {
     if (a.estado === 'down') return 'Dependencia caída';
     if (a.estado === 'degraded') return 'Dependencia degradada';
     return 'Dentro del objetivo';
+  }
+  // Nivel de urgencia para priorizar (color del cockpit).
+  accionNivel(a: ServicioAnalisis): 'urgente' | 'medio' | 'ok' {
+    if (a.estado === 'down' || a.estado === 'degraded') return 'urgente';
+    if (this.expLenta(a)) return 'medio';
+    return 'ok';
+  }
+  // Acción recomendada legible para tomar la decisión.
+  accion(a: ServicioAnalisis): string {
+    const cu = a.cuello?.nombre ?? 'el componente más afectado';
+    const causa = a.causa ? ` (${a.causa})` : '';
+    if (a.estado === 'down') return `Atender ya: ${cu} está caído${causa}.`;
+    if (a.estado === 'degraded') return `Atender: ${cu} degradado${causa}.`;
+    if (this.expLenta(a)) {
+      return `Optimizar ${cu}: la experiencia (${this.fmtMs(a.experiencia_ms)}) supera el objetivo (${this.fmtMs(a.objetivo_ms)}).`;
+    }
+    return `Sin acción urgente; vigilar ${cu} (salto más lento).`;
   }
   anchoBarra(ms: number | null): number {
     return ms == null ? 0 : Math.max(2, Math.round((ms / this.maxLat()) * 100));

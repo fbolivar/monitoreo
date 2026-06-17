@@ -17,6 +17,30 @@ h1 { font-size: 18px; margin: 0; }
 .comp-row .btn.x { padding: 4px 8px; }
 .acciones { display: flex; gap: 8px; }
 
+/* ── Resumen / cockpit ── */
+.resumen { display: flex; align-items: center; gap: 24px; padding: 12px 16px; margin-bottom: 14px; }
+.r-kpi { display: flex; flex-direction: column; line-height: 1.05; }
+.r-kpi b { font-size: 24px; }
+.r-kpi span { font-size: 10px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .03em; }
+.r-kpi.alerta b { color: var(--sev-critical); }
+.r-kpi.sano b { color: var(--estado-up, #1b8a3a); }
+.r-nota { font-size: 12px; color: var(--text-dim); margin: 0 0 0 auto; max-width: 360px; text-align: right; }
+
+/* Indicador de urgencia en la lista */
+.mini { font-size: 12px; }
+.mini.urgente { color: var(--sev-critical); }
+.mini.medio { color: var(--sev-warning); }
+
+/* Tarjeta de acción recomendada */
+.accion h3 { margin: 0 0 6px; }
+.accion p { margin: 0; font-size: 14px; font-weight: 600; }
+.accion.urgente { border-left: 4px solid var(--sev-critical); }
+.accion.urgente h3 { color: var(--sev-critical); }
+.accion.medio { border-left: 4px solid var(--sev-warning); }
+.accion.medio h3 { color: #9a6b00; }
+.accion.ok { border-left: 4px solid var(--estado-up, #1b8a3a); }
+.accion.ok h3 { color: var(--primary-dark, #256a36); }
+
 /* ── Dos columnas: lista + detalle ── */
 .cols { display: grid; grid-template-columns: minmax(220px, 280px) 1fr; gap: 16px; align-items: start; }
 @media (max-width: 880px) { .cols { grid-template-columns: 1fr; } }

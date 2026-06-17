@@ -56,13 +56,22 @@
 } @else if (lista().length === 0 && !creando() && editId() === null) {
   <p class="text-dim">No hay transacciones definidas. Crea una para empezar a correlacionar servicios y ubicar el cuello de botella.</p>
 } @else if (lista().length > 0) {
+  <!-- Resumen / cockpit -->
+  <div class="resumen card">
+    <div class="r-kpi"><b>{{ totalSvc() }}</b><span>Servicios</span></div>
+    <div class="r-kpi" [class.alerta]="afectados() > 0"><b>{{ afectados() }}</b><span>Con afectación</span></div>
+    <div class="r-kpi sano"><b>{{ sanos() }}</b><span>Sanos</span></div>
+    <p class="r-nota">Ordenados de mayor a menor afectación. Clic en un servicio para ver el análisis y la acción recomendada.</p>
+  </div>
+
   <div class="cols">
-    <!-- Lista de transacciones -->
+    <!-- Lista de transacciones (peor primero) -->
     <aside class="panel card">
-      @for (s of lista(); track s.id) {
+      @for (s of listaOrdenada(); track s.id) {
         <button class="item" [class.activo]="sel()?.id === s.id" (click)="verAnalisis(s.id)">
           <span class="dot" [style.background]="color(s.estado)"></span>
           <span class="nom">{{ s.nombre }}</span>
+          @if (s.alto_impacto) { <span class="mini" [class]="accionNivel(s)">⚠</span> }
           <span class="lat" [class.malo]="s.alto_impacto">{{ fmtMs(s.experiencia_ms) }}</span>
         </button>
       }
@@ -80,6 +89,12 @@
             <button class="btn" (click)="editar()">Editar</button>
             <button class="btn" (click)="eliminar()">Eliminar</button>
           }
+        </div>
+
+        <!-- Acción recomendada (decisión) -->
+        <div class="card accion" [class]="accionNivel(a)">
+          <h3>Acción recomendada</h3>
+          <p>{{ accion(a) }}</p>
         </div>
 
         <!-- Experiencia del usuario -->
