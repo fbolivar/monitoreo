@@ -8,6 +8,7 @@ grpcio==1.66.2               # gRPC para el dish Starlink (FASE 3b paso 2)
 yagrc==1.1.2                 # reflexión gRPC (llamar al dish sin compilar protos)
 python-dotenv==1.0.1         # carga de .env
 fpdf2==2.7.9                 # PDF de los reportes programados (puro Python, sin libs del sistema)
+paramiko==3.5.0              # SSH (backup de config de switches; recolección LLDP por CLI si aplica)
 
 # Desarrollo / tests
 pytest==8.3.3

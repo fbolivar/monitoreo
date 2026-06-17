@@ -72,6 +72,9 @@
     <p class="text-dim hint">Chequeo sintético multipaso (login→consulta, content/JSON-path, fases DNS/TCP/TLS):
       añade <code>"pasos"</code>, p.ej.
       <code>{{ '{' }}"pasos":[{{ '{' }}"nombre":"Login","metodo":"POST","path":"/login","cuerpo":{{ '{' }}"u":"x"{{ '}' }},"extraer":{{ '{' }}"tok":"json:token"{{ '}' }}{{ '}' }},{{ '{' }}"nombre":"Consulta","path":"/api","headers":{{ '{' }}"Authorization":"Bearer {{ '{{tok}}' }}"{{ '}' }},"contiene":"ok","max_ms":2000{{ '}' }}]{{ '}' }}</code></p>
+    <p class="text-dim hint">Respaldo de config por SSH (switches): parámetros
+      <code>{{ '{' }}"backup":{{ '{' }}"metodo":"ssh","vendor":"dell_os9"{{ '}' }}{{ '}' }}</code> y secretos
+      <code>{{ '{' }}"ssh_user":"...","ssh_password":"..."{{ '}' }}</code> (o <code>"ssh_key"</code> PEM). Aparece en «Respaldos».</p>
     <label>Secretos (JSON, cifrado — se escribe, nunca se muestra)
       <textarea name="secretos" rows="3" [(ngModel)]="form.secretosTexto"
                 placeholder='{ "snmp_community": "..." }  (dejar vacío para no cambiar)'></textarea>

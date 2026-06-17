@@ -95,6 +95,14 @@ def recursos_por_tipo(db: Database, tipo_codigo: str) -> list[Recurso]:
         return [_fila_a_recurso(r) for r in cur.fetchall()]
 
 
+def recursos_backup_ssh(db: Database) -> list[Recurso]:
+    """Recursos activos que optaron por respaldo de config por SSH (parametros.backup.metodo='ssh')."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(_SELECT_RECURSO +
+                    " WHERE r.activo = true AND r.parametros #>> '{backup,metodo}' = 'ssh' ORDER BY r.id")
+        return [_fila_a_recurso(r) for r in cur.fetchall()]
+
+
 # ── Respaldos de configuración ────────────────────────────────────────
 def ultimo_respaldo(db: Database, recurso_id: int) -> dict[str, Any] | None:
     with db.connection() as conn, conn.cursor() as cur:

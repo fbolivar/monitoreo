@@ -227,12 +227,11 @@ def recalcular_baselines(db: Database, settings: Settings) -> None:
 
 
 def respaldar_configuraciones(db: Database, settings: Settings) -> None:
-    """Respalda la configuración de los firewalls; guarda nueva versión solo si cambió."""
-    import difflib
-    import hashlib
-
+    """Respalda la configuración de firewalls (API) y switches (SSH); guarda
+    una versión nueva solo si la config cambió (hash) y avisa del cambio."""
     from .probes import fortigate_client
 
+    # Firewalls FortiGate (API REST).
     for recurso in repo.recursos_por_tipo(db, "firewall"):
         if not recurso.hostname:
             continue
@@ -245,24 +244,71 @@ def respaldar_configuraciones(db: Database, settings: Settings) -> None:
         try:
             contenido = fortigate_client.respaldar_config(recurso.hostname, token, verify, 30)
         except Exception:  # noqa: BLE001
-            log.warning("Respaldo: no se pudo obtener la config de %s", recurso.nombre)
+            log.warning("Respaldo: no se pudo obtener la config de %s (API)", recurso.nombre)
             continue
+        _guardar_respaldo_si_cambio(db, settings, recurso, contenido)
 
-        h = hashlib.sha256(contenido.encode("utf-8", "ignore")).hexdigest()
-        prev = repo.ultimo_respaldo(db, recurso.id)
-        if prev is None:
-            repo.guardar_respaldo(db, recurso.id, h, len(contenido), False, None, contenido)
-            log.info("Respaldo inicial de %s (%d bytes).", recurso.nombre, len(contenido))
-        elif prev["hash"] != h:
-            diff = "\n".join(difflib.unified_diff(
-                (prev["contenido"] or "").splitlines(), contenido.splitlines(),
-                fromfile="anterior", tofile="actual", lineterm=""))
-            repo.guardar_respaldo(db, recurso.id, h, len(contenido), True, diff[:200000], contenido)
-            log.warning("CAMBIO de configuración detectado en %s.", recurso.nombre)
-            notificar_simple(
-                db, settings, f"Cambio de configuración: {recurso.nombre}",
-                f"La configuración de {recurso.nombre} cambió. Revisa el diff en SIMON "
-                f"(detalle del recurso → Respaldos).", "warning")
+    # Switches y demás equipos por SSH (opt-in parametros.backup.metodo='ssh').
+    for recurso in repo.recursos_backup_ssh(db):
+        contenido = _respaldo_ssh(db, settings, recurso)
+        if contenido is not None:
+            _guardar_respaldo_si_cambio(db, settings, recurso, contenido)
+
+
+def _respaldo_ssh(db: Database, settings: Settings, recurso: Recurso) -> str | None:
+    """Obtiene la config de un equipo por SSH. None si falla o falta credencial."""
+    from .probes import ssh_config
+
+    host = (recurso.hostname or "").split(":", 1)[0].strip()
+    if not host:
+        return None
+    secretos = (repo.descifrar_secretos(db, recurso.id, settings.app_crypto_key)
+                if settings.app_crypto_key else None) or {}
+    user = secretos.get("ssh_user")
+    password = secretos.get("ssh_password")
+    key_pem = secretos.get("ssh_key")
+    if not user or (not password and not key_pem):
+        log.info("Respaldo SSH: %s sin credenciales (ssh_user/ssh_password|ssh_key).", recurso.nombre)
+        return None
+
+    params = recurso.parametros or {}
+    puerto = int((params.get("backup") or {}).get("puerto", 22))
+    comando = ssh_config.comando_backup(params, recurso.tipo_codigo)
+    sin_pag = ssh_config.comando_sin_paginacion(params)
+    try:
+        crudo = ssh_config.obtener_config(host, puerto, user, password, key_pem,
+                                          comando, sin_pag, timeout=45)
+    except Exception as e:  # noqa: BLE001
+        log.warning("Respaldo SSH: no se pudo obtener la config de %s: %s", recurso.nombre, e)
+        return None
+    limpio = ssh_config.limpiar_salida(crudo, comando)
+    if len(limpio) < 40:  # respuesta vacía / login sin shell / comando inválido
+        log.warning("Respaldo SSH: salida demasiado corta de %s (%d bytes); se ignora.",
+                    recurso.nombre, len(limpio))
+        return None
+    return limpio
+
+
+def _guardar_respaldo_si_cambio(db: Database, settings: Settings, recurso: Recurso,
+                                contenido: str) -> None:
+    import difflib
+    import hashlib
+
+    h = hashlib.sha256(contenido.encode("utf-8", "ignore")).hexdigest()
+    prev = repo.ultimo_respaldo(db, recurso.id)
+    if prev is None:
+        repo.guardar_respaldo(db, recurso.id, h, len(contenido), False, None, contenido)
+        log.info("Respaldo inicial de %s (%d bytes).", recurso.nombre, len(contenido))
+    elif prev["hash"] != h:
+        diff = "\n".join(difflib.unified_diff(
+            (prev["contenido"] or "").splitlines(), contenido.splitlines(),
+            fromfile="anterior", tofile="actual", lineterm=""))
+        repo.guardar_respaldo(db, recurso.id, h, len(contenido), True, diff[:200000], contenido)
+        log.warning("CAMBIO de configuración detectado en %s.", recurso.nombre)
+        notificar_simple(
+            db, settings, f"Cambio de configuración: {recurso.nombre}",
+            f"La configuración de {recurso.nombre} cambió. Revisa el diff en SIMON "
+            f"(detalle del recurso → Respaldos).", "warning")
 
 
 def pronosticar_capacidad(db: Database, settings: Settings) -> None:

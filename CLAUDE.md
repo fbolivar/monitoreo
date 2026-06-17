@@ -335,6 +335,23 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
   - Pendiente de la secuencia (decisión del usuario): (4) **Backup config por SSH (switches) + topología
     L2 automática (LLDP)**.
 
+- ✅ BACKUP DE CONFIG POR SSH (switches) (2026-06-17) — DESPLEGADO (sin migración; worker + frontend).
+  **4ª mejora, parte A** (la B es topología LLDP). Extiende el respaldo de config (que hoy solo cubre
+  FortiGate por API) a switches por SSH: se conecta, deshabilita la paginación y vuelca la config
+  (`show running-config`). Reusa la tabla `config_respaldos` + diff + aviso + la sección "Respaldos" del
+  detalle (los respaldos SSH aparecen ahí sin cambios de API/UI).
+  - **Worker**: `probes/ssh_config.py` (paramiko). Helpers PUROS testeables: `comando_backup`
+    (explícito → por vendor/tipo: dell_os9/force10→`show running-configuration`, cisco/arista→
+    `show running-config`, fortiswitch→`show full-configuration`), `comando_sin_paginacion`
+    (`terminal length 0`), `limpiar_salida` (quita eco/paginador/prompt). I/O `obtener_config` con shell
+    interactivo (invoke_shell) y lectura hasta inactividad. El job `respaldar_configuraciones` ahora hace
+    FortiGate (API) **+** los recursos opt-in `parametros.backup.metodo='ssh'`; helper común
+    `_guardar_respaldo_si_cambio`. 8 tests nuevos (148 worker en verde).
+  - **Config**: `parametros.backup = {metodo:'ssh', vendor?, comando?, puerto?:22, sin_paginacion?}` +
+    secretos `{ssh_user, ssh_password}` o `{ssh_user, ssh_key}` (PEM). Ayuda en el form de Recursos.
+  - PENDIENTE (usuario): credenciales SSH de los switches para el respaldo en vivo.
+  - Sigue: **(4B) topología L2 automática por LLDP** (SNMP LLDP-MIB → vecinos → mapa de conexiones).
+
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.
 
