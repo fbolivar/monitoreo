@@ -310,9 +310,30 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
     categoría —chasis/energía/temperatura/ventiladores/almacenamiento— con semáforo y lectura numérica).
   - PENDIENTE (usuario): credenciales del iDRAC para la lectura autenticada en vivo; activar `parametros.hardware`
     en los servidores. Incidencias formales por componente (hoy es aviso) = follow-up.
-  - Pendientes de la secuencia (decisión del usuario, una a una): (3) **Chequeos sintéticos multipaso**
-    (content/JSON-path, login→query, fases DNS/TCP/TLS/TTFB — no intrusivo), (4) **Backup config por SSH
+  - Pendiente de la secuencia (decisión del usuario): (4) **Backup config por SSH
     (switches) + topología L2 automática (LLDP)**.
+
+- ✅ CHEQUEOS SINTÉTICOS MULTIPASO (2026-06-17) — DESPLEGADO (sin migración; worker + frontend).
+  **3ª de 4 mejoras.** Monitoreo de transacción de caja-negra (NO intrusivo): una secuencia de pasos
+  HTTP como un usuario sintético (p.ej. login→consulta), con aserciones por paso y encadenamiento de
+  variables (extraer un token del paso 1 y usarlo en el 2). Reusa TODO el pipeline existente
+  (estado/incidencias/métricas) — no hay entidad nueva.
+  - **Worker**: `probes/sintetico.py`. Helpers PUROS testeables (`json_path_get`, `interpolar` con
+    `{{var}}`, `evaluar_paso` aserciones status/contiene/no_contiene/json_path/max_ms, `extraer_variables`
+    de `json:ruta`/`header:Nombre`, `resumir` → up/degraded/down). I/O con un `httpx.Client` que mantiene
+    cookies entre pasos (login→query) + `medir_fases` (DNS/TCP/TLS por socket). Estado: down si un paso
+    falla una aserción (transacción rota), degraded si todo pasa pero algún paso fue lento (max_ms).
+    Métricas emitidas: latency(total), dns_ms/tcp_ms/tls_ms, ttfb_ms, pasos_ok/pasos_total → se grafican
+    e historizan solas. Opt-in: `parametros.pasos` (no vacío) → `SinteticoProbe` (precede a HttpProbe).
+    25 tests nuevos (139 worker en verde).
+  - **UI**: sección "Transacción sintética" en el detalle del recurso (fases DNS/TCP/TLS + tabla de pasos
+    con status/tiempo/resultado y motivo del fallo). Ayuda con ejemplo de `pasos` en el form de Recursos.
+  - **Config** (ejemplo): `parametros.pasos = [{"nombre":"Login","metodo":"POST","path":"/login",
+    "cuerpo":{...},"extraer":{"tok":"json:token"}}, {"nombre":"Consulta","path":"/api",
+    "headers":{"Authorization":"Bearer {{tok}}"},"contiene":"ok","max_ms":2000}]`. Credenciales en
+    `secretos` (interpolables como `{{...}}` y como basic_auth_user/api_key).
+  - Pendiente de la secuencia (decisión del usuario): (4) **Backup config por SSH (switches) + topología
+    L2 automática (LLDP)**.
 
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.

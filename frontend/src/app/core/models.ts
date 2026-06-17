@@ -51,6 +51,17 @@ export interface Chequeo {
   detalle?: Record<string, unknown>;
 }
 
+// Resultado de un paso de un chequeo sintético (vive en chequeos.detalle.pasos).
+export interface PasoSintetico {
+  nombre: string;
+  url: string;
+  status: number | null;
+  ok: boolean;
+  motivo: string | null;
+  ms: number;
+  lento?: boolean;
+}
+
 export interface Metrica {
   recurso_id: number;
   metrica: string;

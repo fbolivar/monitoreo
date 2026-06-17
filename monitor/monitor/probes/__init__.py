@@ -10,11 +10,12 @@ from .base import Muestra, Probe, ResultadoProbe
 from .fortigate import FortiGateProbe
 from .http import HttpProbe
 from .icmp import IcmpProbe
+from .sintetico import SinteticoProbe
 from .snmp import SnmpProbe
 from .starlink import StarlinkProbe
 from .tcp import TcpProbe
 
-__all__ = ["Muestra", "Probe", "ResultadoProbe", "seleccionar_probe"]
+__all__ = ["Muestra", "Probe", "ResultadoProbe", "SinteticoProbe", "seleccionar_probe"]
 
 # Tipos que se monitorean por SNMP (FASE 3b, paso 1).
 _TIPOS_SNMP = {"servidor", "switch_lan", "switch_san", "nas", "ups"}
@@ -24,6 +25,7 @@ def seleccionar_probe(recurso: Recurso) -> Probe | None:
     """Elige el probe según el tipo/parámetros del recurso.
 
     Reglas (orden de precedencia):
+      0. parametros.pasos (no vacío)        -> SinteticoProbe (transacción multipaso)
       1. Sitios web o URLs http(s)          -> HttpProbe
       2. parametros.metodo == 'tcp'         -> TcpProbe (servicio específico)
       3. parametros.metodo == 'snmp' o tipo -> SnmpProbe (servidor/switch/nas/san/ups)
@@ -35,6 +37,10 @@ def seleccionar_probe(recurso: Recurso) -> Probe | None:
     """
     params = recurso.parametros or {}
     host = (recurso.hostname or "").strip()
+
+    # Transacción sintética multipaso (login->consulta, content/JSON-path, fases).
+    if params.get("pasos"):
+        return SinteticoProbe()
 
     if recurso.tipo_codigo == "sitio_web" or host.startswith(("http://", "https://")):
         return HttpProbe()

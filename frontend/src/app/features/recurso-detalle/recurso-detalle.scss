@@ -73,3 +73,18 @@ section { margin-top: 8px; }
 .hw-degraded { border-left-color: var(--estado-degraded); background: #fffaf0; }
 .hw-down { border-left-color: var(--estado-down); background: #fdf0f0; }
 .hw-unknown { border-left-color: var(--estado-unknown); }
+
+/* Transacción sintética (multipaso) */
+.sint .fases { display: flex; gap: 8px; margin: 6px 0 12px; flex-wrap: wrap; }
+.sint .fase { border: 1px solid var(--border); border-radius: var(--radius); padding: 6px 12px;
+  font-variant-numeric: tabular-nums; }
+.sint .fase .fn { color: var(--text-dim); font-size: 12px; margin-right: 6px; }
+.sint .fase .u { color: var(--text-dim); font-size: 11px; margin-left: 2px; }
+.pasos { width: 100%; font-size: 13px; }
+.pasos .num { text-align: right; font-variant-numeric: tabular-nums; }
+.pasos .num.lento { color: var(--sev-warning); font-weight: 700; }
+.pasos .url { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pasos tr.fallo td { background: #fdf0f0; }
+.pasos .ok { color: var(--estado-up); font-weight: 600; }
+.pasos .warn { color: var(--sev-warning); font-weight: 600; }
+.pasos .bad { color: var(--estado-down); font-weight: 600; }

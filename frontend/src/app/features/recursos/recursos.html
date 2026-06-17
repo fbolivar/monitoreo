@@ -69,6 +69,9 @@
     <label>Parámetros (JSON, no sensible)
       <textarea name="parametros" rows="4" [(ngModel)]="form.parametrosTexto"></textarea>
     </label>
+    <p class="text-dim hint">Chequeo sintético multipaso (login→consulta, content/JSON-path, fases DNS/TCP/TLS):
+      añade <code>"pasos"</code>, p.ej.
+      <code>{{ '{' }}"pasos":[{{ '{' }}"nombre":"Login","metodo":"POST","path":"/login","cuerpo":{{ '{' }}"u":"x"{{ '}' }},"extraer":{{ '{' }}"tok":"json:token"{{ '}' }}{{ '}' }},{{ '{' }}"nombre":"Consulta","path":"/api","headers":{{ '{' }}"Authorization":"Bearer {{ '{{tok}}' }}"{{ '}' }},"contiene":"ok","max_ms":2000{{ '}' }}]{{ '}' }}</code></p>
     <label>Secretos (JSON, cifrado — se escribe, nunca se muestra)
       <textarea name="secretos" rows="3" [(ngModel)]="form.secretosTexto"
                 placeholder='{ "snmp_community": "..." }  (dejar vacío para no cambiar)'></textarea>

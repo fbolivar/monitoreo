@@ -37,6 +37,41 @@
     </section>
   }
 
+  <!-- Transacción sintética (multipaso) -->
+  @if (pasosSinteticos(); as pasos) {
+    <section class="sint">
+      <h2>Transacción sintética <span class="text-dim">({{ pasos.length }} paso(s))</span></h2>
+
+      @if (fasesSinteticas().length > 0) {
+        <div class="fases">
+          @for (f of fasesSinteticas(); track f.nombre) {
+            <div class="fase"><span class="fn">{{ f.nombre }}</span><b>{{ f.ms }}</b><span class="u">ms</span></div>
+          }
+        </div>
+      }
+
+      <table class="pasos">
+        <thead><tr><th>#</th><th>Paso</th><th>URL</th><th>Status</th><th class="num">Tiempo</th><th>Resultado</th></tr></thead>
+        <tbody>
+          @for (p of pasos; track $index) {
+            <tr [class.fallo]="!p.ok">
+              <td class="text-dim">{{ $index + 1 }}</td>
+              <td><b>{{ p.nombre }}</b></td>
+              <td class="url text-dim">{{ p.url }}</td>
+              <td>{{ p.status ?? '—' }}</td>
+              <td class="num" [class.lento]="p.lento">{{ p.ms }} ms</td>
+              <td>
+                @if (p.ok && !p.lento) { <span class="ok">✓ OK</span> }
+                @else if (p.ok && p.lento) { <span class="warn">⚠ lento</span> }
+                @else { <span class="bad">✗ {{ p.motivo }}</span> }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  }
+
   <!-- Métricas -->
   <section>
     <div class="sec-h">

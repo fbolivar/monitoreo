@@ -2,7 +2,7 @@ import { DecimalPipe, JsonPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Baseline, Chequeo, HardwareComponente, HardwareInventario, Incidencia, Interfaz, Metrica, MuestraInterfaz, Recurso, Respaldo, RespaldoDetalle } from '../../core/models';
+import { Baseline, Chequeo, HardwareComponente, HardwareInventario, Incidencia, Interfaz, Metrica, MuestraInterfaz, PasoSintetico, Recurso, Respaldo, RespaldoDetalle } from '../../core/models';
 import { AuthService } from '../../core/auth.service';
 import { RecursosService } from '../../core/recursos.service';
 import { TelemetriaService } from '../../core/telemetria.service';
@@ -83,6 +83,18 @@ export class RecursoDetalle {
         puntos: ms.map((m) => ({ ts: m.ts, valor: m.valor })),
       }))
       .sort((a, b) => a.metrica.localeCompare(b.metrica));
+  });
+
+  // Chequeo sintético: pasos y fases del último chequeo (si aplica).
+  pasosSinteticos = computed<PasoSintetico[] | null>(() => {
+    const d = this.ultimoChequeo()?.detalle as Record<string, unknown> | undefined;
+    return Array.isArray(d?.['pasos']) ? (d!['pasos'] as PasoSintetico[]) : null;
+  });
+  fasesSinteticas = computed<{ nombre: string; ms: number }[]>(() => {
+    const d = this.ultimoChequeo()?.detalle as Record<string, unknown> | undefined;
+    const f = (d?.['fases'] ?? {}) as Record<string, number>;
+    const orden: [string, string][] = [['dns_ms', 'DNS'], ['tcp_ms', 'TCP'], ['tls_ms', 'TLS']];
+    return orden.filter(([k]) => k in f).map(([k, nombre]) => ({ nombre, ms: f[k] }));
   });
 
   // Hardware agrupado por categoría (orden lógico para la UI).

@@ -4,6 +4,7 @@ from monitor.probes import seleccionar_probe
 from monitor.probes.fortigate import FortiGateProbe
 from monitor.probes.http import HttpProbe
 from monitor.probes.icmp import IcmpProbe
+from monitor.probes.sintetico import SinteticoProbe
 from monitor.probes.snmp import SnmpProbe
 from monitor.probes.starlink import StarlinkProbe
 from monitor.probes.tcp import TcpProbe
@@ -20,6 +21,13 @@ def _recurso(**kw):
 def test_sitio_web_usa_http():
     r = _recurso(tipo_codigo="sitio_web", hostname="https://web.local", protocolo_default="https")
     assert isinstance(seleccionar_probe(r), HttpProbe)
+
+
+def test_pasos_usa_sintetico():
+    # parametros.pasos tiene precedencia sobre el tipo/host.
+    r = _recurso(tipo_codigo="sitio_web", hostname="https://web.local",
+                 parametros={"pasos": [{"nombre": "raíz", "path": "/"}]})
+    assert isinstance(seleccionar_probe(r), SinteticoProbe)
 
 
 def test_url_directa_usa_http():
