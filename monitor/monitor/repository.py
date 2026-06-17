@@ -115,13 +115,13 @@ def guardar_vecinos_lldp(db: Database, recurso_id: int, vecinos: list[dict]) -> 
                      remote_port, remote_sysdesc, recurso_remoto_id, ts)
                 VALUES (%s, %s, %s, %s, %s, %s, %s,
                         (SELECT id FROM recursos
-                          WHERE %s IS NOT NULL AND lower(nombre) = lower(%s)
+                          WHERE lower(nombre) = lower(%s::text)
                           ORDER BY id LIMIT 1),
                         now())
                 """,
                 [(recurso_id, v.get("local_port_num"), v.get("local_port"),
                   v.get("remote_sysname"), v.get("remote_chassis"), v.get("remote_port"),
-                  v.get("remote_sysdesc"), v.get("remote_sysname"), v.get("remote_sysname"))
+                  v.get("remote_sysdesc"), v.get("remote_sysname"))
                  for v in vecinos],
             )
 
