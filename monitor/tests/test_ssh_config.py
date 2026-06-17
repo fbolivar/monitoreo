@@ -13,7 +13,7 @@ def test_comando_explicito_gana():
 
 
 def test_comando_por_vendor():
-    assert comando_backup({"backup": {"vendor": "dell_os9"}}) == "show running-configuration"
+    assert comando_backup({"backup": {"vendor": "dell_os9"}}) == "show running-config"
     assert comando_backup({"backup": {"vendor": "cisco"}}) == "show running-config"
     assert comando_backup({"backup": {"vendor": "fortiswitch"}}) == "show full-configuration"
 

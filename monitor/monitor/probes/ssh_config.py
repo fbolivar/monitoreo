@@ -8,11 +8,13 @@ comando por defecto y la limpieza de la salida son PUROS/testeables; la E/S
 from __future__ import annotations
 
 # Comando de volcado por familia de equipo (heurística por vendor/tipo).
+# Dell OS9/OS10 (FTOS), Cisco IOS y Arista EOS aceptan 'show running-config'
+# (verificado en Dell OS 9.14: 'show running-configuration' da "Invalid input").
 _COMANDOS = {
-    "dell_os9": "show running-configuration",
-    "dell_os10": "show running-configuration",
-    "force10": "show running-configuration",
-    "dell": "show running-configuration",
+    "dell_os9": "show running-config",
+    "dell_os10": "show running-config",
+    "force10": "show running-config",
+    "dell": "show running-config",
     "cisco": "show running-config",
     "ios": "show running-config",
     "fortiswitch": "show full-configuration",
