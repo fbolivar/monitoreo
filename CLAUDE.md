@@ -354,7 +354,10 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
     `_guardar_respaldo_si_cambio`. 8 tests nuevos (148 worker en verde).
   - **Config**: `parametros.backup = {metodo:'ssh', vendor?, comando?, puerto?:22, sin_paginacion?}` +
     secretos `{ssh_user, ssh_password}` o `{ssh_user, ssh_key}` (PEM). Ayuda en el form de Recursos.
-  - PENDIENTE (usuario): credenciales SSH de los switches para el respaldo en vivo.
+  - VERIFICADO EN VIVO (2026-06-17): activado en SW-CORE-01 (id 23, Dell EMC OS 9.14) — volcó 33,827 bytes /
+    1485 líneas de `show running-config` (de "Current Configuration" a "end"), guardado en `config_respaldos`.
+    Fix durante la verificación: Dell OS9 9.14 acepta `show running-config` pero NO la forma larga
+    `show running-configuration` ("Invalid input"); login cae directo en modo enable (prompt `#`).
 
 - ✅ TOPOLOGÍA L2 AUTOMÁTICA POR LLDP (2026-06-17) [migr. 0021, tabla `lldp_vecinos`] — DESPLEGADO.
   **4ª mejora, parte B** (cierra la secuencia de 4). El worker camina la LLDP-MIB por SNMP de cada switch
@@ -373,9 +376,9 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
   - NOTA: requiere LLDP activo en los equipos. Los vecinos no gestionados aparecen como nodos "externos".
 
 Con esto quedan las **4 mejoras** de la secuencia (auto-descubrimiento, hardware, sintéticos, backup SSH +
-topología LLDP), todas en producción. Verificadas EN VIVO: auto-descubrimiento (escaneo real), sintéticos
-(transacción 2 pasos), topología LLDP (286 vecinos) y hardware Redfish (Dell R640 en id 24). Pendiente de
-prueba EN VIVO por requerir credenciales del usuario: solo el volcado SSH de switches (backup #4A).
+topología LLDP), todas en producción y **todas verificadas EN VIVO**: auto-descubrimiento (escaneo real),
+hardware Redfish (Dell R640 en id 24), sintéticos (transacción 2 pasos), backup SSH (SW-CORE-01 Dell OS9,
+33 KB) y topología LLDP (286 vecinos). Secuencia de 4 mejoras COMPLETA.
 
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.
