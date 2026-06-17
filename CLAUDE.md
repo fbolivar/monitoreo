@@ -289,10 +289,30 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
     gated a admin/operador.
   - NOTA: sin community solo detecta hosts vivos (ping). FortiSwitch puede clasificar como 'firewall' e
     iDRAC como 'switch_lan' (enterprise OID Dell/Fortinet ambiguo); el tipo es editable en el alta.
-  - Es la **1ª de 4 mejoras** pedidas en secuencia. Pendientes (decisión del usuario, una a una):
-    (2) **Hardware físico IPMI/Redfish** (fuentes/temp/ventiladores/RAID por REST), (3) **Chequeos
-    sintéticos multipaso** (content/JSON-path, login→query, fases DNS/TCP/TLS/TTFB — no intrusivo),
-    (4) **Backup config por SSH (switches) + topología L2 automática (LLDP)**.
+  - Es la **1ª de 4 mejoras** pedidas en secuencia.
+
+- ✅ HARDWARE FÍSICO (Redfish + fallback IPMI) (2026-06-17) [migr. 0020, tablas `hardware_inventario` +
+  `hardware_componentes`] — DESPLEGADO; plumbing verificado (124 tests + `ng build` + job activo +
+  Redfish ServiceRoot confirmado en los iDRAC .10.34/.10.35). **2ª de 4 mejoras.** Salud del equipo
+  **fuera de banda** (habla con el BMC, NO instrumenta el SO): fuentes, temperaturas, ventiladores,
+  RAID/discos e **inventario** (fabricante/modelo/serial/SKU/BIOS/firmware BMC/CPU/memoria).
+  - **Worker**: `probes/redfish.py` (parsers puros `parse_system`/`parse_thermal`/`parse_power`/
+    `parse_storage` + `estado_de` que mapea Status.Health OK/Warning/Critical→up/degraded/down; I/O httpx
+    Basic Auth recorre Systems→Storage/Drives, Chassis→Thermal/Power, Managers→firmware). `probes/ipmi_probe.py`
+    (fallback con `ipmitool sensor`+`fru`, parsers puros). `hardware.py` orquesta (auto: Redfish→IPMI) y
+    normaliza a (inventario, componentes). Job `procesar_hardware` (sweep cada `HARDWARE_CHECK_SEG`, def
+    300s) persiste el snapshot y **avisa** (`notificar_simple`, sin incidencia) cuando un componente EMPEORA
+    a degraded/down (respeta mantenimiento). Opt-in por recurso (`parametros.hardware` =
+    `{protocolo:'auto'|'redfish'|'ipmi', bmc_host?, verify_tls?}`); credenciales BMC en `secretos`
+    (`bmc_user`/`bmc_password`), cifradas con pgcrypto.
+  - **API**: `GET /recursos/{id}/hardware` → `{inventario, componentes}` (componentes peor-estado primero).
+  - **UI**: sección "Hardware físico" en el detalle del recurso (tarjeta de inventario + componentes por
+    categoría —chasis/energía/temperatura/ventiladores/almacenamiento— con semáforo y lectura numérica).
+  - PENDIENTE (usuario): credenciales del iDRAC para la lectura autenticada en vivo; activar `parametros.hardware`
+    en los servidores. Incidencias formales por componente (hoy es aviso) = follow-up.
+  - Pendientes de la secuencia (decisión del usuario, una a una): (3) **Chequeos sintéticos multipaso**
+    (content/JSON-path, login→query, fases DNS/TCP/TLS/TTFB — no intrusivo), (4) **Backup config por SSH
+    (switches) + topología L2 automática (LLDP)**.
 
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.
