@@ -313,8 +313,13 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
     16 ventiladores, 2 fuentes, 4 térmicos, RAID (BOSS-S1 + PERC H330) con SSDs y volúmenes, todo `up`.
     Fixes durante la verificación: `desambiguar` nombres repetidos ('Temp'), timeout amplio 30s (iDRAC lento,
     caía a IPMI), y tolerar `Volumes`/`Drives` como REFERENCIA (no lista inline) expandiéndolos.
-  - PENDIENTE (usuario): activar `parametros.hardware` en el resto de servidores. Incidencias formales por
-    componente (hoy es aviso) = follow-up.
+  - INCIDENCIAS POR COMPONENTE [migr. 0022] (2026-06-17): el aviso (`notificar_simple`) se reemplazó por
+    INCIDENCIAS FORMALES por componente. `incidencias.componente` (texto, p.ej. 'power:PSU1') + índice único
+    ampliado a (recurso, COALESCE(if_index,-1), COALESCE(componente,'')); `incidencia_abierta` filtra
+    `componente IS NULL`. `_gestionar_incidencias_hardware` abre (down→critical, degraded→warning), escala
+    (degraded↔down) y cierra al recuperarse, notificando por el motor de incidencias (reconocible/resoluble,
+    sale en Incidencias/wallboard). Respeta mantenimiento.
+  - PENDIENTE (usuario): activar `parametros.hardware` en el resto de servidores.
   - Pendiente de la secuencia (decisión del usuario): (4) **Backup config por SSH
     (switches) + topología L2 automática (LLDP)**.
 
@@ -374,6 +379,10 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
     remoto) + pantalla "Topología" (grafo SVG con layout circular: recursos en anillo interior coloreados
     por estado, externos fuera; clic en nodo→recurso). Nav + ruta.
   - NOTA: requiere LLDP activo en los equipos. Los vecinos no gestionados aparecen como nodos "externos".
+  - RESOLUCIÓN POR IP DE GESTIÓN [migr. 0023] (2026-06-17): como el sysName LLDP rara vez coincide con el
+    nombre del recurso en SIMON, ahora se camina también `lldpRemManAddrTable` (la IP va en el ÍNDICE del OID;
+    `parse_direcciones_gestion` la extrae para IPv4) y se guarda `lldp_vecinos.remote_mgmt`. El resolver enlaza
+    el vecino a un recurso por `hostname`=IP_de_gestión (COALESCE) y, si no, por sysName. UI: columna "Gestión".
 
 Con esto quedan las **4 mejoras** de la secuencia (auto-descubrimiento, hardware, sintéticos, backup SSH +
 topología LLDP), todas en producción y **todas verificadas EN VIVO**: auto-descubrimiento (escaneo real),

@@ -135,7 +135,7 @@ class RecursoController extends Controller
             ->orderBy('v.local_port_num')
             ->get([
                 'v.local_port', 'v.local_port_num', 'v.remote_sysname', 'v.remote_port',
-                'v.remote_chassis', 'v.remote_sysdesc', 'v.recurso_remoto_id',
+                'v.remote_chassis', 'v.remote_sysdesc', 'v.remote_mgmt', 'v.recurso_remoto_id',
                 'rr.nombre as remoto_nombre', 'v.ts',
             ]);
 

@@ -466,12 +466,14 @@ def recolectar_topologia(db: Database, settings: Settings) -> None:
             }
             loc_id = snmp_walk(host, puerto, cred, lldp.LOC_PORTID, timeout, 1)[0]
             loc_desc = snmp_walk(host, puerto, cred, lldp.LOC_PORTDESC, timeout, 1)[0]
+            manaddr = snmp_walk(host, puerto, cred, lldp.MAN_BASE, timeout, 1)[0]
         except Exception as e:  # noqa: BLE001
             log.warning("LLDP: no se pudo caminar %s (%s): %s", recurso.id, recurso.nombre, e)
             continue
 
         locales = lldp.parse_puertos_locales(loc_id, loc_desc)
-        vecinos = lldp.parse_vecinos(walks, locales)
+        direcciones = lldp.parse_direcciones_gestion(manaddr)
+        vecinos = lldp.parse_vecinos(walks, locales, direcciones)
         repo.guardar_vecinos_lldp(db, recurso.id, vecinos)
         log.info("LLDP %s (%s): %d vecino(s).", recurso.id, recurso.nombre, len(vecinos))
 
@@ -491,19 +493,12 @@ def procesar_hardware(db: Database, settings: Settings) -> None:
                 secretos = repo.descifrar_secretos(db, recurso.id, settings.app_crypto_key)
 
             inventario, comps = hardware.recolectar(recurso, secretos, settings)
-            previos = repo.estados_hardware_previos(db, recurso.id)
             repo.guardar_hardware_inventario(db, recurso.id, inventario)
             repo.guardar_hardware_componentes(db, recurso.id, comps)
 
-            # Aviso (sin incidencia) por componentes que EMPEORARON, salvo en mantenimiento.
+            # Incidencias formales por componente (salvo en mantenimiento).
             if not repo.en_mantenimiento(db, recurso, ahora):
-                nuevos_malos = [
-                    c for c in comps
-                    if c["estado"] in ("degraded", "down")
-                    and previos.get((c["categoria"], c["nombre"])) not in ("degraded", "down")
-                ]
-                if nuevos_malos:
-                    _avisar_hardware(db, settings, recurso, nuevos_malos, inventario)
+                _gestionar_incidencias_hardware(db, settings, recurso, comps, ahora)
             log.info("Hardware %s (%s) -> %s (%d componentes, %s)",
                      recurso.id, recurso.nombre, inventario.get("salud_global"),
                      len(comps), inventario.get("protocolo"))
@@ -511,17 +506,44 @@ def procesar_hardware(db: Database, settings: Settings) -> None:
             log.warning("Hardware de %s (%s) no disponible: %s", recurso.id, recurso.nombre, ex)
 
 
-def _avisar_hardware(db: Database, settings: Settings, recurso: Recurso,
-                     componentes: list[dict], inventario: dict) -> None:
-    sev = "critical" if any(c["estado"] == "down" for c in componentes) else "warning"
-    lineas = [f"  - [{c['categoria']}] {c['nombre']}: {c['estado']}"
-              + (f" ({c['lectura']}{c['unidad']})" if c.get("lectura") is not None else "")
-              for c in componentes]
-    equipo = " ".join(filter(None, [inventario.get("fabricante"), inventario.get("modelo")]))
-    texto = (f"Hardware de {recurso.nombre}"
-             + (f" ({equipo})" if equipo else "")
-             + " reporta componentes degradados/caídos:\n" + "\n".join(lineas))
-    notificar_simple(db, settings, f"Hardware: {recurso.nombre}", texto, sev)
+def _gestionar_incidencias_hardware(db: Database, settings: Settings, recurso: Recurso,
+                                    comps: list[dict], ahora: datetime) -> None:
+    """Abre/cierra/escala una incidencia por cada componente físico degradado/caído."""
+    sev_por_estado = {"down": "critical", "degraded": "warning"}
+    # Componentes en mal estado, por clave estable 'categoria:nombre'.
+    malos = {f"{c['categoria']}:{c['nombre']}": c
+             for c in comps if c["estado"] in ("down", "degraded")}
+
+    for clave, c in malos.items():
+        sev = sev_por_estado[c["estado"]]
+        lectura = f" ({c['lectura']}{c.get('unidad') or ''})" if c.get("lectura") is not None else ""
+        titulo = f"{recurso.nombre}: {c['nombre']} {c['estado']}{lectura}"
+        abierta = repo.incidencia_componente_abierta(db, recurso.id, clave)
+        if abierta is None:
+            nueva = repo.abrir_incidencia_componente(
+                db, recurso.id, clave, sev, titulo, f"Componente {c['categoria']} '{c['nombre']}'"
+                f" reporta estado {c['estado']}.", ahora)
+            if nueva:
+                log.warning("Incidencia hardware %s ABIERTA (recurso %s, %s)", nueva, recurso.id, clave)
+                notificar(db, settings, incidencia_id=nueva, recurso=recurso,
+                          severidad=sev, evento="apertura", titulo=titulo)
+        elif abierta.get("severidad") != sev:
+            # Cambio de severidad (degraded<->down): actualiza y notifica si escala.
+            anterior = abierta.get("severidad")
+            repo.actualizar_severidad_incidencia(db, abierta["id"], sev)
+            if SEV_ORDEN.get(sev, 0) > SEV_ORDEN.get(anterior, 0):
+                notificar(db, settings, incidencia_id=abierta["id"], recurso=recurso,
+                          severidad=sev, evento=f"escalamiento:{sev}",
+                          titulo=f"Escalamiento {anterior} -> {sev}: {titulo}")
+
+    # Cierra incidencias de componentes que ya se recuperaron (ya no están en 'malos').
+    for ab in repo.incidencias_componente_abiertas(db, recurso.id):
+        if ab["componente"] not in malos:
+            repo.cerrar_incidencia(db, ab["id"], ahora)
+            log.info("Incidencia hardware %s resuelta (%s recuperado).", ab["id"], ab["componente"])
+            notificar(db, settings, incidencia_id=ab["id"], recurso=recurso,
+                      severidad=ab.get("severidad", "warning"), evento="cierre",
+                      titulo=f"{recurso.nombre}: {ab['componente']} recuperado")
 
 
 def procesar_descubrimientos(db: Database, settings: Settings) -> None:

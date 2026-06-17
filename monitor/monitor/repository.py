@@ -104,7 +104,8 @@ def recursos_switches(db: Database) -> list[Recurso]:
 
 
 def guardar_vecinos_lldp(db: Database, recurso_id: int, vecinos: list[dict]) -> None:
-    """Reemplaza el snapshot de vecinos LLDP; resuelve el recurso remoto por sysname."""
+    """Reemplaza el snapshot de vecinos LLDP. Resuelve el recurso remoto por IP de
+    gestión (hostname del recurso) y, si no, por sysName."""
     with db.connection() as conn, conn.cursor() as cur:
         cur.execute("DELETE FROM lldp_vecinos WHERE recurso_id = %s", (recurso_id,))
         if vecinos:
@@ -112,16 +113,21 @@ def guardar_vecinos_lldp(db: Database, recurso_id: int, vecinos: list[dict]) -> 
                 """
                 INSERT INTO lldp_vecinos
                     (recurso_id, local_port_num, local_port, remote_sysname, remote_chassis,
-                     remote_port, remote_sysdesc, recurso_remoto_id, ts)
-                VALUES (%s, %s, %s, %s, %s, %s, %s,
-                        (SELECT id FROM recursos
-                          WHERE lower(nombre) = lower(%s::text)
-                          ORDER BY id LIMIT 1),
+                     remote_port, remote_sysdesc, remote_mgmt, recurso_remoto_id, ts)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s,
+                        COALESCE(
+                          (SELECT id FROM recursos
+                            WHERE split_part(hostname, ':', 1) = %s::text AND %s::text <> ''
+                            ORDER BY id LIMIT 1),
+                          (SELECT id FROM recursos
+                            WHERE lower(nombre) = lower(%s::text)
+                            ORDER BY id LIMIT 1)),
                         now())
                 """,
                 [(recurso_id, v.get("local_port_num"), v.get("local_port"),
                   v.get("remote_sysname"), v.get("remote_chassis"), v.get("remote_port"),
-                  v.get("remote_sysdesc"), v.get("remote_sysname"))
+                  v.get("remote_sysdesc"), v.get("remote_mgmt"),
+                  v.get("remote_mgmt") or "", v.get("remote_mgmt") or "", v.get("remote_sysname"))
                  for v in vecinos],
             )
 
@@ -437,14 +443,55 @@ def marcar_recursos_obsoletos(db: Database, factor: int, piso_seg: int,
 
 # ── Incidencias ───────────────────────────────────────────────────────
 def incidencia_abierta(db: Database, recurso_id: int) -> dict[str, Any] | None:
-    """Incidencia abierta DEL RECURSO (no las de interfaz, que llevan if_index)."""
+    """Incidencia abierta DEL RECURSO (no las de interfaz/componente, que llevan if_index/componente)."""
     with db.connection() as conn, conn.cursor() as cur:
         cur.execute(
             "SELECT id, severidad, estado FROM incidencias "
-            "WHERE recurso_id = %s AND if_index IS NULL AND estado <> 'resuelta' LIMIT 1",
+            "WHERE recurso_id = %s AND if_index IS NULL AND componente IS NULL "
+            "AND estado <> 'resuelta' LIMIT 1",
             (recurso_id,),
         )
         return cur.fetchone()
+
+
+# ── Incidencias por componente de hardware ────────────────────────────
+def incidencia_componente_abierta(db: Database, recurso_id: int, componente: str) -> dict[str, Any] | None:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, severidad FROM incidencias "
+            "WHERE recurso_id = %s AND componente = %s AND estado <> 'resuelta' LIMIT 1",
+            (recurso_id, componente),
+        )
+        return cur.fetchone()
+
+
+def incidencias_componente_abiertas(db: Database, recurso_id: int) -> list[dict[str, Any]]:
+    """Incidencias de componente de hardware abiertas del recurso."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, componente, severidad FROM incidencias "
+            "WHERE recurso_id = %s AND componente IS NOT NULL AND estado <> 'resuelta'",
+            (recurso_id,),
+        )
+        return cur.fetchall()
+
+
+def abrir_incidencia_componente(db: Database, recurso_id: int, componente: str, severidad: str,
+                                titulo: str, descripcion: str | None, ahora: datetime) -> int | None:
+    """Abre una incidencia de componente. El índice único (recurso, -, componente) evita duplicados."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO incidencias
+                (recurso_id, componente, estado, severidad, titulo, descripcion, abierta_at)
+            VALUES (%s, %s, 'abierta', %s, %s, %s, %s)
+            ON CONFLICT DO NOTHING
+            RETURNING id
+            """,
+            (recurso_id, componente, severidad, titulo, descripcion, ahora),
+        )
+        row = cur.fetchone()
+        return row["id"] if row else None
 
 
 def inicio_racha_no_up(db: Database, recurso_id: int, ahora: datetime) -> datetime:

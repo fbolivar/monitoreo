@@ -342,6 +342,7 @@ export interface VecinoLldp {
   remote_port: string | null;
   remote_chassis: string | null;
   remote_sysdesc: string | null;
+  remote_mgmt: string | null;
   recurso_remoto_id: number | null;
   remoto_nombre: string | null;
   ts: string;

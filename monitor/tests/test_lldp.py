@@ -3,11 +3,13 @@ from monitor.probes import lldp
 from monitor.probes.lldp import (
     LOC_PORTDESC,
     LOC_PORTID,
+    MAN_BASE,
     REM_CHASSIS,
     REM_PORTDESC,
     REM_PORTID,
     REM_SYSNAME,
     fmt_chassis,
+    parse_direcciones_gestion,
     parse_puertos_locales,
     parse_vecinos,
 )
@@ -63,6 +65,28 @@ def test_parse_vecinos_basico():
     v2 = next(v for v in vecinos if v["remote_sysname"] == "AP-WIFI")
     assert v2["local_port"] == "Te 1/7"
     assert v2["remote_port"] == "eth0"          # sin portdesc -> cae a portid
+
+
+def test_parse_direcciones_gestion_ipv4():
+    # índice: timeMark.localPortNum.remIndex.subtype(1).len(4).o1.o2.o3.o4
+    walk = [(f"{MAN_BASE}.0.3.1.1.4.192.168.10.1", 1),
+            (f"{MAN_BASE}.0.7.1.1.4.10.0.0.5", 1)]
+    d = parse_direcciones_gestion(walk)
+    assert d == {(3, 1): "192.168.10.1", (7, 1): "10.0.0.5"}
+
+
+def test_parse_direcciones_ignora_ipv6_y_corto():
+    # subtype 2 (IPv6) o índice incompleto -> se ignora.
+    walk = [(f"{MAN_BASE}.0.3.1.2.16.1.2.3.4.5.6.7.8.9.10.11.12.13.14.15.16", 1),
+            (f"{MAN_BASE}.0.3.1", 1)]
+    assert parse_direcciones_gestion(walk) == {}
+
+
+def test_parse_vecinos_incluye_mgmt():
+    walks = {"sysname": [(f"{REM_SYSNAME}.0.3.1", "SW-X")]}
+    direcciones = {(3, 1): "192.168.10.9"}
+    v = parse_vecinos(walks, {}, direcciones)[0]
+    assert v["remote_mgmt"] == "192.168.10.9"
 
 
 def test_parse_vecinos_sin_datos():

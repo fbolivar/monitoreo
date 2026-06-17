@@ -23,6 +23,11 @@ REM_SYSDESC = f"{REM_BASE}.10"
 LOC_PORTID = "1.0.8802.1.1.2.1.3.7.1.3"
 LOC_PORTDESC = "1.0.8802.1.1.2.1.3.7.1.4"
 
+# lldpRemManAddrTable: la dirección de gestión del vecino va en el ÍNDICE del OID
+# (timeMark.localPortNum.remIndex.addrSubtype.addrLen.<octetos addr>). Caminamos
+# una columna cualquiera (IfSubtype) y leemos la IP del propio índice.
+MAN_BASE = "1.0.8802.1.1.2.1.4.2.1.3"
+
 
 def _texto(valor) -> str:
     if isinstance(valor, bytes):
@@ -77,7 +82,32 @@ def parse_puertos_locales(walk_portid: list, walk_portdesc: list) -> dict[int, s
     return locales
 
 
-def parse_vecinos(walks: dict[str, list], puertos_locales: dict[int, str] | None = None) -> list[dict]:
+def parse_direcciones_gestion(walk_manaddr: list) -> dict[tuple[int, int], str]:
+    """lldpRemManAddrTable -> {(localPortNum, remIndex): ip}. Solo IPv4 (subtype 1).
+
+    El índice tras MAN_BASE es: timeMark, localPortNum, remIndex, addrSubtype,
+    addrLen, <octetos de la dirección>. Para IPv4: subtype=1, len=4, 4 octetos.
+    """
+    out: dict[tuple[int, int], str] = {}
+    for oid, _val in walk_manaddr or []:
+        idx = _suffix(oid, MAN_BASE)
+        # 3 (timeMark,lpn,remIdx) + 1 (subtype) + 1 (len) + 4 (octetos) = 9
+        if len(idx) < 9:
+            continue
+        timemark_lpn_rem = idx[:3]
+        subtype, addr_len = idx[3], idx[4]
+        if subtype != 1 or addr_len != 4:
+            continue  # solo IPv4
+        octetos = idx[5:9]
+        if any(o < 0 or o > 255 for o in octetos):
+            continue
+        ip = ".".join(str(o) for o in octetos)
+        out[(timemark_lpn_rem[1], timemark_lpn_rem[2])] = ip
+    return out
+
+
+def parse_vecinos(walks: dict[str, list], puertos_locales: dict[int, str] | None = None,
+                  direcciones: dict[tuple[int, int], str] | None = None) -> list[dict]:
     """Construye la lista de vecinos LLDP.
 
     `walks` = {'sysname':[(oid,val)], 'portid':[...], 'portdesc':[...],
@@ -85,6 +115,7 @@ def parse_vecinos(walks: dict[str, list], puertos_locales: dict[int, str] | None
     (timeMark, localPortNum, remIndex); se agrupa por (localPortNum, remIndex).
     """
     puertos_locales = puertos_locales or {}
+    direcciones = direcciones or {}
     columnas = {
         "sysname": (REM_SYSNAME, _texto),
         "portid": (REM_PORTID, _texto),
@@ -118,5 +149,6 @@ def parse_vecinos(walks: dict[str, list], puertos_locales: dict[int, str] | None
             "remote_chassis": f.get("chassis"),
             "remote_port": f.get("portdesc") or f.get("portid"),
             "remote_sysdesc": f.get("sysdesc"),
+            "remote_mgmt": direcciones.get(k),
         })
     return vecinos
