@@ -31,6 +31,36 @@ class ReporteData
         return now()->format('Y-m-d H:i');
     }
 
+    /** Subtítulo con el rango de fechas REAL cubierto (aclara si hay menos datos). */
+    private static function subtitulo(string $rango): string
+    {
+        $desdeSolic = now()->subSeconds(self::rangoSeg($rango));
+        $viejo = DB::table('chequeos')->min('ts');
+        $viejo = $viejo ? \Illuminate\Support\Carbon::parse($viejo) : null;
+        $efectivo = $viejo && $viejo->gt($desdeSolic) ? $viejo : $desdeSolic;
+
+        $s = 'Periodo: '.self::rangoTexto($rango).'  ·  del '.$efectivo->format('Y-m-d').
+             ' al '.now()->format('Y-m-d');
+        if ($viejo && $viejo->gt($desdeSolic)) {
+            $s .= '  (solo hay datos desde '.$viejo->format('Y-m-d').')';
+        }
+
+        return $s.'  ·  Generado: '.self::generado();
+    }
+
+    /** Duración legible entre dos instantes (fin null = en curso, usa ahora). */
+    private static function duracion($inicio, $fin): string
+    {
+        $i = \Illuminate\Support\Carbon::parse($inicio);
+        $f = $fin ? \Illuminate\Support\Carbon::parse($fin) : now();
+        $min = max(0, $i->diffInMinutes($f));
+        $d = intdiv($min, 1440); $h = intdiv($min % 1440, 60); $m = $min % 60;
+        if ($d > 0) return "{$d}d {$h}h {$m}m";
+        if ($h > 0) return "{$h}h {$m}m";
+
+        return "{$m}m";
+    }
+
     // ── Disponibilidad por recurso (base de varios reportes) ───────────
     private static function disponibilidad(int $rangoSeg, ?int $sitioId = null, ?int $recursoId = null): array
     {
@@ -181,7 +211,7 @@ class ReporteData
 
         return [
             'titulo' => 'Reporte ejecutivo de monitoreo',
-            'subtitulo' => 'Periodo: '.self::rangoTexto($rango).'  ·  Generado: '.self::generado(),
+            'subtitulo' => self::subtitulo($rango),
             'kpis' => [
                 ['label' => 'Recursos monitoreados', 'valor' => count($disp)],
                 ['label' => 'Disponibilidad promedio', 'valor' => self::dispTxt($prom)],
@@ -225,7 +255,7 @@ class ReporteData
 
         return [
             'titulo' => 'Reporte por sitio — '.$sitioNom,
-            'subtitulo' => 'Periodo: '.self::rangoTexto($rango).'  ·  Generado: '.self::generado(),
+            'subtitulo' => self::subtitulo($rango),
             'kpis' => [
                 ['label' => 'Sitios', 'valor' => count($grupos)],
                 ['label' => 'Recursos', 'valor' => count($disp)],
@@ -239,39 +269,79 @@ class ReporteData
     // ── 3) Reporte por recurso ────────────────────────────────────────
     public static function porRecurso(string $rango, ?int $recursoId): array
     {
-        $disp = self::disponibilidad(self::rangoSeg($rango), null, $recursoId);
+        if ($recursoId) {
+            return self::recursoDetalle($rango, $recursoId);
+        }
+
+        // Todos los recursos: tabla general.
+        $disp = self::disponibilidad(self::rangoSeg($rango));
         $filas = array_map(fn ($r) => [
             $r->nombre, $r->tipo_nombre, $r->sitio_nombre, ucfirst($r->estado_actual),
             self::dispTxt($r->disponibilidad), (int) $r->up, (int) $r->degraded, (int) $r->down, (int) $r->incidencias,
         ], $disp);
 
-        $tablas = [['titulo' => 'Detalle por recurso',
-            'columnas' => ['Recurso', 'Tipo', 'Sitio', 'Estado', 'Disponibilidad', 'Up', 'Degr.', 'Caído', 'Incid.'],
-            'filas' => $filas]];
+        return [
+            'titulo' => 'Reporte por recurso — Todos los recursos',
+            'subtitulo' => self::subtitulo($rango),
+            'kpis' => [['label' => 'Recursos', 'valor' => count($disp)]],
+            'tablas' => [['titulo' => 'Detalle por recurso',
+                'columnas' => ['Recurso', 'Tipo', 'Sitio', 'Estado', 'Disponibilidad', 'Up', 'Degr.', 'Caído', 'Incid.'],
+                'filas' => $filas]],
+        ];
+    }
 
-        // Si es un recurso puntual, añade su histórico de incidencias del periodo.
-        if ($recursoId) {
-            $desde = now()->subSeconds(self::rangoSeg($rango))->toDateTimeString();
-            $inc = DB::table('incidencias')->where('recurso_id', $recursoId)
-                ->where('abierta_at', '>=', $desde)->orderByDesc('abierta_at')
-                ->get(['severidad', 'titulo', 'abierta_at', 'resuelta_at', 'estado']);
-            $filasInc = $inc->map(fn ($i) => [
-                ucfirst($i->severidad), $i->titulo,
-                substr((string) $i->abierta_at, 0, 16),
-                $i->resuelta_at ? substr((string) $i->resuelta_at, 0, 16) : 'en curso',
-                ucfirst($i->estado),
-            ])->all();
-            $tablas[] = ['titulo' => 'Incidencias del periodo',
-                'columnas' => ['Severidad', 'Título', 'Inicio', 'Fin', 'Estado'], 'filas' => $filasInc];
-        }
+    /** Reporte detallado de UN recurso: info + métricas + incidencias con motivo. */
+    private static function recursoDetalle(string $rango, int $recursoId): array
+    {
+        $d = self::disponibilidad(self::rangoSeg($rango), null, $recursoId)[0] ?? null;
+        $info = DB::table('recursos as r')
+            ->join('tipos_recurso as t', 't.id', '=', 'r.tipo_id')
+            ->leftJoin('sitios as s', 's.id', '=', 'r.sitio_id')
+            ->where('r.id', $recursoId)
+            ->first(['r.nombre', 'r.hostname', 'r.estado_actual', 'r.ultimo_chequeo_at',
+                'r.intervalo_segundos', 't.nombre as tipo', 's.nombre as sitio']);
+        $nom = $info->nombre ?? "Recurso #$recursoId";
 
-        $nom = $recursoId ? ($disp[0]->nombre ?? "Recurso #$recursoId") : 'Todos los recursos';
+        // Métricas actuales (último valor por métrica).
+        $met = DB::table('vw_ultima_metrica')->where('recurso_id', $recursoId)
+            ->orderBy('metrica')->get(['metrica', 'valor', 'unidad', 'ts']);
+        $filasMet = $met->map(fn ($m) => [
+            $m->metrica,
+            round((float) $m->valor, 2).($m->unidad ? ' '.$m->unidad : ''),
+            substr((string) $m->ts, 0, 16),
+        ])->all();
+
+        // Incidencias del periodo con detalle (motivo + duración).
+        $desde = now()->subSeconds(self::rangoSeg($rango))->toDateTimeString();
+        $inc = DB::table('incidencias')->where('recurso_id', $recursoId)
+            ->where('abierta_at', '>=', $desde)->orderByDesc('abierta_at')
+            ->get(['severidad', 'titulo', 'descripcion', 'abierta_at', 'resuelta_at', 'estado']);
+        $filasInc = $inc->map(fn ($i) => [
+            ucfirst($i->severidad), $i->titulo, $i->descripcion ?: '—',
+            substr((string) $i->abierta_at, 0, 16),
+            $i->resuelta_at ? substr((string) $i->resuelta_at, 0, 16) : 'en curso',
+            self::duracion($i->abierta_at, $i->resuelta_at), ucfirst($i->estado),
+        ])->all();
 
         return [
             'titulo' => 'Reporte por recurso — '.$nom,
-            'subtitulo' => 'Periodo: '.self::rangoTexto($rango).'  ·  Generado: '.self::generado(),
-            'kpis' => [['label' => 'Recursos', 'valor' => count($disp)]],
-            'tablas' => $tablas,
+            'subtitulo' => self::subtitulo($rango),
+            'kpis' => [
+                ['label' => 'Tipo', 'valor' => $info->tipo ?? '—'],
+                ['label' => 'Sitio', 'valor' => $info->sitio ?? '—'],
+                ['label' => 'Estado actual', 'valor' => ucfirst($info->estado_actual ?? 'unknown')],
+                ['label' => 'Disponibilidad', 'valor' => self::dispTxt($d->disponibilidad ?? null)],
+                ['label' => 'Host / IP', 'valor' => $info->hostname ?? '—'],
+                ['label' => 'Intervalo', 'valor' => ($info->intervalo_segundos ?? '—').' s'],
+                ['label' => 'Último chequeo', 'valor' => $info->ultimo_chequeo_at ? substr((string) $info->ultimo_chequeo_at, 0, 16) : '—'],
+                ['label' => 'Incidencias', 'valor' => (int) ($d->incidencias ?? 0)],
+            ],
+            'tablas' => [
+                ['titulo' => 'Métricas actuales', 'columnas' => ['Métrica', 'Valor', 'Medido'], 'filas' => $filasMet],
+                ['titulo' => 'Incidencias del periodo', 'columnas' => ['Severidad', 'Título', 'Detalle / motivo', 'Inicio', 'Fin', 'Duración', 'Estado'], 'filas' => $filasInc],
+                ['titulo' => 'Conteo de chequeos del periodo', 'columnas' => ['Operativo', 'Degradado', 'Caído', 'Desconocido'],
+                    'filas' => [[(int) ($d->up ?? 0), (int) ($d->degraded ?? 0), (int) ($d->down ?? 0), (int) ($d->unknown ?? 0)]]],
+            ],
         ];
     }
 

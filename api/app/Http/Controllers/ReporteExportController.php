@@ -65,13 +65,14 @@ class ReporteExportController extends Controller
         $dompdf->setPaper('A4', 'landscape');
         $dompdf->render();
 
-        // Numeración de página en el pie.
+        // Pie institucional + numeración en cada página (vía canvas).
         $canvas = $dompdf->getCanvas();
         $font = $dompdf->getFontMetrics()->getFont('DejaVu Sans');
-        $canvas->page_text(
-            $canvas->get_width() - 120, $canvas->get_height() - 28,
-            'Página {PAGE_NUM} de {PAGE_COUNT}', $font, 8, [0.54, 0.58, 0.55]
-        );
+        $gris = [0.54, 0.58, 0.55];
+        $y = $canvas->get_height() - 30;
+        $canvas->line(36, $y - 6, $canvas->get_width() - 36, $y - 6, [0.84, 0.88, 0.85], 0.5);
+        $canvas->page_text(36, $y, 'Parques Nacionales Naturales de Colombia — SIMON', $font, 8, $gris);
+        $canvas->page_text($canvas->get_width() - 130, $y, 'Página {PAGE_NUM} de {PAGE_COUNT}', $font, 8, $gris);
 
         return (string) $dompdf->output();
     }
