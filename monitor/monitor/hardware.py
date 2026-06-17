@@ -55,7 +55,10 @@ def recolectar(recurso, secretos, settings) -> tuple[dict, list[dict]]:
     proto = (params.get("protocolo") or "auto").lower()
     host = params.get("bmc_host") or _host_sin_puerto(recurso.hostname)
     verify = bool(params.get("verify_tls", False))
-    timeout = params.get("timeout_ms", settings.probe_timeout_ms) / 1000
+    # El BMC (iDRAC/iLO) es lento y Redfish hace muchas llamadas secuenciales;
+    # por eso un timeout amplio (no el de los chequeos rápidos). El sondeo es
+    # poco frecuente (HARDWARE_CHECK_SEG), así que no afecta al resto.
+    timeout = params.get("timeout_ms", 30000) / 1000
     user = (secretos or {}).get("bmc_user")
     password = (secretos or {}).get("bmc_password")
 
