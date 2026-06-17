@@ -44,6 +44,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/traps/traps').then((m) => m.Traps),
       },
       {
+        path: 'descubrimiento',
+        loadComponent: () =>
+          import('./features/descubrimiento/descubrimiento').then((m) => m.Descubrimiento),
+      },
+      {
         path: 'reportes',
         loadComponent: () => import('./features/reportes/reportes').then((m) => m.Reportes),
       },

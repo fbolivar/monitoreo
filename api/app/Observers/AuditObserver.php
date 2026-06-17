@@ -57,6 +57,6 @@ class AuditObserver
     /** Etiqueta legible del objeto, según el atributo disponible. */
     private function etiqueta(Model $m): ?string
     {
-        return $m->nombre ?? $m->email ?? $m->metrica ?? $m->titulo ?? (string) $m->getKey();
+        return $m->nombre ?? $m->email ?? $m->metrica ?? $m->titulo ?? $m->subred ?? (string) $m->getKey();
     }
 }

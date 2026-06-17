@@ -21,6 +21,9 @@ import { IdleService } from '../core/idle.service';
         <nav>
           <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Dashboard</a>
           <a routerLink="/recursos" routerLinkActive="active">Recursos</a>
+          @if (auth.puedeEditar()) {
+            <a routerLink="/descubrimiento" routerLinkActive="active">Descubrimiento</a>
+          }
           <a routerLink="/sitios" routerLinkActive="active">Sitios</a>
           <a routerLink="/mapa" routerLinkActive="active">Sedes</a>
           <a routerLink="/servicios" routerLinkActive="active">Servicios</a>

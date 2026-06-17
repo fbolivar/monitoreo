@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CanalNotificacionController;
 use App\Http\Controllers\ChequeoController;
 use App\Http\Controllers\ConfigLdapController;
+use App\Http\Controllers\DescubrimientoController;
 use App\Http\Controllers\DosFactorController;
 use App\Http\Controllers\IncidenciaController;
 use App\Http\Controllers\MantenimientoController;
@@ -93,6 +94,11 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
     // SNMP traps recibidos (lectura).
     Route::get('traps', [TrapController::class, 'index']);
 
+    // Auto-descubrimiento de red (lectura): escaneos y candidatos.
+    Route::get('descubrimiento', [DescubrimientoController::class, 'index']);
+    Route::get('descubrimiento/tipos', [DescubrimientoController::class, 'tiposSugeridos']);
+    Route::get('descubrimiento/{id}', [DescubrimientoController::class, 'show'])->whereNumber('id');
+
     // Respaldos de configuración de un recurso (lectura).
     Route::get('recursos/{id}/respaldos', [RecursoController::class, 'respaldos'])->whereNumber('id');
     Route::get('recursos/{id}/respaldos/{respaldoId}', [RecursoController::class, 'respaldoContenido'])
@@ -120,6 +126,14 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
         // Gestión de incidencias (reconocer / resolver).
         Route::post('incidencias/{id}/reconocer', [IncidenciaController::class, 'reconocer'])->whereNumber('id');
         Route::post('incidencias/{id}/resolver', [IncidenciaController::class, 'resolver'])->whereNumber('id');
+
+        // Auto-descubrimiento: encolar barrido, alta/descartar candidatos.
+        Route::post('descubrimiento', [DescubrimientoController::class, 'store']);
+        Route::delete('descubrimiento/{id}', [DescubrimientoController::class, 'destroy'])->whereNumber('id');
+        Route::post('descubrimiento/candidatos/{candidatoId}/agregar',
+            [DescubrimientoController::class, 'agregar'])->whereNumber('candidatoId');
+        Route::post('descubrimiento/candidatos/{candidatoId}/descartar',
+            [DescubrimientoController::class, 'descartar'])->whereNumber('candidatoId');
     });
 
     // ── USUARIOS (perfiles) y AUDITORÍA: solo admin ──────────────────

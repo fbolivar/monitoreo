@@ -524,6 +524,52 @@ def guardar_trap(db: Database, source_ip: str | None, recurso_id: int | None, tr
         )
 
 
+# ── Auto-descubrimiento de red ────────────────────────────────────────
+def escaneos_pendientes(db: Database, clave: str) -> list[dict[str, Any]]:
+    """Escaneos en cola, con la community SNMP ya descifrada."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, subred, snmp_version, descifrar_secreto(secretos, %s) AS secretos "
+            "FROM descubrimiento_escaneos WHERE estado = 'pendiente' ORDER BY id",
+            (clave,),
+        )
+        return cur.fetchall()
+
+
+def marcar_escaneo(db: Database, escaneo_id: int, estado: str, mensaje: str | None = None) -> None:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE descubrimiento_escaneos SET estado = %s, mensaje = COALESCE(%s, mensaje) WHERE id = %s",
+            (estado, mensaje, escaneo_id),
+        )
+
+
+def completar_escaneo(db: Database, escaneo_id: int, vivos: int, candidatos: int) -> None:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE descubrimiento_escaneos SET estado='completado', total_vivos=%s, "
+            "total_candidatos=%s, completado_at=now() WHERE id=%s",
+            (vivos, candidatos, escaneo_id),
+        )
+
+
+def guardar_candidato(db: Database, escaneo_id: int, ip: str, sysname: str | None,
+                      sysdescr: str | None, sysobjectid: str | None, tipo: str | None,
+                      responde_snmp: bool, latencia_ms: int | None, estado: str,
+                      recurso_id: int | None) -> None:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO descubrimiento_candidatos
+                (escaneo_id, ip, sysname, sysdescr, sysobjectid, tipo_sugerido,
+                 responde_snmp, latencia_ms, estado, recurso_id)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (escaneo_id, ip, sysname, sysdescr, sysobjectid, tipo,
+             responde_snmp, latencia_ms, estado, recurso_id),
+        )
+
+
 # ── Mantenimiento de datos (rollup / purga / particiones) ─────────────
 def asegurar_particiones(db: Database, fechas: list) -> None:
     with db.connection() as conn, conn.cursor() as cur:

@@ -323,6 +323,39 @@ export interface Paginated<T> {
   total: number;
 }
 
+// ── Auto-descubrimiento de red ─────────────────────────────────────────
+export type DescubrimientoEstado = 'pendiente' | 'ejecutando' | 'completado' | 'error';
+export type CandidatoEstado = 'nuevo' | 'agregado' | 'descartado' | 'existente';
+
+export interface DescubrimientoEscaneo {
+  id: number;
+  subred: string;
+  snmp_version: string;
+  estado: DescubrimientoEstado;
+  total_vivos: number | null;
+  total_candidatos: number | null;
+  mensaje: string | null;
+  created_at: string;
+  completado_at: string | null;
+  candidatos_count?: number;
+  candidatos_nuevos?: number;
+  candidatos?: DescubrimientoCandidato[];
+}
+
+export interface DescubrimientoCandidato {
+  id: number;
+  escaneo_id: number;
+  ip: string;
+  sysname: string | null;
+  sysdescr: string | null;
+  sysobjectid: string | null;
+  tipo_sugerido: string | null;
+  responde_snmp: boolean;
+  latencia_ms: number | null;
+  estado: CandidatoEstado;
+  recurso_id: number | null;
+}
+
 export const ESTADOS: Estado[] = ['up', 'degraded', 'down', 'unknown', 'maintenance'];
 
 export const ESTADO_LABEL: Record<Estado, string> = {

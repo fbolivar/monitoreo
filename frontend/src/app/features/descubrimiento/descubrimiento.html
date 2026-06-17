@@ -1,0 +1,169 @@
+<div class="head">
+  <h1>Auto-descubrimiento de red <span class="text-dim">(barrido ping + SNMP)</span></h1>
+  <span class="text-dim">Encuentra equipos en una subred y dalos de alta con un clic.</span>
+</div>
+
+@if (auth.puedeEditar()) {
+  <form class="barrido card" (ngSubmit)="lanzar()">
+    <div class="campo">
+      <label>Subred (CIDR) o IP</label>
+      <input [ngModel]="subred()" (ngModelChange)="subred.set($event)" name="subred"
+             placeholder="192.168.10.0/24" autocomplete="off" />
+    </div>
+    <div class="campo chica">
+      <label>SNMP</label>
+      <select [ngModel]="snmpVersion()" (ngModelChange)="snmpVersion.set($event)" name="ver">
+        <option value="2c">v2c</option>
+        <option value="1">v1</option>
+      </select>
+    </div>
+    <div class="campo">
+      <label>Community (opcional)</label>
+      <input type="password" [ngModel]="snmpCommunity()" (ngModelChange)="snmpCommunity.set($event)"
+             name="community" placeholder="public" autocomplete="new-password" />
+    </div>
+    <button class="btn primary" type="submit" [disabled]="lanzando() || !subred().trim()">
+      {{ lanzando() ? 'Encolando…' : 'Escanear' }}
+    </button>
+  </form>
+  @if (error()) { <p class="err">{{ error() }}</p> }
+  <p class="text-dim ayuda">
+    El barrido hace ping a cada host (máx. /22 = 1024 IPs) y, a los que respondan, les pregunta por SNMP
+    su identidad (sysDescr/sysObjectID) para sugerir el tipo. Sin community, solo detecta los que están vivos.
+  </p>
+}
+
+<div class="grid">
+  <!-- Lista de escaneos -->
+  <aside class="lista card">
+    <h2>Barridos</h2>
+    @if (cargando()) {
+      <p class="text-dim">Cargando…</p>
+    } @else if (escaneos().length === 0) {
+      <p class="text-dim">Aún no hay barridos. Lanza el primero arriba.</p>
+    } @else {
+      @for (e of escaneos(); track e.id) {
+        <button class="item" [class.sel]="seleccion()?.id === e.id" (click)="seleccionar(e)">
+          <div class="ln1">
+            <b>{{ e.subred }}</b>
+            <span class="badge" [class]="'st-' + e.estado">{{ e.estado }}</span>
+          </div>
+          <div class="ln2 text-dim">
+            {{ hace(e.created_at) }} ·
+            @if (e.estado === 'completado') {
+              {{ e.total_vivos ?? 0 }} vivos · {{ e.candidatos_nuevos ?? 0 }} por revisar
+            } @else if (e.estado === 'error') {
+              {{ e.mensaje }}
+            } @else {
+              en curso…
+            }
+          </div>
+          @if (auth.puedeEditar()) {
+            <span class="del" title="Eliminar" (click)="eliminar(e, $event)">✕</span>
+          }
+        </button>
+      }
+    }
+  </aside>
+
+  <!-- Candidatos del escaneo seleccionado -->
+  <section class="detalle">
+    @if (!seleccion()) {
+      <p class="text-dim">Selecciona un barrido para ver los equipos encontrados.</p>
+    } @else {
+      <div class="dhead">
+        <h2>{{ seleccion()!.subred }}</h2>
+        <span class="badge" [class]="'st-' + seleccion()!.estado">{{ seleccion()!.estado }}</span>
+        @if (seleccion()!.estado === 'completado') {
+          <span class="text-dim">
+            {{ seleccion()!.total_vivos ?? 0 }} hosts vivos · {{ candidatos().length }} candidatos
+          </span>
+        }
+      </div>
+
+      @if (seleccion()!.estado === 'pendiente' || seleccion()!.estado === 'ejecutando') {
+        <p class="text-dim">Barrido en curso, los resultados aparecen automáticamente…</p>
+      } @else if (candidatos().length === 0) {
+        <p class="text-dim">No respondió ningún host en esa subred.</p>
+      } @else {
+        <table>
+          <thead>
+            <tr><th>IP</th><th>Nombre / Descripción</th><th>Tipo</th><th>SNMP</th><th>RTT</th><th>Estado</th><th></th></tr>
+          </thead>
+          <tbody>
+            @for (c of candidatos(); track c.id) {
+              <tr [class.atenuada]="c.estado === 'descartado' || c.estado === 'existente'">
+                <td class="nowrap"><b>{{ c.ip }}</b></td>
+                <td>
+                  <div>{{ c.sysname ?? '—' }}</div>
+                  @if (c.sysdescr) { <div class="descr text-dim">{{ c.sysdescr }}</div> }
+                </td>
+                <td>{{ c.tipo_sugerido ?? '—' }}</td>
+                <td>{{ c.responde_snmp ? 'sí' : 'no' }}</td>
+                <td class="text-dim nowrap">{{ c.latencia_ms != null ? c.latencia_ms + ' ms' : '—' }}</td>
+                <td><span class="cest" [class]="'ce-' + c.estado">{{ estadoLabel(c.estado) }}</span></td>
+                <td class="acc">
+                  @if (auth.puedeEditar() && c.estado === 'nuevo') {
+                    <button class="btn mini primary" (click)="abrirAlta(c)">Agregar</button>
+                    <button class="btn mini" (click)="descartar(c)">Descartar</button>
+                  } @else if (c.estado === 'agregado' && c.recurso_id) {
+                    <a class="btn mini" [routerLink]="['/recursos', c.recurso_id]">Ver recurso</a>
+                  }
+                </td>
+              </tr>
+
+              <!-- Formulario de alta inline -->
+              @if (altaId() === c.id) {
+                <tr class="alta-row">
+                  <td colspan="7">
+                    <div class="alta">
+                      <div class="campo">
+                        <label>Tipo</label>
+                        <select [ngModel]="alta().tipo_id" (ngModelChange)="setAlta('tipo_id', $event)">
+                          <option [ngValue]="null">— elegir —</option>
+                          @for (t of tipos(); track t.id) {
+                            <option [ngValue]="t.id">{{ t.nombre }}</option>
+                          }
+                        </select>
+                      </div>
+                      <div class="campo">
+                        <label>Nombre</label>
+                        <input [ngModel]="alta().nombre" (ngModelChange)="setAlta('nombre', $event)" />
+                      </div>
+                      <div class="campo">
+                        <label>Sitio</label>
+                        <select [ngModel]="alta().sitio_id" (ngModelChange)="setAlta('sitio_id', $event)">
+                          <option [ngValue]="null">— sin sitio —</option>
+                          @for (s of sitios(); track s.id) {
+                            <option [ngValue]="s.id">{{ s.nombre }}</option>
+                          }
+                        </select>
+                      </div>
+                      <div class="campo chica">
+                        <label>Intervalo (s)</label>
+                        <input type="number" [ngModel]="alta().intervalo_segundos"
+                               (ngModelChange)="setAlta('intervalo_segundos', $event)" placeholder="auto" />
+                      </div>
+                      <div class="campo">
+                        <label>SNMP community (opcional)</label>
+                        <input type="password" [ngModel]="alta().snmp_community"
+                               (ngModelChange)="setAlta('snmp_community', $event)" autocomplete="new-password" />
+                      </div>
+                      <div class="alta-acc">
+                        <button class="btn primary" (click)="confirmarAlta(c)"
+                                [disabled]="guardando() || !alta().tipo_id || !alta().nombre.trim()">
+                          {{ guardando() ? 'Guardando…' : 'Crear recurso' }}
+                        </button>
+                        <button class="btn" (click)="cancelarAlta()">Cancelar</button>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      }
+    }
+  </section>
+</div>

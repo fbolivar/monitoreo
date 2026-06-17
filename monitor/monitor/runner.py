@@ -390,6 +390,64 @@ def marcar_obsoletos(db: Database, settings: Settings) -> None:
                     o["id"], o["nombre"], o["ultimo_chequeo_at"])
 
 
+def procesar_descubrimientos(db: Database, settings: Settings) -> None:
+    """Ejecuta los escaneos de auto-descubrimiento en cola (ping sweep + SNMP)."""
+    if not settings.descubrimiento_enabled:
+        return
+    pendientes = repo.escaneos_pendientes(db, settings.app_crypto_key or "")
+    for e in pendientes:
+        repo.marcar_escaneo(db, e["id"], "ejecutando")
+        try:
+            _ejecutar_escaneo(db, settings, e)
+        except Exception as ex:  # noqa: BLE001
+            log.exception("Descubrimiento %s falló", e["id"])
+            repo.marcar_escaneo(db, e["id"], "error", str(ex)[:300])
+
+
+def _ejecutar_escaneo(db: Database, settings: Settings, e: dict) -> None:
+    from icmplib import multiping
+
+    from . import descubrimiento as desc
+    from .probes.snmp_client import Credenciales, snmp_get
+
+    ips = desc.expandir_subred(e["subred"], settings.descubrimiento_max_hosts)
+    if not ips:
+        repo.marcar_escaneo(db, e["id"], "error", "subred inválida o demasiado grande")
+        return
+
+    timeout = settings.probe_timeout_ms / 1000
+    hosts = multiping(ips, count=2, interval=0.03, timeout=1.0, privileged=settings.icmp_privileged)
+    vivos = [(h.address, h.avg_rtt) for h in hosts if h.is_alive]
+
+    community = (e.get("secretos") or {}).get("snmp_community")
+    cred = Credenciales(version=str(e["snmp_version"]), community=community) if community else None
+    oids = {"sysdescr": "1.3.6.1.2.1.1.1.0", "sysobjectid": "1.3.6.1.2.1.1.2.0", "sysname": "1.3.6.1.2.1.1.5.0"}
+
+    candidatos = 0
+    for ip, rtt in vivos:
+        sysdescr = sysobjectid = sysname = None
+        responde = False
+        if cred is not None:
+            try:
+                _ok, vals, _err = snmp_get(ip, 161, cred, oids, timeout, 1)
+                if vals.get("sysobjectid") is not None or vals.get("sysdescr") is not None:
+                    responde = True
+                    sysdescr = str(vals["sysdescr"]) if vals.get("sysdescr") is not None else None
+                    sysobjectid = str(vals["sysobjectid"]) if vals.get("sysobjectid") is not None else None
+                    sysname = str(vals["sysname"]) if vals.get("sysname") is not None else None
+            except Exception:  # noqa: BLE001
+                pass
+        tipo = desc.clasificar(sysdescr, sysobjectid)
+        existe = repo.recurso_id_por_host(db, ip)
+        estado = "existente" if existe else "nuevo"
+        repo.guardar_candidato(db, e["id"], ip, sysname, sysdescr, sysobjectid, tipo,
+                               responde, int(rtt) if rtt else None, estado, existe)
+        candidatos += 1
+
+    repo.completar_escaneo(db, e["id"], len(vivos), candidatos)
+    log.info("Descubrimiento %s: %d vivos, %d candidatos en %s", e["id"], len(vivos), candidatos, e["subred"])
+
+
 def escalar_incidencias(db: Database, settings: Settings) -> None:
     """Job periódico: escala incidencias 'abierta' no reconocidas a tiempo (on-call)."""
     if not settings.escalation_min or settings.escalation_min <= 0:

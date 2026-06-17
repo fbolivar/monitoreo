@@ -19,6 +19,7 @@ from .runner import (
     escalar_incidencias,
     latido_externo,
     marcar_obsoletos,
+    procesar_descubrimientos,
     pronosticar_capacidad,
     recalcular_baselines,
     respaldar_configuraciones,
@@ -101,6 +102,17 @@ def registrar_tareas_internas(scheduler: BackgroundScheduler, db: Database, sett
         )
         log.info("Freshness activo (cada %ss, factor %s, piso %ss).",
                  settings.freshness_check_seg, settings.freshness_factor, settings.freshness_min_seg)
+
+    # Auto-descubrimiento: ejecuta los escaneos de subred en cola.
+    if settings.descubrimiento_enabled:
+        scheduler.add_job(
+            procesar_descubrimientos,
+            trigger=IntervalTrigger(seconds=settings.descubrimiento_check_seg),
+            args=[db, settings],
+            id="descubrimiento",
+            replace_existing=True,
+        )
+        log.info("Auto-descubrimiento activo (cola cada %ss).", settings.descubrimiento_check_seg)
 
     # Dead-man's switch: latido a un servicio externo.
     if settings.deadman_url:

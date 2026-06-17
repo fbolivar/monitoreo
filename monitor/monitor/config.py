@@ -67,6 +67,12 @@ class Settings:
     freshness_min_seg: int = _int("FRESHNESS_MIN_SEG", 120)
     freshness_check_seg: int = _int("FRESHNESS_CHECK_SEG", 60)
 
+    # Auto-descubrimiento de red: barrido de subred (ping + SNMP sysDescr/sysObjectID)
+    # que propone equipos candidatos. El worker toma los escaneos 'pendiente' en cola.
+    descubrimiento_enabled: bool = _bool("DESCUBRIMIENTO_ENABLED", True)
+    descubrimiento_check_seg: int = _int("DESCUBRIMIENTO_CHECK_SEG", 15)
+    descubrimiento_max_hosts: int = _int("DESCUBRIMIENTO_MAX_HOSTS", 1024)
+
     # Mantenimiento de datos (rollup/purga)
     tareas_mantenimiento: bool = _bool("TAREAS_MANTENIMIENTO", True)
 

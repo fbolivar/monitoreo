@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\CanalNotificacion;
+use App\Models\DescubrimientoEscaneo;
 use App\Models\Incidencia;
 use App\Models\Mantenimiento;
 use App\Models\Perfil;
@@ -30,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
             Recurso::class, Sitio::class, TipoRecurso::class, Umbral::class,
             Mantenimiento::class, CanalNotificacion::class, Perfil::class, Incidencia::class,
             Regla::class, ReporteProgramado::class, Servicio::class,
+            DescubrimientoEscaneo::class,
         ] as $modelo) {
             $modelo::observe(AuditObserver::class);
         }
