@@ -272,6 +272,28 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
   cliente. Camino B (pendiente, decisión del usuario): endpoint de ingesta `POST /ingest/rum|/span` + beacon
   RUM/OTel para experiencia real del usuario y trazas distribuidas reales.
 
+- ✅ AUTO-DESCUBRIMIENTO DE RED (2026-06-17) [migr. 0019, tablas `descubrimiento_escaneos` +
+  `descubrimiento_candidatos`] — DESPLEGADO y verificado en producción (escaneo real 192.168.10.0/24):
+  el alta de recursos deja de ser 100% manual. Un **barrido de subred** (ping sweep + SNMP
+  sysDescr/sysObjectID/sysName) **propone equipos candidatos** para darlos de alta con un clic.
+  - **Worker**: `monitor/descubrimiento.py` (puro): `expandir_subred` (CIDR→IPs, tope /22=1024) y
+    `clasificar` (keyword en sysDescr → enterprise OID → tipo sugerido). Job `procesar_descubrimientos`
+    (cada `DESCUBRIMIENTO_CHECK_SEG`, def 15s) toma los escaneos 'pendiente', hace `icmplib.multiping`
+    y a los vivos les pide SNMP sysinfo; deduplica contra recursos por hostname (`recurso_id_por_host`)
+    marcando 'existente'. 16 tests nuevos (114 worker en verde).
+  - **API**: `DescubrimientoController` (index/show/store/destroy + `agregar`/`descartar` candidatos +
+    `tipos`); la community viaja cifrada en `secretos` (pgcrypto, modelo `DescubrimientoEscaneo` usa
+    `TieneSecretos`). Lectura para auth; escritura admin/operador; auditado. Rutas explícitas en api.php.
+  - **UI**: pantalla "Descubrimiento" (form de barrido + maestro-detalle de candidatos con autorefresco
+    mientras corre, alta inline editable —tipo/nombre/sitio/intervalo/community— y descartar). Nav y ruta
+    gated a admin/operador.
+  - NOTA: sin community solo detecta hosts vivos (ping). FortiSwitch puede clasificar como 'firewall' e
+    iDRAC como 'switch_lan' (enterprise OID Dell/Fortinet ambiguo); el tipo es editable en el alta.
+  - Es la **1ª de 4 mejoras** pedidas en secuencia. Pendientes (decisión del usuario, una a una):
+    (2) **Hardware físico IPMI/Redfish** (fuentes/temp/ventiladores/RAID por REST), (3) **Chequeos
+    sintéticos multipaso** (content/JSON-path, login→query, fases DNS/TCP/TLS/TTFB — no intrusivo),
+    (4) **Backup config por SSH (switches) + topología L2 automática (LLDP)**.
+
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.
 
