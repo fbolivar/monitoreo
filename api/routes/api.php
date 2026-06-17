@@ -19,6 +19,7 @@ use App\Http\Controllers\ReporteExportController;
 use App\Http\Controllers\ReporteProgramadoController;
 use App\Http\Controllers\ServicioController;
 use App\Http\Controllers\SitioController;
+use App\Http\Controllers\TopologiaController;
 use App\Http\Controllers\TrapController;
 use App\Http\Controllers\TipoRecursoController;
 use App\Http\Controllers\UmbralController;
@@ -90,6 +91,10 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
 
     // Hardware físico (Redfish/IPMI) de un recurso: inventario + componentes (lectura).
     Route::get('recursos/{id}/hardware', [RecursoController::class, 'hardware'])->whereNumber('id');
+
+    // Topología L2 (LLDP): vecinos de un switch + grafo global (lectura).
+    Route::get('recursos/{id}/vecinos', [RecursoController::class, 'vecinos'])->whereNumber('id');
+    Route::get('topologia', [TopologiaController::class, 'index']);
 
     // Observabilidad de servicios: analisis de correlacion de una transaccion.
     Route::get('servicios/{id}/analisis', [ServicioController::class, 'analisis'])->whereNumber('id');

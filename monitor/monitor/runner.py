@@ -436,6 +436,46 @@ def marcar_obsoletos(db: Database, settings: Settings) -> None:
                     o["id"], o["nombre"], o["ultimo_chequeo_at"])
 
 
+def recolectar_topologia(db: Database, settings: Settings) -> None:
+    """Camina la LLDP-MIB de cada switch (SNMP) y guarda sus vecinos -> topología L2."""
+    if not settings.topologia_enabled:
+        return
+    from .probes import lldp
+    from .probes.snmp import construir_credenciales
+    from .probes.snmp_client import snmp_walk
+
+    timeout = settings.probe_timeout_ms / 1000
+    for recurso in repo.recursos_switches(db):
+        host = (recurso.hostname or "").split(":", 1)[0].strip()
+        if not host:
+            continue
+        params = recurso.parametros or {}
+        secretos = (repo.descifrar_secretos(db, recurso.id, settings.app_crypto_key)
+                    if settings.app_crypto_key else None)
+        cred = construir_credenciales(params, secretos)
+        if cred is None:
+            continue
+        puerto = int(params.get("snmp_port", 161))
+        try:
+            walks = {
+                "sysname": snmp_walk(host, puerto, cred, lldp.REM_SYSNAME, timeout, 1)[0],
+                "portid": snmp_walk(host, puerto, cred, lldp.REM_PORTID, timeout, 1)[0],
+                "portdesc": snmp_walk(host, puerto, cred, lldp.REM_PORTDESC, timeout, 1)[0],
+                "chassis": snmp_walk(host, puerto, cred, lldp.REM_CHASSIS, timeout, 1)[0],
+                "sysdesc": snmp_walk(host, puerto, cred, lldp.REM_SYSDESC, timeout, 1)[0],
+            }
+            loc_id = snmp_walk(host, puerto, cred, lldp.LOC_PORTID, timeout, 1)[0]
+            loc_desc = snmp_walk(host, puerto, cred, lldp.LOC_PORTDESC, timeout, 1)[0]
+        except Exception as e:  # noqa: BLE001
+            log.warning("LLDP: no se pudo caminar %s (%s): %s", recurso.id, recurso.nombre, e)
+            continue
+
+        locales = lldp.parse_puertos_locales(loc_id, loc_desc)
+        vecinos = lldp.parse_vecinos(walks, locales)
+        repo.guardar_vecinos_lldp(db, recurso.id, vecinos)
+        log.info("LLDP %s (%s): %d vecino(s).", recurso.id, recurso.nombre, len(vecinos))
+
+
 def procesar_hardware(db: Database, settings: Settings) -> None:
     """Sondea el hardware físico (Redfish/IPMI) de los recursos opt-in y persiste
     el snapshot de componentes + inventario. Avisa cuando un componente se degrada."""

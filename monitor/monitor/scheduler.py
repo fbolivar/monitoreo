@@ -22,6 +22,7 @@ from .runner import (
     procesar_descubrimientos,
     procesar_hardware,
     pronosticar_capacidad,
+    recolectar_topologia,
     recalcular_baselines,
     respaldar_configuraciones,
 )
@@ -103,6 +104,17 @@ def registrar_tareas_internas(scheduler: BackgroundScheduler, db: Database, sett
         )
         log.info("Freshness activo (cada %ss, factor %s, piso %ss).",
                  settings.freshness_check_seg, settings.freshness_factor, settings.freshness_min_seg)
+
+    # Topología L2 (LLDP): camina los switches y registra vecinos.
+    if settings.topologia_enabled:
+        scheduler.add_job(
+            recolectar_topologia,
+            trigger=IntervalTrigger(seconds=settings.topologia_check_seg),
+            args=[db, settings],
+            id="topologia",
+            replace_existing=True,
+        )
+        log.info("Topología LLDP activa (cada %ss).", settings.topologia_check_seg)
 
     # Hardware físico (Redfish/IPMI): sondeo de los recursos opt-in.
     if settings.hardware_enabled:

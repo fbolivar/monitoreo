@@ -124,6 +124,24 @@ class RecursoController extends Controller
         ]);
     }
 
+    /** Vecinos LLDP del switch (topología L2), recolectados por el worker. */
+    public function vecinos(int $id): JsonResponse
+    {
+        Recurso::findOrFail($id);
+
+        $rows = DB::table('lldp_vecinos as v')
+            ->leftJoin('recursos as rr', 'rr.id', '=', 'v.recurso_remoto_id')
+            ->where('v.recurso_id', $id)
+            ->orderBy('v.local_port_num')
+            ->get([
+                'v.local_port', 'v.local_port_num', 'v.remote_sysname', 'v.remote_port',
+                'v.remote_chassis', 'v.remote_sysdesc', 'v.recurso_remoto_id',
+                'rr.nombre as remoto_nombre', 'v.ts',
+            ]);
+
+        return response()->json($rows);
+    }
+
     /** Línea base estacional (media/σ por métrica y hora) calculada por el worker. */
     public function baselines(int $id): JsonResponse
     {

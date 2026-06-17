@@ -350,7 +350,26 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
   - **Config**: `parametros.backup = {metodo:'ssh', vendor?, comando?, puerto?:22, sin_paginacion?}` +
     secretos `{ssh_user, ssh_password}` o `{ssh_user, ssh_key}` (PEM). Ayuda en el form de Recursos.
   - PENDIENTE (usuario): credenciales SSH de los switches para el respaldo en vivo.
-  - Sigue: **(4B) topología L2 automática por LLDP** (SNMP LLDP-MIB → vecinos → mapa de conexiones).
+
+- ✅ TOPOLOGÍA L2 AUTOMÁTICA POR LLDP (2026-06-17) [migr. 0021, tabla `lldp_vecinos`] — DESPLEGADO.
+  **4ª mejora, parte B** (cierra la secuencia de 4). El worker camina la LLDP-MIB por SNMP de cada switch
+  y registra sus VECINOS (qué equipo/puerto cuelga de cada puerto local); agregado entre switches = mapa
+  de conexiones físicas, sin dibujarlo a mano. Usa la community SNMP ya configurada (no pide credenciales nuevas).
+  - **Worker**: `probes/lldp.py` (parseo PURO de lldpRemTable —chassis/portId/portDesc/sysName/sysDesc—
+    y lldpLocPortTable; `fmt_chassis` formatea MAC; el índice OID da el puerto local). Job
+    `recolectar_topologia` (sweep cada `TOPOLOGIA_CHECK_SEG`, def 600s) hace los walks con `snmp_client`,
+    parsea y persiste; resuelve el vecino a un recurso conocido por sysName (`lldp_vecinos.recurso_remoto_id`).
+    8 tests nuevos (156 worker en verde).
+  - **API**: `GET /recursos/{id}/vecinos` (tabla del detalle) y `GET /topologia` (grafo: nodos + enlaces,
+    dedup de enlaces no dirigidos, nodos externos para vecinos no gestionados).
+  - **UI**: sección "Vecinos LLDP" en el detalle del switch (puerto local→vecino/puerto, link al recurso
+    remoto) + pantalla "Topología" (grafo SVG con layout circular: recursos en anillo interior coloreados
+    por estado, externos fuera; clic en nodo→recurso). Nav + ruta.
+  - NOTA: requiere LLDP activo en los equipos. Los vecinos no gestionados aparecen como nodos "externos".
+
+Con esto quedan las **4 mejoras** de la secuencia (auto-descubrimiento, hardware, sintéticos, backup SSH +
+topología LLDP). Pendientes de prueba EN VIVO por requerir credenciales del usuario: lectura Redfish del
+iDRAC (hardware) y volcado SSH de switches (backup).
 
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.

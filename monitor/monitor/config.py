@@ -72,6 +72,10 @@ class Settings:
     hardware_enabled: bool = _bool("HARDWARE_ENABLED", True)
     hardware_check_seg: int = _int("HARDWARE_CHECK_SEG", 300)
 
+    # Topología L2 por LLDP: camina la LLDP-MIB de los switches y registra vecinos.
+    topologia_enabled: bool = _bool("TOPOLOGIA_ENABLED", True)
+    topologia_check_seg: int = _int("TOPOLOGIA_CHECK_SEG", 600)
+
     # Auto-descubrimiento de red: barrido de subred (ping + SNMP sysDescr/sysObjectID)
     # que propone equipos candidatos. El worker toma los escaneos 'pendiente' en cola.
     descubrimiento_enabled: bool = _bool("DESCUBRIMIENTO_ENABLED", True)

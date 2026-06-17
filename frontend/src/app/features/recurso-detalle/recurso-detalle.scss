@@ -88,3 +88,9 @@ section { margin-top: 8px; }
 .pasos .ok { color: var(--estado-up); font-weight: 600; }
 .pasos .warn { color: var(--sev-warning); font-weight: 600; }
 .pasos .bad { color: var(--estado-down); font-weight: 600; }
+
+/* Vecinos LLDP */
+.lldp table { width: 100%; font-size: 13px; }
+.lldp .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+.lldp .ext { font-size: 11px; border: 1px solid var(--border); border-radius: 8px; padding: 0 6px; }
+.lldp .ver-mapa { font-size: 12px; font-weight: 400; margin-left: 8px; }

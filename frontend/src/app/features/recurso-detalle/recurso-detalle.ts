@@ -2,7 +2,7 @@ import { DecimalPipe, JsonPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Baseline, Chequeo, HardwareComponente, HardwareInventario, Incidencia, Interfaz, Metrica, MuestraInterfaz, PasoSintetico, Recurso, Respaldo, RespaldoDetalle } from '../../core/models';
+import { Baseline, Chequeo, HardwareComponente, HardwareInventario, Incidencia, Interfaz, Metrica, MuestraInterfaz, PasoSintetico, Recurso, Respaldo, RespaldoDetalle, VecinoLldp } from '../../core/models';
 import { AuthService } from '../../core/auth.service';
 import { RecursosService } from '../../core/recursos.service';
 import { TelemetriaService } from '../../core/telemetria.service';
@@ -35,6 +35,7 @@ export class RecursoDetalle {
   baselines = signal<Baseline[]>([]);
   hwInventario = signal<HardwareInventario | null>(null);
   hwComponentes = signal<HardwareComponente[]>([]);
+  vecinos = signal<VecinoLldp[]>([]);
   respaldoSel = signal<RespaldoDetalle | null>(null);
   respaldoVista = signal<'diff' | 'completo'>('diff');
   rango = signal<'1h' | '24h' | '7d'>('24h');
@@ -151,6 +152,11 @@ export class RecursoDetalle {
     this.recursosSvc.hardware(this.id).subscribe({
       next: (h) => { this.hwInventario.set(h.inventario); this.hwComponentes.set(h.componentes); },
       error: () => { this.hwInventario.set(null); this.hwComponentes.set([]); },
+    });
+    this.vecinos.set([]);
+    this.recursosSvc.vecinos(this.id).subscribe({
+      next: (vs) => this.vecinos.set(vs),
+      error: () => this.vecinos.set([]),
     });
     this.tele.chequeos({ recurso_id: this.id, per_page: 1 }).subscribe({
       next: (p) => this.ultimoChequeo.set(p.data[0] ?? null),

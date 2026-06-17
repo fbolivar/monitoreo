@@ -95,6 +95,37 @@ def recursos_por_tipo(db: Database, tipo_codigo: str) -> list[Recurso]:
         return [_fila_a_recurso(r) for r in cur.fetchall()]
 
 
+def recursos_switches(db: Database) -> list[Recurso]:
+    """Switches activos (LAN/SAN) — candidatos a topología LLDP por SNMP."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(_SELECT_RECURSO +
+                    " WHERE r.activo = true AND t.codigo IN ('switch_lan','switch_san') ORDER BY r.id")
+        return [_fila_a_recurso(r) for r in cur.fetchall()]
+
+
+def guardar_vecinos_lldp(db: Database, recurso_id: int, vecinos: list[dict]) -> None:
+    """Reemplaza el snapshot de vecinos LLDP; resuelve el recurso remoto por sysname."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM lldp_vecinos WHERE recurso_id = %s", (recurso_id,))
+        if vecinos:
+            cur.executemany(
+                """
+                INSERT INTO lldp_vecinos
+                    (recurso_id, local_port_num, local_port, remote_sysname, remote_chassis,
+                     remote_port, remote_sysdesc, recurso_remoto_id, ts)
+                VALUES (%s, %s, %s, %s, %s, %s, %s,
+                        (SELECT id FROM recursos
+                          WHERE %s IS NOT NULL AND lower(nombre) = lower(%s)
+                          ORDER BY id LIMIT 1),
+                        now())
+                """,
+                [(recurso_id, v.get("local_port_num"), v.get("local_port"),
+                  v.get("remote_sysname"), v.get("remote_chassis"), v.get("remote_port"),
+                  v.get("remote_sysdesc"), v.get("remote_sysname"), v.get("remote_sysname"))
+                 for v in vecinos],
+            )
+
+
 def recursos_backup_ssh(db: Database) -> list[Recurso]:
     """Recursos activos que optaron por respaldo de config por SSH (parametros.backup.metodo='ssh')."""
     with db.connection() as conn, conn.cursor() as cur:

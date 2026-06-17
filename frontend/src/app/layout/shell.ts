@@ -26,6 +26,7 @@ import { IdleService } from '../core/idle.service';
           }
           <a routerLink="/sitios" routerLinkActive="active">Sitios</a>
           <a routerLink="/mapa" routerLinkActive="active">Sedes</a>
+          <a routerLink="/topologia" routerLinkActive="active">Topología</a>
           <a routerLink="/servicios" routerLinkActive="active">Servicios</a>
           <a routerLink="/incidencias" routerLinkActive="active">Incidencias</a>
           <a routerLink="/traps" routerLinkActive="active">Traps</a>

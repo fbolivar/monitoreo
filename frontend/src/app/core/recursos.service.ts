@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { Baseline, HardwareResp, Interfaz, MuestraInterfaz, Paginated, Recurso, Respaldo, RespaldoDetalle, Sitio, TipoRecurso } from './models';
+import { Baseline, HardwareResp, Interfaz, MuestraInterfaz, Paginated, Recurso, Respaldo, RespaldoDetalle, Sitio, TipoRecurso, TopologiaResp, VecinoLldp } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class RecursosService {
@@ -39,6 +39,14 @@ export class RecursosService {
 
   hardware(id: number): Observable<HardwareResp> {
     return this.api.get<HardwareResp>(`/recursos/${id}/hardware`);
+  }
+
+  vecinos(id: number): Observable<VecinoLldp[]> {
+    return this.api.get<VecinoLldp[]>(`/recursos/${id}/vecinos`);
+  }
+
+  topologia(): Observable<TopologiaResp> {
+    return this.api.get<TopologiaResp>('/topologia');
   }
 
   respaldos(id: number): Observable<Respaldo[]> {

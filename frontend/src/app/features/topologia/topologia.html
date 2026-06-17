@@ -1,0 +1,45 @@
+<div class="head">
+  <h1>Topología L2 <span class="text-dim">(descubierta por LLDP)</span></h1>
+  <span class="text-dim">{{ nodos().length }} nodo(s) · {{ enlaces().length }} enlace(s)</span>
+</div>
+
+@if (cargando()) {
+  <p class="text-dim">Cargando…</p>
+} @else if (nodos().length === 0) {
+  <p class="text-dim">Aún no hay vecinos LLDP. El worker camina la LLDP-MIB de los switches cada ~10 min;
+    requiere que los equipos tengan LLDP activo y SNMP configurado.</p>
+} @else {
+  <div class="leyenda">
+    <span class="pill st-up">operativo</span>
+    <span class="pill st-degraded">degradado</span>
+    <span class="pill st-down">caído</span>
+    <span class="pill ext">externo (no gestionado)</span>
+  </div>
+
+  <div class="lienzo-wrap">
+    <svg [attr.viewBox]="'0 0 ' + lienzo() + ' ' + lienzo()" class="grafo">
+      <!-- Enlaces -->
+      @for (e of enlacesPos(); track $index) {
+        <line [attr.x1]="e.x1" [attr.y1]="e.y1" [attr.x2]="e.x2" [attr.y2]="e.y2" class="edge">
+          <title>{{ e.etiqueta }}</title>
+        </line>
+      }
+      <!-- Nodos -->
+      @for (n of nodosPos(); track n.id) {
+        <g class="nodo" [class.sel]="seleccion() === n.id"
+           (click)="seleccion.set(seleccion() === n.id ? null : n.id)">
+          <circle [attr.cx]="n.x" [attr.cy]="n.y" r="13" [class]="claseNodo(n)">
+            <title>{{ n.nombre }}</title>
+          </circle>
+          <text [attr.x]="n.x" [attr.y]="n.y - 18" text-anchor="middle" class="etq">{{ n.nombre }}</text>
+        </g>
+      }
+    </svg>
+  </div>
+
+  @if (seleccion(); as sel) {
+    @if (recursoId(sel); as rid) {
+      <p><a class="btn" [routerLink]="['/recursos', rid]">Ver recurso seleccionado ↗</a></p>
+    }
+  }
+}

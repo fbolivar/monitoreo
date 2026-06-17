@@ -240,6 +240,34 @@
     </section>
   }
 
+  <!-- Vecinos LLDP (topología L2) -->
+  @if (vecinos().length > 0) {
+    <section class="lldp">
+      <h2>Vecinos LLDP <span class="text-dim">({{ vecinos().length }})</span>
+        <a routerLink="/topologia" class="text-dim ver-mapa">ver mapa ↗</a>
+      </h2>
+      <table>
+        <thead><tr><th>Puerto local</th><th>Vecino</th><th>Puerto remoto</th><th>Chassis</th></tr></thead>
+        <tbody>
+          @for (v of vecinos(); track $index) {
+            <tr>
+              <td><b>{{ v.local_port ?? ('#' + v.local_port_num) }}</b></td>
+              <td>
+                @if (v.recurso_remoto_id) {
+                  <a [routerLink]="['/recursos', v.recurso_remoto_id]">{{ v.remoto_nombre ?? v.remote_sysname }}</a>
+                } @else {
+                  {{ v.remote_sysname ?? '—' }} <span class="text-dim ext">externo</span>
+                }
+              </td>
+              <td class="text-dim">{{ v.remote_port ?? '—' }}</td>
+              <td class="text-dim mono">{{ v.remote_chassis ?? '—' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  }
+
   <!-- Respaldos de configuración -->
   @if (respaldos().length > 0) {
     <section>

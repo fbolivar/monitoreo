@@ -334,6 +334,38 @@ export interface Paginated<T> {
   total: number;
 }
 
+// ── Topología L2 (LLDP) ────────────────────────────────────────────────
+export interface VecinoLldp {
+  local_port: string | null;
+  local_port_num: number | null;
+  remote_sysname: string | null;
+  remote_port: string | null;
+  remote_chassis: string | null;
+  remote_sysdesc: string | null;
+  recurso_remoto_id: number | null;
+  remoto_nombre: string | null;
+  ts: string;
+}
+
+export interface TopologiaNodo {
+  id: string;
+  nombre: string;
+  estado: Estado | null;
+  es_recurso: boolean;
+}
+
+export interface TopologiaEnlace {
+  origen: string;
+  origen_port: string | null;
+  destino: string;
+  destino_port: string | null;
+}
+
+export interface TopologiaResp {
+  nodos: TopologiaNodo[];
+  enlaces: TopologiaEnlace[];
+}
+
 // ── Hardware físico (Redfish / IPMI) ───────────────────────────────────
 export interface HardwareInventario {
   recurso_id: number;
