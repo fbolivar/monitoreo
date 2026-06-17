@@ -1,45 +1,74 @@
 <div class="head">
   <h1>Topología L2 <span class="text-dim">(descubierta por LLDP)</span></h1>
-  <span class="text-dim">{{ nodos().length }} nodo(s) · {{ enlaces().length }} enlace(s)</span>
+  <span class="text-dim">{{ totalRecursos() }} recurso(s) · {{ totalExternos() }} externo(s) · {{ enlaces().length }} enlace(s)</span>
 </div>
 
 @if (cargando()) {
   <p class="text-dim">Cargando…</p>
 } @else if (nodos().length === 0) {
-  <p class="text-dim">Aún no hay vecinos LLDP. El worker camina la LLDP-MIB de los switches cada ~10 min;
-    requiere que los equipos tengan LLDP activo y SNMP configurado.</p>
+  <p class="text-dim">Aún no hay recursos activos para mostrar.</p>
 } @else {
-  <div class="leyenda">
-    <span class="pill st-up">operativo</span>
-    <span class="pill st-degraded">degradado</span>
-    <span class="pill st-down">caído</span>
-    <span class="pill ext">externo (no gestionado)</span>
+  <div class="barra">
+    <label class="check">
+      <input type="checkbox" [checked]="mostrarExternos()"
+             (change)="mostrarExternos.set(!mostrarExternos())">
+      Mostrar externos ({{ totalExternos() }})
+    </label>
+    <label class="check">
+      <input type="checkbox" [checked]="soloEnlazados()"
+             (change)="soloEnlazados.set(!soloEnlazados())">
+      Solo con enlaces LLDP
+    </label>
+    <span class="sep"></span>
+    <span class="leyenda">
+      <span class="pill st-up">operativo</span>
+      <span class="pill st-degraded">degradado</span>
+      <span class="pill st-down">caído</span>
+      <span class="pill st-unknown">sin datos</span>
+      <span class="pill ext">externo</span>
+    </span>
   </div>
 
   <div class="lienzo-wrap">
-    <svg [attr.viewBox]="'0 0 ' + lienzo() + ' ' + lienzo()" class="grafo">
+    <svg [attr.viewBox]="'0 0 ' + layout().width + ' ' + layout().height" class="grafo"
+         [style.min-height.px]="layout().height">
+      <!-- Cajas por sitio -->
+      @for (c of layout().cajas; track c.titulo) {
+        <g class="caja">
+          <rect [attr.x]="c.x" [attr.y]="c.y" [attr.width]="c.w" [attr.height]="c.h" rx="8" />
+          <text [attr.x]="c.x + 12" [attr.y]="c.y + 18" class="caja-tit">{{ c.titulo }} ({{ c.n }})</text>
+        </g>
+      }
+
       <!-- Enlaces -->
       @for (e of enlacesPos(); track $index) {
         <line [attr.x1]="e.x1" [attr.y1]="e.y1" [attr.x2]="e.x2" [attr.y2]="e.y2" class="edge">
           <title>{{ e.etiqueta }}</title>
         </line>
       }
+
       <!-- Nodos -->
-      @for (n of nodosPos(); track n.id) {
+      @for (n of layout().nodos; track n.id) {
         <g class="nodo" [class.sel]="seleccion() === n.id"
            (click)="seleccion.set(seleccion() === n.id ? null : n.id)">
           <circle [attr.cx]="n.x" [attr.cy]="n.y" r="13" [class]="claseNodo(n)">
-            <title>{{ n.nombre }}</title>
+            <title>{{ n.nombre }}{{ n.tipo_nombre ? ' · ' + n.tipo_nombre : '' }}{{ (n.grado ?? 0) > 0 ? ' · ' + n.grado + ' enlace(s)' : '' }}</title>
           </circle>
-          <text [attr.x]="n.x" [attr.y]="n.y - 18" text-anchor="middle" class="etq">{{ n.nombre }}</text>
+          <text [attr.x]="n.x" [attr.y]="n.y + 28" text-anchor="middle" class="etq">{{ etiqueta(n.nombre) }}</text>
         </g>
       }
     </svg>
   </div>
 
-  @if (seleccion(); as sel) {
-    @if (recursoId(sel); as rid) {
-      <p><a class="btn" [routerLink]="['/recursos', rid]">Ver recurso seleccionado ↗</a></p>
-    }
+  @if (nodoSel(); as sel) {
+    <div class="detalle">
+      <strong>{{ sel.nombre }}</strong>
+      @if (sel.tipo_nombre) { <span class="text-dim"> · {{ sel.tipo_nombre }}</span> }
+      @if (sel.sitio) { <span class="text-dim"> · {{ sel.sitio }}</span> }
+      @if (!sel.es_recurso) { <span class="text-dim"> · vecino externo (no gestionado)</span> }
+      @if (recursoId(sel.id); as rid) {
+        <a class="btn" [routerLink]="['/recursos', rid]">Ver recurso ↗</a>
+      }
+    </div>
   }
 }

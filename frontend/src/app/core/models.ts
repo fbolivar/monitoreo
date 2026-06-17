@@ -353,6 +353,11 @@ export interface TopologiaNodo {
   nombre: string;
   estado: Estado | null;
   es_recurso: boolean;
+  sitio_id?: number | null;
+  sitio?: string | null;
+  tipo?: string | null;
+  tipo_nombre?: string | null;
+  grado?: number;
 }
 
 export interface TopologiaEnlace {
