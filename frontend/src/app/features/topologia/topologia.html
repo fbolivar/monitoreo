@@ -1,74 +1,84 @@
 <div class="head">
-  <h1>Topología L2 <span class="text-dim">(descubierta por LLDP)</span></h1>
-  <span class="text-dim">{{ totalRecursos() }} recurso(s) · {{ totalExternos() }} externo(s) · {{ enlaces().length }} enlace(s)</span>
+  <h1>Topología</h1>
+  <div class="tabs">
+    <button class="tab" [class.activo]="tab() === 'mapa'" (click)="tab.set('mapa')">Mapa de sedes</button>
+    <button class="tab" [class.activo]="tab() === 'componentes'" (click)="tab.set('componentes')">Componentes</button>
+  </div>
 </div>
 
-@if (cargando()) {
-  <p class="text-dim">Cargando…</p>
-} @else if (nodos().length === 0) {
-  <p class="text-dim">Aún no hay recursos activos para mostrar.</p>
-} @else {
-  <div class="barra">
-    <label class="check">
-      <input type="checkbox" [checked]="mostrarExternos()"
-             (change)="mostrarExternos.set(!mostrarExternos())">
-      Mostrar externos ({{ totalExternos() }})
-    </label>
-    <label class="check">
-      <input type="checkbox" [checked]="soloEnlazados()"
-             (change)="soloEnlazados.set(!soloEnlazados())">
-      Solo con enlaces LLDP
-    </label>
-    <span class="sep"></span>
-    <span class="leyenda">
-      <span class="pill st-up">operativo</span>
-      <span class="pill st-degraded">degradado</span>
-      <span class="pill st-down">caído</span>
-      <span class="pill st-unknown">sin datos</span>
-      <span class="pill ext">externo</span>
-    </span>
-  </div>
+<!-- ── TAB 1 · Mapa geográfico de sedes ─────────────────────────────── -->
+@if (tab() === 'mapa') {
+  <app-mapa />
+}
 
-  <div class="lienzo-wrap">
-    <svg [attr.viewBox]="'0 0 ' + layout().width + ' ' + layout().height" class="grafo"
-         [style.min-height.px]="layout().height">
-      <!-- Cajas por sitio -->
-      @for (c of layout().cajas; track c.titulo) {
-        <g class="caja">
-          <rect [attr.x]="c.x" [attr.y]="c.y" [attr.width]="c.w" [attr.height]="c.h" rx="8" />
-          <text [attr.x]="c.x + 12" [attr.y]="c.y + 18" class="caja-tit">{{ c.titulo }} ({{ c.n }})</text>
-        </g>
-      }
-
-      <!-- Enlaces -->
-      @for (e of enlacesPos(); track $index) {
-        <line [attr.x1]="e.x1" [attr.y1]="e.y1" [attr.x2]="e.x2" [attr.y2]="e.y2" class="edge">
-          <title>{{ e.etiqueta }}</title>
-        </line>
-      }
-
-      <!-- Nodos -->
-      @for (n of layout().nodos; track n.id) {
-        <g class="nodo" [class.sel]="seleccion() === n.id"
-           (click)="seleccion.set(seleccion() === n.id ? null : n.id)">
-          <circle [attr.cx]="n.x" [attr.cy]="n.y" r="13" [class]="claseNodo(n)">
-            <title>{{ n.nombre }}{{ n.tipo_nombre ? ' · ' + n.tipo_nombre : '' }}{{ (n.grado ?? 0) > 0 ? ' · ' + n.grado + ' enlace(s)' : '' }}</title>
-          </circle>
-          <text [attr.x]="n.x" [attr.y]="n.y + 28" text-anchor="middle" class="etq">{{ etiqueta(n.nombre) }}</text>
-        </g>
-      }
-    </svg>
-  </div>
-
-  @if (nodoSel(); as sel) {
-    <div class="detalle">
-      <strong>{{ sel.nombre }}</strong>
-      @if (sel.tipo_nombre) { <span class="text-dim"> · {{ sel.tipo_nombre }}</span> }
-      @if (sel.sitio) { <span class="text-dim"> · {{ sel.sitio }}</span> }
-      @if (!sel.es_recurso) { <span class="text-dim"> · vecino externo (no gestionado)</span> }
-      @if (recursoId(sel.id); as rid) {
-        <a class="btn" [routerLink]="['/recursos', rid]">Ver recurso ↗</a>
-      }
+<!-- ── TAB 2 · Topología de componentes por sede ────────────────────── -->
+@if (tab() === 'componentes') {
+  @if (cargando()) {
+    <p class="text-dim">Cargando…</p>
+  } @else if (sitios().length === 0) {
+    <p class="text-dim">No hay recursos activos para mostrar.</p>
+  } @else {
+    <div class="barra">
+      <label class="campo">
+        Sede:
+        <select (change)="cambiarSitio($any($event.target).value)">
+          @for (s of sitios(); track s.id) {
+            <option [value]="s.id" [selected]="sitioSel() === s.id">{{ s.nombre }} ({{ s.n }})</option>
+          }
+        </select>
+      </label>
+      <label class="check">
+        <input type="checkbox" [checked]="mostrarExternos()" (change)="mostrarExternos.set(!mostrarExternos())">
+        Mostrar vecinos externos
+      </label>
+      <span class="sep"></span>
+      <span class="leyenda">
+        <span class="pill st-up">operativo</span>
+        <span class="pill st-degraded">degradado</span>
+        <span class="pill st-down">caído</span>
+        <span class="pill st-unknown">sin datos</span>
+        <span class="pill ext">externo</span>
+      </span>
     </div>
+
+    @if (!hayEnlaces() && grafo().nodos.length > 0) {
+      <p class="aviso">Esta sede no tiene enlaces LLDP descubiertos aún (el worker camina la LLDP-MIB
+        cada ~10 min y requiere LLDP activo en los switches). Se muestran los equipos sin conexiones.</p>
+    }
+
+    <div class="lienzo-wrap">
+      <svg [attr.viewBox]="'0 0 ' + grafo().width + ' ' + grafo().height" class="grafo"
+           [style.min-height.px]="grafo().height">
+        <!-- Enlaces -->
+        @for (e of enlacesPos(); track $index) {
+          <line [attr.x1]="e.x1" [attr.y1]="e.y1" [attr.x2]="e.x2" [attr.y2]="e.y2" class="edge">
+            <title>{{ e.etiqueta }}</title>
+          </line>
+        }
+        <!-- Nodos -->
+        @for (n of grafo().nodos; track n.id) {
+          <g class="nodo" [class.sel]="seleccion() === n.id"
+             (click)="seleccion.set(seleccion() === n.id ? null : n.id)">
+            <circle [attr.cx]="n.x" [attr.cy]="n.y" r="15" [class]="claseNodo(n)">
+              <title>{{ n.nombre }}{{ n.tipo_nombre ? ' · ' + n.tipo_nombre : '' }}{{ (n.grado ?? 0) > 0 ? ' · ' + n.grado + ' enlace(s)' : ' · sin enlaces' }}</title>
+            </circle>
+            <text [attr.x]="n.x" [attr.y]="n.y + 30" text-anchor="middle" class="etq">{{ etiqueta(n.nombre) }}</text>
+          </g>
+        }
+      </svg>
+    </div>
+
+    @if (nodoSel(); as sel) {
+      <div class="detalle">
+        <i class="dot" [class]="claseNodo(sel)"></i>
+        <strong>{{ sel.nombre }}</strong>
+        @if (sel.tipo_nombre) { <span class="text-dim"> · {{ sel.tipo_nombre }}</span> }
+        @if (!sel.es_recurso) { <span class="text-dim"> · vecino externo (no gestionado)</span> }
+        <span class="text-dim"> · {{ (sel.grado ?? 0) }} enlace(s)</span>
+        @if (recursoId(sel.id); as rid) {
+          <a class="btn" [routerLink]="['/recursos', rid]">Ver recurso ↗</a>
+        }
+      </div>
+    }
   }
 }
