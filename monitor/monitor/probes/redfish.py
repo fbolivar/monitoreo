@@ -116,11 +116,19 @@ def parse_power(power_json: dict | None) -> list[dict]:
     return comps
 
 
+def _dicts(valor) -> list[dict]:
+    """Solo dicts de una lista. Redfish a veces da una REFERENCIA ({@odata.id})
+    en vez de una colección inline (p.ej. Volumes en iDRAC); eso se descarta."""
+    if not isinstance(valor, list):
+        return []
+    return [x for x in valor if isinstance(x, dict)]
+
+
 def parse_storage(storage_members: list | None) -> list[dict]:
     """Controladores RAID, discos y volúmenes (endpoints /Systems/{id}/Storage/*)."""
     comps: list[dict] = []
-    for st in storage_members or []:
-        for ctrl in st.get("StorageControllers", []) or []:
+    for st in _dicts(storage_members):
+        for ctrl in _dicts(st.get("StorageControllers")):
             nombre = ctrl.get("Name") or "Controladora"
             comps.append({
                 "categoria": "storage", "nombre": f"Ctrl {nombre}",
@@ -128,7 +136,7 @@ def parse_storage(storage_members: list | None) -> list[dict]:
                 "detalle": _limpio({"modelo": ctrl.get("Model"),
                                     "firmware": ctrl.get("FirmwareVersion")}),
             })
-        for d in st.get("Drives", []) or []:
+        for d in _dicts(st.get("Drives")):
             nombre = d.get("Name") or d.get("Id") or "Disco"
             cap = d.get("CapacityBytes")
             comps.append({
@@ -138,7 +146,7 @@ def parse_storage(storage_members: list | None) -> list[dict]:
                 "detalle": _limpio({"modelo": d.get("Model"), "serial": d.get("SerialNumber"),
                                     "tipo": d.get("MediaType"), "protocolo": d.get("Protocol")}),
             })
-        for v in st.get("Volumes", []) or []:
+        for v in _dicts(st.get("Volumes")):
             nombre = v.get("Name") or v.get("Id") or "Volumen"
             comps.append({
                 "categoria": "storage", "nombre": f"Vol {nombre}",
@@ -191,14 +199,27 @@ def consultar(host: str, user: str, password: str, verify_tls: bool, timeout: fl
             for m in (get(stor_link).get("Members", []) or [])[:8]:
                 try:
                     st = get(m["@odata.id"])
-                    # Expande discos referenciados.
+                    # Expande discos referenciados (lista de {@odata.id}).
                     drives = []
                     for dref in st.get("Drives", []) or []:
+                        if isinstance(dref, dict) and dref.get("@odata.id"):
+                            try:
+                                drives.append(get(dref["@odata.id"]))
+                            except Exception:
+                                pass
+                    st["Drives"] = drives
+                    # Expande volúmenes (Volumes suele ser una REFERENCIA a una colección).
+                    volumes = []
+                    vlink = (st.get("Volumes") or {})
+                    vlink = vlink.get("@odata.id") if isinstance(vlink, dict) else None
+                    if vlink:
                         try:
-                            drives.append(get(dref["@odata.id"]))
+                            for vref in get(vlink).get("Members", []) or []:
+                                if isinstance(vref, dict) and vref.get("@odata.id"):
+                                    volumes.append(get(vref["@odata.id"]))
                         except Exception:
                             pass
-                    st["Drives"] = drives
+                    st["Volumes"] = volumes
                     storage.append(st)
                 except Exception:
                     pass

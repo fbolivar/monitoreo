@@ -123,6 +123,23 @@ def test_parse_storage():
     assert next(c for c in comps if c["nombre"] == "Disk 1")["estado"] == "down"
 
 
+def test_parse_storage_tolera_referencias():
+    # iDRAC devuelve Volumes como REFERENCIA (dict @odata.id), no lista inline:
+    # el parser no debe romper, solo ignorarla.
+    storage = [{
+        "StorageControllers": [{"Name": "PERC", "Status": {"Health": "OK", "State": "Enabled"}}],
+        "Drives": [],
+        "Volumes": {"@odata.id": "/redfish/v1/.../Volumes"},  # referencia (no lista) -> se ignora
+    }]
+    comps = redfish.parse_storage(storage)
+    assert [c["nombre"] for c in comps] == ["Ctrl PERC"]  # no crashea, ignora la referencia
+
+
+def test_parse_storage_no_lista():
+    assert redfish.parse_storage(None) == []
+    assert redfish.parse_storage({"@odata.id": "/x"}) == []
+
+
 # ── Combinación de salud ──────────────────────────────────────────────
 def test_peor_estado():
     assert peor_estado(["up", "up", "degraded"]) == "degraded"
