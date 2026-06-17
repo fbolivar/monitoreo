@@ -26,7 +26,9 @@ def test_comando_default():
 # ── comando_sin_paginacion ────────────────────────────────────────────
 def test_sin_paginacion_default_y_vendor():
     assert comando_sin_paginacion({}) == "terminal length 0"
-    assert comando_sin_paginacion({"backup": {"vendor": "fortiswitch"}}) == ""
+    # FortiOS desactiva el paginador con una secuencia de varios comandos.
+    fos = comando_sin_paginacion({"backup": {"vendor": "fortiswitch"}})
+    assert "config system console" in fos and "set output standard" in fos
 
 
 def test_sin_paginacion_explicito_vacio():
@@ -61,7 +63,17 @@ def test_limpia_recorta_vacias_extremos():
     assert out == "hostname X"
 
 
-def test_prompt_con_espacios_no_se_quita():
-    # Una línea de config que casualmente termina en '>' pero tiene espacios NO es prompt.
-    out = limpiar_salida("banner motd >\nhostname X\n", "show run")
-    assert "banner motd >" in out
+def test_quita_prompt_fortios():
+    # Prompt FortiOS ('NOMBRE # ') al final -> se quita; las líneas indentadas no.
+    crudo = "config system global\n    set hostname SW1\nend\nSW1_PNN_P1_FORTI # \n"
+    out = limpiar_salida(crudo, "show full-configuration")
+    lineas = out.split("\n")
+    assert "SW1_PNN_P1_FORTI #" not in lineas[-1]
+    assert lineas[-1] == "end"
+    assert "    set hostname SW1" in out  # línea indentada intacta
+
+
+def test_prompt_indentado_no_se_quita():
+    # Una línea de config INDENTADA que termina en '>' NO es prompt (va con sangría).
+    out = limpiar_salida("config x\n    set banner >\nend\n", "show run")
+    assert "    set banner >" in out

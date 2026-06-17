@@ -30,7 +30,9 @@ _SIN_PAGINACION = {
     "cisco": "terminal length 0",
     "ios": "terminal length 0",
     "arista": "terminal length 0",
-    "fortiswitch": "",  # FortiOS no usa 'terminal length'
+    # FortiOS/FortiSwitch: desactiva el paginador con la consola en modo 'standard'
+    # (varios comandos; obtener_config los envía línea a línea).
+    "fortiswitch": "config system console\nset output standard\nend",
 }
 
 
@@ -83,9 +85,13 @@ def limpiar_salida(texto: str, comando: str) -> str:
 
 
 def _es_prompt(linea: str) -> bool:
-    """Línea de prompt CLI: corta, sin espacios y terminada en #, > o $ (p.ej. 'switch#')."""
+    """Línea de prompt CLI: corta, NO indentada y terminada en #, > o $.
+    Cubre 'switch#' (Dell/Cisco) y 'NOMBRE # ' (FortiOS). Las líneas de config
+    van indentadas, así que el filtro por indentación evita falsos positivos."""
+    if linea[:1] in (" ", "\t"):
+        return False
     s = linea.strip()
-    return bool(s) and len(s) < 60 and " " not in s and s[-1] in "#>$"
+    return bool(s) and len(s) < 60 and s[-1] in "#>$"
 
 
 # ── E/S (paramiko) ──────────────────────────────────────────────────────
@@ -117,10 +123,12 @@ def obtener_config(host: str, port: int, user: str, password: str | None,
         shell.settimeout(timeout)
         time.sleep(0.6)
         _drenar(shell)
-        if sin_paginacion:
-            shell.send(sin_paginacion + "\n")
-            time.sleep(0.4)
-            _drenar(shell)
+        # sin_paginacion puede ser varios comandos (FortiOS): se envían uno a uno.
+        for linea in (sin_paginacion or "").split("\n"):
+            if linea.strip():
+                shell.send(linea + "\n")
+                time.sleep(0.4)
+                _drenar(shell)
         shell.send(comando + "\n")
         salida = _leer_hasta_inactividad(shell, timeout)
     finally:
