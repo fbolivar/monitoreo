@@ -56,3 +56,20 @@ section { margin-top: 8px; }
 .sev-info { color: var(--sev-info); }
 .sev-warning { color: var(--sev-warning); }
 .sev-critical { color: var(--sev-critical); }
+
+/* Hardware físico */
+.hw h2 { display: flex; align-items: center; gap: 8px; }
+.hw-inv { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 4px 18px;
+  font-size: 13px; margin: 6px 0 10px; }
+.hw-inv .k { display: inline-block; min-width: 78px; color: var(--text-dim); }
+.hw-cat { font-size: 13px; margin: 12px 0 6px; color: var(--primary-dark); }
+.hw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+.hw-comp { border: 1px solid var(--border); border-left: 4px solid var(--border);
+  border-radius: var(--radius); padding: 7px 10px; background: #fff; }
+.hw-comp .hw-nom { font-size: 12px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hw-comp .hw-val { font-size: 16px; font-variant-numeric: tabular-nums; }
+.hw-comp .hw-val .u { font-size: 11px; color: var(--text-dim); margin-left: 2px; }
+.hw-up { border-left-color: var(--estado-up); }
+.hw-degraded { border-left-color: var(--estado-degraded); background: #fffaf0; }
+.hw-down { border-left-color: var(--estado-down); background: #fdf0f0; }
+.hw-unknown { border-left-color: var(--estado-unknown); }

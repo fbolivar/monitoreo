@@ -390,6 +390,54 @@ def marcar_obsoletos(db: Database, settings: Settings) -> None:
                     o["id"], o["nombre"], o["ultimo_chequeo_at"])
 
 
+def procesar_hardware(db: Database, settings: Settings) -> None:
+    """Sondea el hardware físico (Redfish/IPMI) de los recursos opt-in y persiste
+    el snapshot de componentes + inventario. Avisa cuando un componente se degrada."""
+    if not settings.hardware_enabled:
+        return
+    from . import hardware
+
+    ahora = datetime.now(timezone.utc)
+    for recurso in repo.recursos_hardware(db):
+        try:
+            secretos = None
+            if settings.app_crypto_key:
+                secretos = repo.descifrar_secretos(db, recurso.id, settings.app_crypto_key)
+
+            inventario, comps = hardware.recolectar(recurso, secretos, settings)
+            previos = repo.estados_hardware_previos(db, recurso.id)
+            repo.guardar_hardware_inventario(db, recurso.id, inventario)
+            repo.guardar_hardware_componentes(db, recurso.id, comps)
+
+            # Aviso (sin incidencia) por componentes que EMPEORARON, salvo en mantenimiento.
+            if not repo.en_mantenimiento(db, recurso, ahora):
+                nuevos_malos = [
+                    c for c in comps
+                    if c["estado"] in ("degraded", "down")
+                    and previos.get((c["categoria"], c["nombre"])) not in ("degraded", "down")
+                ]
+                if nuevos_malos:
+                    _avisar_hardware(db, settings, recurso, nuevos_malos, inventario)
+            log.info("Hardware %s (%s) -> %s (%d componentes, %s)",
+                     recurso.id, recurso.nombre, inventario.get("salud_global"),
+                     len(comps), inventario.get("protocolo"))
+        except Exception as ex:  # noqa: BLE001
+            log.warning("Hardware de %s (%s) no disponible: %s", recurso.id, recurso.nombre, ex)
+
+
+def _avisar_hardware(db: Database, settings: Settings, recurso: Recurso,
+                     componentes: list[dict], inventario: dict) -> None:
+    sev = "critical" if any(c["estado"] == "down" for c in componentes) else "warning"
+    lineas = [f"  - [{c['categoria']}] {c['nombre']}: {c['estado']}"
+              + (f" ({c['lectura']}{c['unidad']})" if c.get("lectura") is not None else "")
+              for c in componentes]
+    equipo = " ".join(filter(None, [inventario.get("fabricante"), inventario.get("modelo")]))
+    texto = (f"Hardware de {recurso.nombre}"
+             + (f" ({equipo})" if equipo else "")
+             + " reporta componentes degradados/caídos:\n" + "\n".join(lineas))
+    notificar_simple(db, settings, f"Hardware: {recurso.nombre}", texto, sev)
+
+
 def procesar_descubrimientos(db: Database, settings: Settings) -> None:
     """Ejecuta los escaneos de auto-descubrimiento en cola (ping sweep + SNMP)."""
     if not settings.descubrimiento_enabled:

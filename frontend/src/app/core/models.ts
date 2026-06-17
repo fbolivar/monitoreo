@@ -323,6 +323,39 @@ export interface Paginated<T> {
   total: number;
 }
 
+// ── Hardware físico (Redfish / IPMI) ───────────────────────────────────
+export interface HardwareInventario {
+  recurso_id: number;
+  fabricante: string | null;
+  modelo: string | null;
+  serial: string | null;
+  sku: string | null;
+  bios_version: string | null;
+  bmc_firmware: string | null;
+  cpu_modelo: string | null;
+  cpu_cantidad: number | null;
+  memoria_gb: number | null;
+  power_state: string | null;
+  salud_global: Estado | null;
+  protocolo: string | null;
+  actualizado_at: string;
+}
+
+export interface HardwareComponente {
+  categoria: string;
+  nombre: string;
+  estado: Estado;
+  lectura: number | null;
+  unidad: string | null;
+  detalle: Record<string, unknown> | null;
+  actualizado_at: string;
+}
+
+export interface HardwareResp {
+  inventario: HardwareInventario | null;
+  componentes: HardwareComponente[];
+}
+
 // ── Auto-descubrimiento de red ─────────────────────────────────────────
 export type DescubrimientoEstado = 'pendiente' | 'ejecutando' | 'completado' | 'error';
 export type CandidatoEstado = 'nuevo' | 'agregado' | 'descartado' | 'existente';

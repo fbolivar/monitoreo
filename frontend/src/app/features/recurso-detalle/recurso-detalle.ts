@@ -2,7 +2,7 @@ import { DecimalPipe, JsonPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Baseline, Chequeo, Incidencia, Interfaz, Metrica, MuestraInterfaz, Recurso, Respaldo, RespaldoDetalle } from '../../core/models';
+import { Baseline, Chequeo, HardwareComponente, HardwareInventario, Incidencia, Interfaz, Metrica, MuestraInterfaz, Recurso, Respaldo, RespaldoDetalle } from '../../core/models';
 import { AuthService } from '../../core/auth.service';
 import { RecursosService } from '../../core/recursos.service';
 import { TelemetriaService } from '../../core/telemetria.service';
@@ -33,6 +33,8 @@ export class RecursoDetalle {
   interfaces = signal<Interfaz[]>([]);
   respaldos = signal<Respaldo[]>([]);
   baselines = signal<Baseline[]>([]);
+  hwInventario = signal<HardwareInventario | null>(null);
+  hwComponentes = signal<HardwareComponente[]>([]);
   respaldoSel = signal<RespaldoDetalle | null>(null);
   respaldoVista = signal<'diff' | 'completo'>('diff');
   rango = signal<'1h' | '24h' | '7d'>('24h');
@@ -83,6 +85,22 @@ export class RecursoDetalle {
       .sort((a, b) => a.metrica.localeCompare(b.metrica));
   });
 
+  // Hardware agrupado por categoría (orden lógico para la UI).
+  hwCatLabel: Record<string, string | undefined> = {
+    chassis: 'Chasis', power: 'Energía', thermal: 'Temperatura', fan: 'Ventiladores',
+    storage: 'Almacenamiento', memory: 'Memoria', processor: 'Procesador',
+  };
+  hwCategorias = computed<{ categoria: string; comps: HardwareComponente[] }[]>(() => {
+    const orden = ['chassis', 'power', 'thermal', 'fan', 'storage', 'memory', 'processor'];
+    const map = new Map<string, HardwareComponente[]>();
+    for (const c of this.hwComponentes()) {
+      (map.get(c.categoria) ?? map.set(c.categoria, []).get(c.categoria)!).push(c);
+    }
+    return [...map.entries()]
+      .sort((a, b) => orden.indexOf(a[0]) - orden.indexOf(b[0]))
+      .map(([categoria, comps]) => ({ categoria, comps }));
+  });
+
   constructor() {
     // Reacciona a cambios de :id (Angular reutiliza el componente entre recursos).
     this.route.paramMap.pipe(takeUntilDestroyed()).subscribe((pm) => {
@@ -115,6 +133,12 @@ export class RecursoDetalle {
     this.recursosSvc.baselines(this.id).subscribe({
       next: (bs) => this.baselines.set(bs),
       error: () => this.baselines.set([]),
+    });
+    this.hwInventario.set(null);
+    this.hwComponentes.set([]);
+    this.recursosSvc.hardware(this.id).subscribe({
+      next: (h) => { this.hwInventario.set(h.inventario); this.hwComponentes.set(h.componentes); },
+      error: () => { this.hwInventario.set(null); this.hwComponentes.set([]); },
     });
     this.tele.chequeos({ recurso_id: this.id, per_page: 1 }).subscribe({
       next: (p) => this.ultimoChequeo.set(p.data[0] ?? null),

@@ -100,6 +100,30 @@ class RecursoController extends Controller
         return response()->json($row);
     }
 
+    /** Hardware físico (Redfish/IPMI): inventario + componentes, sondeado por el worker. */
+    public function hardware(int $id): JsonResponse
+    {
+        Recurso::findOrFail($id);
+
+        $inventario = DB::table('hardware_inventario')->where('recurso_id', $id)->first();
+        $componentes = DB::table('hardware_componentes')
+            ->where('recurso_id', $id)
+            ->orderByRaw("CASE estado WHEN 'down' THEN 0 WHEN 'degraded' THEN 1 WHEN 'unknown' THEN 2 ELSE 3 END")
+            ->orderBy('categoria')->orderBy('nombre')
+            ->get(['categoria', 'nombre', 'estado', 'lectura', 'unidad', 'detalle', 'actualizado_at']);
+
+        $componentes->transform(function ($c) {
+            $c->detalle = $c->detalle ? json_decode($c->detalle) : null;
+
+            return $c;
+        });
+
+        return response()->json([
+            'inventario'  => $inventario,
+            'componentes' => $componentes,
+        ]);
+    }
+
     /** Línea base estacional (media/σ por métrica y hora) calculada por el worker. */
     public function baselines(int $id): JsonResponse
     {

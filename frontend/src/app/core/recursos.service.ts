@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { Baseline, Interfaz, MuestraInterfaz, Paginated, Recurso, Respaldo, RespaldoDetalle, Sitio, TipoRecurso } from './models';
+import { Baseline, HardwareResp, Interfaz, MuestraInterfaz, Paginated, Recurso, Respaldo, RespaldoDetalle, Sitio, TipoRecurso } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class RecursosService {
@@ -35,6 +35,10 @@ export class RecursosService {
 
   baselines(id: number): Observable<Baseline[]> {
     return this.api.get<Baseline[]>(`/recursos/${id}/baselines`);
+  }
+
+  hardware(id: number): Observable<HardwareResp> {
+    return this.api.get<HardwareResp>(`/recursos/${id}/hardware`);
   }
 
   respaldos(id: number): Observable<Respaldo[]> {

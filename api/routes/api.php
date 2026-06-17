@@ -88,6 +88,9 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
     // Línea base estacional / anomalías de un recurso (lectura).
     Route::get('recursos/{id}/baselines', [RecursoController::class, 'baselines'])->whereNumber('id');
 
+    // Hardware físico (Redfish/IPMI) de un recurso: inventario + componentes (lectura).
+    Route::get('recursos/{id}/hardware', [RecursoController::class, 'hardware'])->whereNumber('id');
+
     // Observabilidad de servicios: analisis de correlacion de una transaccion.
     Route::get('servicios/{id}/analisis', [ServicioController::class, 'analisis'])->whereNumber('id');
 

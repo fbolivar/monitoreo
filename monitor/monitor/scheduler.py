@@ -20,6 +20,7 @@ from .runner import (
     latido_externo,
     marcar_obsoletos,
     procesar_descubrimientos,
+    procesar_hardware,
     pronosticar_capacidad,
     recalcular_baselines,
     respaldar_configuraciones,
@@ -102,6 +103,17 @@ def registrar_tareas_internas(scheduler: BackgroundScheduler, db: Database, sett
         )
         log.info("Freshness activo (cada %ss, factor %s, piso %ss).",
                  settings.freshness_check_seg, settings.freshness_factor, settings.freshness_min_seg)
+
+    # Hardware físico (Redfish/IPMI): sondeo de los recursos opt-in.
+    if settings.hardware_enabled:
+        scheduler.add_job(
+            procesar_hardware,
+            trigger=IntervalTrigger(seconds=settings.hardware_check_seg),
+            args=[db, settings],
+            id="hardware",
+            replace_existing=True,
+        )
+        log.info("Monitoreo de hardware activo (cada %ss).", settings.hardware_check_seg)
 
     # Auto-descubrimiento: ejecuta los escaneos de subred en cola.
     if settings.descubrimiento_enabled:

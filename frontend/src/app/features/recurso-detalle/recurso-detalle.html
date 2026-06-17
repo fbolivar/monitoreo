@@ -160,6 +160,51 @@
     </section>
   }
 
+  <!-- Hardware físico (Redfish / IPMI) -->
+  @if (hwInventario() || hwComponentes().length > 0) {
+    <section class="hw">
+      <h2>Hardware físico
+        @if (hwInventario()?.salud_global) {
+          <app-estado-badge [estado]="$any(hwInventario()!.salud_global)" />
+        }
+        @if (hwInventario()?.protocolo) {
+          <span class="text-dim">· {{ hwInventario()!.protocolo }}</span>
+        }
+      </h2>
+
+      @if (hwInventario(); as inv) {
+        <div class="hw-inv">
+          @if (inv.fabricante || inv.modelo) {
+            <div><span class="k">Equipo</span>{{ inv.fabricante }} {{ inv.modelo }}</div>
+          }
+          @if (inv.serial) { <div><span class="k">Serial</span>{{ inv.serial }}</div> }
+          @if (inv.cpu_modelo) { <div><span class="k">CPU</span>{{ inv.cpu_cantidad }}× {{ inv.cpu_modelo }}</div> }
+          @if (inv.memoria_gb) { <div><span class="k">Memoria</span>{{ inv.memoria_gb }} GB</div> }
+          @if (inv.bios_version) { <div><span class="k">BIOS</span>{{ inv.bios_version }}</div> }
+          @if (inv.bmc_firmware) { <div><span class="k">BMC</span>{{ inv.bmc_firmware }}</div> }
+          @if (inv.power_state) { <div><span class="k">Energía</span>{{ inv.power_state }}</div> }
+          <div><span class="k">Actualizado</span>{{ hace(inv.actualizado_at) }}</div>
+        </div>
+      }
+
+      @for (grupo of hwCategorias(); track grupo.categoria) {
+        <h3 class="hw-cat">{{ hwCatLabel[grupo.categoria] ?? grupo.categoria }}
+          <span class="text-dim">({{ grupo.comps.length }})</span></h3>
+        <div class="hw-grid">
+          @for (c of grupo.comps; track c.nombre) {
+            <div class="hw-comp" [class]="'hw-' + c.estado">
+              <div class="hw-nom">{{ c.nombre }}</div>
+              <div class="hw-val">
+                @if (c.lectura !== null) { <b>{{ c.lectura }}</b><span class="u">{{ c.unidad }}</span> }
+                @else { <app-estado-badge [estado]="c.estado" /> }
+              </div>
+            </div>
+          }
+        </div>
+      }
+    </section>
+  }
+
   <!-- Respaldos de configuración -->
   @if (respaldos().length > 0) {
     <section>

@@ -67,6 +67,11 @@ class Settings:
     freshness_min_seg: int = _int("FRESHNESS_MIN_SEG", 120)
     freshness_check_seg: int = _int("FRESHNESS_CHECK_SEG", 60)
 
+    # Hardware físico (out-of-band): sondeo Redfish/IPMI del BMC de los recursos
+    # que opten por ello (parametros.hardware). Cambia despacio -> cadencia amplia.
+    hardware_enabled: bool = _bool("HARDWARE_ENABLED", True)
+    hardware_check_seg: int = _int("HARDWARE_CHECK_SEG", 300)
+
     # Auto-descubrimiento de red: barrido de subred (ping + SNMP sysDescr/sysObjectID)
     # que propone equipos candidatos. El worker toma los escaneos 'pendiente' en cola.
     descubrimiento_enabled: bool = _bool("DESCUBRIMIENTO_ENABLED", True)

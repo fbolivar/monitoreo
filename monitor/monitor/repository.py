@@ -524,6 +524,67 @@ def guardar_trap(db: Database, source_ip: str | None, recurso_id: int | None, tr
         )
 
 
+# ── Hardware físico (Redfish / IPMI) ──────────────────────────────────
+def recursos_hardware(db: Database) -> list[Recurso]:
+    """Recursos activos que optaron por monitoreo de hardware (parametros.hardware)."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(_SELECT_RECURSO +
+                    " WHERE r.activo = true AND r.parametros ? 'hardware' ORDER BY r.id")
+        return [_fila_a_recurso(r) for r in cur.fetchall()]
+
+
+def estados_hardware_previos(db: Database, recurso_id: int) -> dict[tuple[str, str], str]:
+    """Mapa {(categoria, nombre): estado} del snapshot actual, para comparar cambios."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT categoria, nombre, estado FROM hardware_componentes WHERE recurso_id = %s",
+            (recurso_id,),
+        )
+        return {(r["categoria"], r["nombre"]): r["estado"] for r in cur.fetchall()}
+
+
+def guardar_hardware_componentes(db: Database, recurso_id: int, comps: list[dict]) -> None:
+    """Reemplaza el snapshot de componentes del recurso (borra + inserta, atómico)."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute("DELETE FROM hardware_componentes WHERE recurso_id = %s", (recurso_id,))
+        if comps:
+            cur.executemany(
+                """
+                INSERT INTO hardware_componentes
+                    (recurso_id, categoria, nombre, estado, lectura, unidad, detalle, actualizado_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, now())
+                """,
+                [(recurso_id, c["categoria"], c["nombre"], c["estado"], c.get("lectura"),
+                  c.get("unidad"), Json(c.get("detalle") or {})) for c in comps],
+            )
+
+
+def guardar_hardware_inventario(db: Database, recurso_id: int, inv: dict) -> None:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO hardware_inventario
+                (recurso_id, fabricante, modelo, serial, sku, bios_version, bmc_firmware,
+                 cpu_modelo, cpu_cantidad, memoria_gb, power_state, salud_global, protocolo,
+                 detalle, actualizado_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, now())
+            ON CONFLICT (recurso_id) DO UPDATE SET
+                fabricante = EXCLUDED.fabricante, modelo = EXCLUDED.modelo,
+                serial = EXCLUDED.serial, sku = EXCLUDED.sku,
+                bios_version = EXCLUDED.bios_version, bmc_firmware = EXCLUDED.bmc_firmware,
+                cpu_modelo = EXCLUDED.cpu_modelo, cpu_cantidad = EXCLUDED.cpu_cantidad,
+                memoria_gb = EXCLUDED.memoria_gb, power_state = EXCLUDED.power_state,
+                salud_global = EXCLUDED.salud_global, protocolo = EXCLUDED.protocolo,
+                detalle = EXCLUDED.detalle, actualizado_at = now()
+            """,
+            (recurso_id, inv.get("fabricante"), inv.get("modelo"), inv.get("serial"),
+             inv.get("sku"), inv.get("bios_version"), inv.get("bmc_firmware"),
+             inv.get("cpu_modelo"), inv.get("cpu_cantidad"), inv.get("memoria_gb"),
+             inv.get("power_state"), inv.get("salud_global"), inv.get("protocolo"),
+             Json(inv.get("detalle") or {})),
+        )
+
+
 # ── Auto-descubrimiento de red ────────────────────────────────────────
 def escaneos_pendientes(db: Database, clave: str) -> list[dict[str, Any]]:
     """Escaneos en cola, con la community SNMP ya descifrada."""
