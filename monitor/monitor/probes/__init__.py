@@ -38,6 +38,11 @@ def seleccionar_probe(recurso: Recurso) -> Probe | None:
     params = recurso.parametros or {}
     host = (recurso.hostname or "").strip()
 
+    # Override explícito a ICMP (p.ej. un equipo que solo se vigila por ping:
+    # un BMC/iDRAC monitoreado por hardware, un host sin SNMP, etc.).
+    if params.get("metodo") == "icmp":
+        return IcmpProbe()
+
     # Transacción sintética multipaso (login->consulta, content/JSON-path, fases).
     if params.get("pasos"):
         return SinteticoProbe()

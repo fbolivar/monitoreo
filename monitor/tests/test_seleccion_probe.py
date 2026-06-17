@@ -23,6 +23,12 @@ def test_sitio_web_usa_http():
     assert isinstance(seleccionar_probe(r), HttpProbe)
 
 
+def test_metodo_icmp_fuerza_icmp():
+    # Un servidor (normalmente SNMP) con metodo='icmp' se vigila por ping.
+    r = _recurso(tipo_codigo="servidor", parametros={"metodo": "icmp"})
+    assert isinstance(seleccionar_probe(r), IcmpProbe)
+
+
 def test_pasos_usa_sintetico():
     # parametros.pasos tiene precedencia sobre el tipo/host.
     r = _recurso(tipo_codigo="sitio_web", hostname="https://web.local",
