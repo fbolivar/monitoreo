@@ -308,8 +308,13 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
   - **API**: `GET /recursos/{id}/hardware` → `{inventario, componentes}` (componentes peor-estado primero).
   - **UI**: sección "Hardware físico" en el detalle del recurso (tarjeta de inventario + componentes por
     categoría —chasis/energía/temperatura/ventiladores/almacenamiento— con semáforo y lectura numérica).
-  - PENDIENTE (usuario): credenciales del iDRAC para la lectura autenticada en vivo; activar `parametros.hardware`
-    en los servidores. Incidencias formales por componente (hoy es aviso) = follow-up.
+  - VERIFICADO EN VIVO (2026-06-17): activado en PNNCSRVNCFHV2 (id 24, iDRAC .10.35) con Redfish —
+    Dell R640, serial CNCMS00175000K, BIOS 2.26.1, BMC fw 7.00.00.184, 2× Xeon Silver 4210, 192 GB,
+    16 ventiladores, 2 fuentes, 4 térmicos, RAID (BOSS-S1 + PERC H330) con SSDs y volúmenes, todo `up`.
+    Fixes durante la verificación: `desambiguar` nombres repetidos ('Temp'), timeout amplio 30s (iDRAC lento,
+    caía a IPMI), y tolerar `Volumes`/`Drives` como REFERENCIA (no lista inline) expandiéndolos.
+  - PENDIENTE (usuario): activar `parametros.hardware` en el resto de servidores. Incidencias formales por
+    componente (hoy es aviso) = follow-up.
   - Pendiente de la secuencia (decisión del usuario): (4) **Backup config por SSH
     (switches) + topología L2 automática (LLDP)**.
 
@@ -368,8 +373,9 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
   - NOTA: requiere LLDP activo en los equipos. Los vecinos no gestionados aparecen como nodos "externos".
 
 Con esto quedan las **4 mejoras** de la secuencia (auto-descubrimiento, hardware, sintéticos, backup SSH +
-topología LLDP). Pendientes de prueba EN VIVO por requerir credenciales del usuario: lectura Redfish del
-iDRAC (hardware) y volcado SSH de switches (backup).
+topología LLDP), todas en producción. Verificadas EN VIVO: auto-descubrimiento (escaneo real), sintéticos
+(transacción 2 pasos), topología LLDP (286 vecinos) y hardware Redfish (Dell R640 en id 24). Pendiente de
+prueba EN VIVO por requerir credenciales del usuario: solo el volcado SSH de switches (backup #4A).
 
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.
