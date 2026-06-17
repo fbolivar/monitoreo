@@ -48,6 +48,44 @@ export class Dashboard implements OnInit, OnDestroy {
     return r;
   });
 
+  // ── Indicadores de cabecera (centro de operaciones) ──
+  private readonly HEX: Record<Estado, string> = {
+    up: '#2e9e4f', degraded: '#d98a00', down: '#d23b3b', unknown: '#8a978d', maintenance: '#2f6fb0',
+  };
+  color(e: Estado): string { return this.HEX[e]; }
+
+  total = computed(() => this.recursos().length);
+  /** % de recursos plenamente operativos. */
+  salud = computed(() => {
+    const t = this.total();
+    return t ? Math.round((this.resumen().up / t) * 100) : 0;
+  });
+  /** Recursos caídos o degradados (para la banda de atención), peor primero. */
+  atencion = computed(() => {
+    const orden: Record<Estado, number> = { down: 0, degraded: 1, unknown: 2, maintenance: 3, up: 4 };
+    return this.recursos()
+      .filter((r) => r.estado_actual === 'down' || r.estado_actual === 'degraded')
+      .sort((a, b) => orden[a.estado_actual] - orden[b.estado_actual]);
+  });
+
+  // Anillo (donut) de distribución por estado.
+  readonly R = 54;
+  readonly C = 2 * Math.PI * 54;
+  donut = computed(() => {
+    const total = this.total() || 1;
+    const res = this.resumen();
+    let acc = 0;
+    const segs: { color: string; dasharray: string; dashoffset: number }[] = [];
+    for (const e of this.estados) {
+      const n = res[e];
+      if (!n) continue;
+      const len = (n / total) * this.C;
+      segs.push({ color: this.HEX[e], dasharray: `${len} ${this.C - len}`, dashoffset: -acc });
+      acc += len;
+    }
+    return segs;
+  });
+
   filtrados = computed(() => {
     const est = this.filtroEstado();
     const q = this.busqueda().trim().toLowerCase();

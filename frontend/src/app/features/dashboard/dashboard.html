@@ -1,57 +1,105 @@
 <div class="head">
-  <h1>Dashboard</h1>
+  <div class="title">
+    <h1>Centro de operaciones</h1>
+    <p class="text-dim">Estado en tiempo casi-real de la infraestructura de TI</p>
+  </div>
   <span class="live" [class.on]="enVivo()" [title]="'Refresco automático cada ' + intervaloSeg + 's'">
-    <span class="dot" [class.bg-up]="enVivo()" [class.bg-unknown]="!enVivo()"></span>
+    <span class="pulse"></span>
     {{ enVivo() ? 'En vivo · ' + intervaloSeg + 's' : 'Sin conexión' }}
   </span>
-</div>
-
-<!-- Resumen semáforo -->
-<div class="resumen">
-  @for (e of estados; track e) {
-    <button class="chip card" [class.sel]="filtroEstado() === e"
-            (click)="filtroEstado.set(filtroEstado() === e ? '' : e)">
-      <span class="dot" [class]="'bg-' + e"></span>
-      <span class="n">{{ resumen()[e] }}</span>
-      <span class="text-dim">{{ estadoLabel[e] }}</span>
-    </button>
-  }
-</div>
-
-<!-- Filtros -->
-<div class="filtros">
-  <input type="search" placeholder="Buscar por nombre o IP…"
-         [ngModel]="busqueda()" (ngModelChange)="busqueda.set($event)" />
-  @if (filtroEstado()) {
-    <button class="btn" (click)="filtroEstado.set('')">Quitar filtro: {{ labelFiltro() }}</button>
-  }
 </div>
 
 @if (cargando()) {
   <p class="text-dim">Cargando…</p>
 } @else if (error()) {
-  <p class="err">{{ error() }}</p>
-} @else if (grupos().length === 0) {
-  <p class="text-dim">Sin recursos que mostrar.</p>
+  <p class="err card">{{ error() }}</p>
 } @else {
-  @for (g of grupos(); track g.sitio) {
-    <section class="sitio">
-      <h2>{{ g.sitio }} <span class="text-dim">({{ g.total }})</span></h2>
-      @for (t of g.tipos; track t.tipo) {
-        <div class="tipo">
-          <div class="tipo-h text-dim">{{ t.tipo }}</div>
-          <div class="grid">
-            @for (r of t.recursos; track r.id) {
-              <a class="recurso card" [routerLink]="['/recursos', r.id]" [title]="r.hostname">
-                <span class="dot" [class]="'bg-' + r.estado_actual"></span>
-                <span class="nom">{{ r.nombre }}</span>
-                <span class="host text-dim">{{ r.hostname }}</span>
-                <span class="t text-dim">{{ hace(r.ultimo_chequeo_at) }}</span>
-              </a>
-            }
-          </div>
-        </div>
+  <!-- ════════ HERO: salud global + tiles ════════ -->
+  <div class="hero">
+    <div class="card salud-card">
+      <svg viewBox="0 0 120 120" class="donut" aria-hidden="true">
+        <circle cx="60" cy="60" [attr.r]="R" class="track" />
+        <g transform="rotate(-90 60 60)">
+          @for (s of donut(); track $index) {
+            <circle cx="60" cy="60" [attr.r]="R" [attr.stroke]="s.color"
+                    [attr.stroke-dasharray]="s.dasharray" [attr.stroke-dashoffset]="s.dashoffset" class="seg" />
+          }
+        </g>
+        <text x="60" y="58" class="d-num">{{ salud() }}%</text>
+        <text x="60" y="76" class="d-lbl">operativos</text>
+      </svg>
+      <div class="salud-meta">
+        <b>{{ total() }}</b>
+        <span class="text-dim">recursos monitoreados</span>
+      </div>
+    </div>
+
+    <div class="tiles">
+      @for (e of estados; track e) {
+        <button class="tile" [class]="'t-' + e" [class.sel]="filtroEstado() === e"
+                (click)="filtroEstado.set(filtroEstado() === e ? '' : e)"
+                [title]="'Filtrar: ' + estadoLabel[e]">
+          <span class="bar"></span>
+          <span class="t-n">{{ resumen()[e] }}</span>
+          <span class="t-l">{{ estadoLabel[e] }}</span>
+        </button>
       }
-    </section>
+    </div>
+  </div>
+
+  <!-- ════════ REQUIEREN ATENCIÓN ════════ -->
+  @if (atencion().length > 0) {
+    <div class="atencion card">
+      <div class="a-h">
+        <span class="warn">⚠</span> Requieren atención
+        <span class="badge">{{ atencion().length }}</span>
+      </div>
+      <div class="a-grid">
+        @for (r of atencion(); track r.id) {
+          <a class="a-item" [class]="'a-' + r.estado_actual" [routerLink]="['/recursos', r.id]" [title]="r.hostname">
+            <span class="dot" [class]="'bg-' + r.estado_actual"></span>
+            <span class="a-nom">{{ r.nombre }}</span>
+            <span class="a-est">{{ estadoLabel[r.estado_actual] }}</span>
+            <span class="a-host text-dim">{{ r.hostname }}</span>
+          </a>
+        }
+      </div>
+    </div>
+  }
+
+  <!-- ════════ FILTROS ════════ -->
+  <div class="filtros">
+    <input type="search" placeholder="🔍  Buscar por nombre o IP…"
+           [ngModel]="busqueda()" (ngModelChange)="busqueda.set($event)" />
+    @if (filtroEstado()) {
+      <button class="btn" (click)="filtroEstado.set('')">✕ {{ labelFiltro() }}</button>
+    }
+  </div>
+
+  <!-- ════════ RECURSOS POR SITIO ════════ -->
+  @if (grupos().length === 0) {
+    <p class="text-dim">Sin recursos que mostrar.</p>
+  } @else {
+    @for (g of grupos(); track g.sitio) {
+      <section class="sitio">
+        <h2><span class="bullet"></span>{{ g.sitio }} <span class="text-dim">· {{ g.total }}</span></h2>
+        @for (t of g.tipos; track t.tipo) {
+          <div class="tipo">
+            <div class="tipo-h">{{ t.tipo }} <span class="text-dim">({{ t.recursos.length }})</span></div>
+            <div class="grid">
+              @for (r of t.recursos; track r.id) {
+                <a class="recurso card" [class]="'st-' + r.estado_actual"
+                   [routerLink]="['/recursos', r.id]" [title]="r.hostname">
+                  <span class="dot" [class]="'bg-' + r.estado_actual"></span>
+                  <span class="nom">{{ r.nombre }}</span>
+                  <span class="host text-dim">{{ r.hostname }}</span>
+                  <span class="t text-dim">{{ hace(r.ultimo_chequeo_at) }}</span>
+                </a>
+              }
+            </div>
+          </div>
+        }
+      </section>
+    }
   }
 }
