@@ -52,6 +52,18 @@ latencia y su estado, y los **correlaciona**.
 **liberar/ampliar ese disco** antes de que se caiga. El monitoreo diría "UP"; la
 observabilidad te dice *qué* arreglar y *por qué*.
 
+## Niveles de objetivo (SLA) sugeridos
+El `objetivo_ms` marca cuándo la experiencia de entrada es "lenta". Criterio usado:
+
+| Tipo de servicio | Objetivo |
+|---|---|
+| Transaccional (pagos) | 2000 ms |
+| Portales ciudadanos (web pública de consulta) | 3000 ms |
+| Servicios internos / conectividad (infra) | 2500 ms |
+| App de gestión interna | 2500 ms |
+
+Ajústalos por servicio según tu compromiso real con el usuario (editar la transacción).
+
 ## Camino B (futuro): observabilidad "real"
 Lo anterior es observabilidad **desde afuera** con lo que SIMON ya mide. Para **experiencia
 real del usuario (RUM)** y **trazas distribuidas** de las apps del cliente, se añade un
