@@ -319,7 +319,12 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
     `componente IS NULL`. `_gestionar_incidencias_hardware` abre (down→critical, degraded→warning), escala
     (degraded↔down) y cierra al recuperarse, notificando por el motor de incidencias (reconocible/resoluble,
     sale en Incidencias/wallboard). Respeta mantenimiento.
-  - PENDIENTE (usuario): activar `parametros.hardware` en el resto de servidores.
+  - MÁS SERVIDORES (2026-06-17): hardware activado también en PNNCSRVNCFHV1 (id 76, iDRAC .10.34, Dell R640
+    serial CNCMS0017400YT, vía Redfish, salud up). Como su iDRAC no responde SNMP, su estado base se vigila
+    por ping con el nuevo override `parametros.metodo='icmp'` (en `seleccionar_probe`; útil para BMC/hosts sin
+    SNMP). PENDIENTE: el resto de servidores requiere sus IP de iDRAC (solo se conocen .10.34/.35).
+  - FortiSwitches de piso: backup SSH NO disponible — rechazan credenciales del core (gestionados por FortiLink,
+    SSH propio que el usuario no aportó). Su config va embebida en el backup del FortiGate (ya se respalda).
   - Pendiente de la secuencia (decisión del usuario): (4) **Backup config por SSH
     (switches) + topología L2 automática (LLDP)**.
 
@@ -383,6 +388,10 @@ Funciones SQL: `fn_rollup_metricas_horario`, `fn_rollup_metricas_diario`, `fn_pu
     nombre del recurso en SIMON, ahora se camina también `lldpRemManAddrTable` (la IP va en el ÍNDICE del OID;
     `parse_direcciones_gestion` la extrae para IPv4) y se guarda `lldp_vecinos.remote_mgmt`. El resolver enlaza
     el vecino a un recurso por `hostname`=IP_de_gestión (COALESCE) y, si no, por sysName. UI: columna "Gestión".
+  - ENLACE POR MAC DE CHASSIS (2026-06-17): como estos switches NO publican lldpRemManAddr y el sysName no
+    coincide, el resolver añade un 3er método: lee el chassis-id propio de cada switch (`lldpLocChassisId`),
+    arma un mapa MAC→recurso y enlaza el vecino cuyo `remote_chassis` coincida. Resultado real: 19 enlaces
+    gestionados (los anillos/stacks de FortiSwitch por piso). Orden de resolución: MAC → IP gestión → sysName.
 
 Con esto quedan las **4 mejoras** de la secuencia (auto-descubrimiento, hardware, sintéticos, backup SSH +
 topología LLDP), todas en producción y **todas verificadas EN VIVO**: auto-descubrimiento (escaneo real),
