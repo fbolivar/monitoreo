@@ -1,4 +1,4 @@
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpParams, HttpResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
@@ -35,5 +35,12 @@ export class ApiService {
 
   delete<T>(path: string): Observable<T> {
     return this.http.delete<T>(`${this.base}${path}`);
+  }
+
+  /** Descarga un archivo (con el JWT del interceptor). Devuelve la respuesta con headers. */
+  descargar(path: string, query?: Record<string, unknown>): Observable<HttpResponse<Blob>> {
+    return this.http.get(`${this.base}${path}`, {
+      params: this.params(query), responseType: 'blob', observe: 'response',
+    });
   }
 }

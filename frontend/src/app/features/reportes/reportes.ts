@@ -1,13 +1,16 @@
 import { DecimalPipe } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpResponse } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { FilaDisponibilidad, Pronostico, ReporteProgramado } from '../../core/models';
+import { FilaDisponibilidad, Pronostico, Recurso, ReporteProgramado, Sitio } from '../../core/models';
 import { AuthService } from '../../core/auth.service';
+import { RecursosService } from '../../core/recursos.service';
 import { ReportesService } from '../../core/reportes.service';
 import { EstadoBadge } from '../../shared/estado-badge';
 import { fecha } from '../../shared/tiempo';
 
 type Rango = '24h' | '7d' | '30d';
+type TipoReporte = 'ejecutivo' | 'sitio' | 'recurso' | 'servicios';
 
 @Component({
   selector: 'app-reportes',
@@ -18,8 +21,54 @@ type Rango = '24h' | '7d' | '30d';
 })
 export class Reportes implements OnInit {
   private svc = inject(ReportesService);
+  private recSvc = inject(RecursosService);
   auth = inject(AuthService);
   fecha = fecha;
+
+  // ── Generador/exportador de reportes ──
+  tipoRep = signal<TipoReporte>('ejecutivo');
+  repRango = signal<Rango>('7d');
+  repSitio = signal<number | ''>('');
+  repRecurso = signal<number | ''>('');
+  sitiosLista = signal<Sitio[]>([]);
+  recursosLista = signal<Recurso[]>([]);
+  generando = signal<string | null>(null);   // formato en curso
+  errorExp = signal<string | null>(null);
+
+  readonly tiposRep: { id: TipoReporte; label: string }[] = [
+    { id: 'ejecutivo', label: 'Ejecutivo general' },
+    { id: 'sitio', label: 'Por sitio' },
+    { id: 'recurso', label: 'Por recurso' },
+    { id: 'servicios', label: 'Servicios' },
+  ];
+
+  exportar(formato: 'csv' | 'xlsx' | 'pdf'): void {
+    const tipo = this.tipoRep();
+    this.errorExp.set(null);
+    this.generando.set(formato);
+    const query: Record<string, unknown> = { rango: this.repRango() };
+    if (tipo === 'sitio' && this.repSitio()) query['id'] = this.repSitio();
+    if (tipo === 'recurso' && this.repRecurso()) query['id'] = this.repRecurso();
+
+    this.svc.exportar(tipo, formato, query).subscribe({
+      next: (resp) => { this.guardar(resp, `reporte_${tipo}.${formato}`); this.generando.set(null); },
+      error: () => { this.errorExp.set('No se pudo generar el reporte.'); this.generando.set(null); },
+    });
+  }
+
+  private guardar(resp: HttpResponse<Blob>, fallback: string): void {
+    const blob = resp.body;
+    if (!blob) return;
+    const cd = resp.headers.get('Content-Disposition') ?? '';
+    const m = /filename="?([^"]+)"?/.exec(cd);
+    const nombre = m ? m[1] : fallback;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nombre;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   rango = signal<Rango>('7d');
   filas = signal<FilaDisponibilidad[]>([]);
@@ -55,6 +104,8 @@ export class Reportes implements OnInit {
     this.cargar();
     this.svc.pronosticos().subscribe((p) => this.pronosticos.set(p));
     this.cargarProgramados();
+    this.recSvc.sitios().subscribe((p) => this.sitiosLista.set(p.data));
+    this.recSvc.listar({ per_page: 300 }).subscribe((p) => this.recursosLista.set(p.data));
   }
 
   private progVacio() {

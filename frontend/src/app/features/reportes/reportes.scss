@@ -11,6 +11,16 @@ h1 { font-size: 18px; margin: 0; }
 
 .nota { font-size: 12px; margin: 12px 0 6px; }
 .sub { font-size: 15px; margin: 26px 0 4px; }
+
+/* Generador / exportador de reportes */
+.generador { margin-bottom: 18px; }
+.generador .sub { margin: 0 0 10px; }
+.gen-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.gen-row label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-dim); }
+.gen-row select { min-width: 150px; }
+.gen-btns { display: flex; gap: 8px; margin-left: auto; }
+.generador .hint { font-size: 12px; margin: 8px 0 0; }
+.generador .err { color: var(--sev-critical); margin: 6px 0 0; }
 .mb { margin-bottom: 12px; }
 .err { color: var(--sev-critical); }
 

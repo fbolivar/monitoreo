@@ -11,6 +11,51 @@
   </div>
 </div>
 
+<!-- ════════ GENERAR / EXPORTAR REPORTES ════════ -->
+<div class="card generador">
+  <h2 class="sub">Generar reporte</h2>
+  <div class="gen-row">
+    <label>Tipo
+      <select [ngModel]="tipoRep()" (ngModelChange)="tipoRep.set($any($event))" [ngModelOptions]="{ standalone: true }">
+        @for (t of tiposRep; track t.id) { <option [value]="t.id">{{ t.label }}</option> }
+      </select>
+    </label>
+    @if (tipoRep() !== 'servicios') {
+      <label>Periodo
+        <select [ngModel]="repRango()" (ngModelChange)="repRango.set($any($event))" [ngModelOptions]="{ standalone: true }">
+          <option value="24h">24 horas</option>
+          <option value="7d">7 días</option>
+          <option value="30d">30 días</option>
+        </select>
+      </label>
+    }
+    @if (tipoRep() === 'sitio') {
+      <label>Sitio
+        <select [ngModel]="repSitio()" (ngModelChange)="repSitio.set($any($event))" [ngModelOptions]="{ standalone: true }">
+          <option [ngValue]="''">Todos los sitios</option>
+          @for (s of sitiosLista(); track s.id) { <option [ngValue]="s.id">{{ s.nombre }}</option> }
+        </select>
+      </label>
+    }
+    @if (tipoRep() === 'recurso') {
+      <label>Recurso
+        <select [ngModel]="repRecurso()" (ngModelChange)="repRecurso.set($any($event))" [ngModelOptions]="{ standalone: true }">
+          <option [ngValue]="''">Todos los recursos</option>
+          @for (r of recursosLista(); track r.id) { <option [ngValue]="r.id">{{ r.nombre }}</option> }
+        </select>
+      </label>
+    }
+    <div class="gen-btns">
+      <button class="btn" (click)="exportar('csv')" [disabled]="generando()">CSV</button>
+      <button class="btn" (click)="exportar('xlsx')" [disabled]="generando()">Excel (XLSX)</button>
+      <button class="btn btn-primary" (click)="exportar('pdf')" [disabled]="generando()">PDF</button>
+    </div>
+  </div>
+  @if (generando()) { <p class="text-dim">Generando {{ generando() }}…</p> }
+  @if (errorExp()) { <p class="err">{{ errorExp() }}</p> }
+  <p class="text-dim hint">El PDF se genera con la imagen corporativa (logo y colores institucionales). Excel y CSV para análisis de datos.</p>
+</div>
+
 @if (cargando()) {
   <p class="text-dim">Calculando disponibilidad…</p>
 } @else {

@@ -14,6 +14,7 @@ use App\Http\Controllers\PronosticoController;
 use App\Http\Controllers\RecursoController;
 use App\Http\Controllers\ReglaController;
 use App\Http\Controllers\ReporteController;
+use App\Http\Controllers\ReporteExportController;
 use App\Http\Controllers\ReporteProgramadoController;
 use App\Http\Controllers\ServicioController;
 use App\Http\Controllers\SitioController;
@@ -75,6 +76,10 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
 
     // Reportes (lectura): disponibilidad/SLA por recurso en un periodo.
     Route::get('reportes/disponibilidad', [ReporteController::class, 'disponibilidad']);
+
+    // Exportación de reportes (ejecutivo/sitio/recurso/servicios) en CSV/XLSX/PDF.
+    Route::get('reportes/export/{tipo}', [ReporteExportController::class, 'export'])
+        ->whereIn('tipo', ['ejecutivo', 'sitio', 'recurso', 'servicios']);
 
     // Pronósticos de capacidad (lectura): los calcula el worker.
     Route::get('pronosticos', [PronosticoController::class, 'index']);

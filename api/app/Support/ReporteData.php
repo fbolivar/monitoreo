@@ -1,0 +1,314 @@
+<?php
+
+namespace App\Support;
+
+use Illuminate\Support\Facades\DB;
+
+/**
+ * Construye los datos de los 4 reportes en una ESTRUCTURA NORMALIZADA que luego
+ * renderizan CSV/XLSX/PDF por igual:
+ *   ['titulo','subtitulo','kpis'=>[['label','valor']],'tablas'=>[['titulo','columnas','filas']]]
+ */
+class ReporteData
+{
+    private const RANGO_SEG = ['24h' => 86400, '7d' => 604800, '30d' => 2592000];
+    private const RANGO_TXT = ['24h' => 'últimas 24 horas', '7d' => 'últimos 7 días', '30d' => 'últimos 30 días'];
+    private const SNMP_TIPOS = ['servidor', 'switch_lan', 'switch_san', 'nas', 'ups'];
+    private const PESO = ['down' => 5, 'degraded' => 4, 'unknown' => 3, 'maintenance' => 2, 'up' => 1];
+
+    public static function rangoTexto(string $rango): string
+    {
+        return self::RANGO_TXT[$rango] ?? self::RANGO_TXT['7d'];
+    }
+
+    private static function rangoSeg(string $rango): int
+    {
+        return self::RANGO_SEG[$rango] ?? 604800;
+    }
+
+    private static function generado(): string
+    {
+        return now()->format('Y-m-d H:i');
+    }
+
+    // ── Disponibilidad por recurso (base de varios reportes) ───────────
+    private static function disponibilidad(int $rangoSeg, ?int $sitioId = null, ?int $recursoId = null): array
+    {
+        $desde = now()->subSeconds($rangoSeg)->toDateTimeString();
+        $cond = 'r.activo = true';
+        $bind = [$desde, $desde];
+        if ($recursoId) { $cond .= ' AND r.id = ?'; $bind[] = $recursoId; }
+        elseif ($sitioId) { $cond .= ' AND r.sitio_id = ?'; $bind[] = $sitioId; }
+
+        $rows = DB::select(
+            "SELECT r.id, r.nombre, r.estado_actual, t.nombre AS tipo_nombre,
+                    COALESCE(s.nombre,'—') AS sitio_nombre,
+                    count(c.id) FILTER (WHERE c.estado='up')       AS up,
+                    count(c.id) FILTER (WHERE c.estado='degraded') AS degraded,
+                    count(c.id) FILTER (WHERE c.estado='down')     AS down,
+                    count(c.id) FILTER (WHERE c.estado='unknown')  AS unknown,
+                    (SELECT count(*) FROM incidencias i WHERE i.recurso_id=r.id AND i.abierta_at >= ?) AS incidencias
+             FROM recursos r
+             JOIN tipos_recurso t ON t.id = r.tipo_id
+             LEFT JOIN sitios s ON s.id = r.sitio_id
+             LEFT JOIN chequeos c ON c.recurso_id = r.id AND c.ts >= ?
+             WHERE $cond
+             GROUP BY r.id, t.nombre, s.nombre
+             ORDER BY r.nombre",
+            $bind
+        );
+
+        return array_map(function ($r) {
+            $base = $r->up + $r->degraded + $r->down;
+            $r->disponibilidad = $base > 0 ? round(($r->up + $r->degraded) / $base * 100, 2) : null;
+
+            return $r;
+        }, $rows);
+    }
+
+    private static function dispTxt($d): string
+    {
+        return $d === null ? 'sin datos' : number_format($d, 2).'%';
+    }
+
+    private static function conteoEstados(): array
+    {
+        $c = ['up' => 0, 'degraded' => 0, 'down' => 0, 'unknown' => 0, 'maintenance' => 0];
+        foreach (DB::table('recursos')->where('activo', true)
+            ->select('estado_actual', DB::raw('count(*) as n'))->groupBy('estado_actual')->get() as $r) {
+            $c[$r->estado_actual] = (int) $r->n;
+        }
+
+        return $c;
+    }
+
+    // ── Análisis de servicios (mismo criterio que ServicioController) ──
+    private static function serviciosAnalisis(): array
+    {
+        $servicios = DB::table('servicios')->orderBy('nombre')->get();
+        $out = [];
+        foreach ($servicios as $s) {
+            $comps = DB::table('servicio_componentes as c')
+                ->leftJoin('recursos as r', 'r.id', '=', 'c.recurso_id')
+                ->leftJoin('tipos_recurso as t', 't.id', '=', 'r.tipo_id')
+                ->where('c.servicio_id', $s->id)->orderBy('c.orden')
+                ->get(['c.nombre', 'c.recurso_id', 'r.estado_actual', 't.codigo as tipo_codigo']);
+
+            $peor = 'up'; $exp = null; $cuello = null; $cuelloEstado = 'up'; $cuelloLat = -1;
+            foreach ($comps as $c) {
+                $estado = $c->estado_actual ?? 'unknown';
+                $infra = in_array($c->tipo_codigo, self::SNMP_TIPOS, true);
+                $lat = $infra || ! $c->recurso_id ? null : DB::table('chequeos')->where('recurso_id', $c->recurso_id)
+                    ->orderByDesc('ts')->value('latencia_ms');
+                if (self::PESO[$estado] > self::PESO[$peor]) $peor = $estado;
+                if ($lat !== null && $exp === null) $exp = (int) $lat;
+                // cuello: peor estado, luego mayor latencia
+                if (self::PESO[$estado] > self::PESO[$cuelloEstado]
+                    || ($estado === $cuelloEstado && (int) $lat > $cuelloLat)) {
+                    $cuello = $c->nombre; $cuelloEstado = $estado; $cuelloLat = (int) $lat;
+                }
+            }
+            $alto = ($exp !== null && $exp > $s->objetivo_ms) || in_array($peor, ['down', 'degraded'], true);
+            $out[] = [
+                'nombre' => $s->nombre, 'estado' => $peor, 'experiencia_ms' => $exp,
+                'objetivo_ms' => $s->objetivo_ms, 'cuello' => $cuello, 'alto_impacto' => $alto,
+            ];
+        }
+
+        return $out;
+    }
+
+    private static function ms($v): string
+    {
+        if ($v === null) return '—';
+        return $v >= 1000 ? number_format($v / 1000, 2).' s' : round($v).' ms';
+    }
+
+    // ── 1) Reporte ejecutivo general ──────────────────────────────────
+    public static function ejecutivo(string $rango): array
+    {
+        $disp = self::disponibilidad(self::rangoSeg($rango));
+        $est = self::conteoEstados();
+        $dispVals = array_values(array_filter(array_map(fn ($r) => $r->disponibilidad, $disp), fn ($x) => $x !== null));
+        $prom = $dispVals ? round(array_sum($dispVals) / count($dispVals), 2) : null;
+        $incPeriodo = array_sum(array_map(fn ($r) => (int) $r->incidencias, $disp));
+        $incAbiertas = DB::table('incidencias')->where('estado', '<>', 'resuelta')->count();
+        $servicios = self::serviciosAnalisis();
+        $svcAfectados = count(array_filter($servicios, fn ($s) => $s['alto_impacto']));
+
+        // Agregado por sitio
+        $porSitio = [];
+        foreach ($disp as $r) {
+            $k = $r->sitio_nombre;
+            $porSitio[$k] ??= ['recursos' => 0, 'up' => 0, 'degraded' => 0, 'down' => 0, 'inc' => 0];
+            $porSitio[$k]['recursos']++;
+            $porSitio[$k]['up'] += $r->up; $porSitio[$k]['degraded'] += $r->degraded;
+            $porSitio[$k]['down'] += $r->down; $porSitio[$k]['inc'] += (int) $r->incidencias;
+        }
+        $filasSitio = [];
+        foreach ($porSitio as $sitio => $v) {
+            $b = $v['up'] + $v['degraded'] + $v['down'];
+            $filasSitio[] = [$sitio, $v['recursos'], self::dispTxt($b > 0 ? round(($v['up'] + $v['degraded']) / $b * 100, 2) : null), $v['inc']];
+        }
+
+        // Agregado por tipo
+        $porTipo = [];
+        foreach ($disp as $r) {
+            $k = $r->tipo_nombre;
+            $porTipo[$k] ??= ['recursos' => 0, 'up' => 0, 'degraded' => 0, 'down' => 0];
+            $porTipo[$k]['recursos']++;
+            $porTipo[$k]['up'] += $r->up; $porTipo[$k]['degraded'] += $r->degraded; $porTipo[$k]['down'] += $r->down;
+        }
+        $filasTipo = [];
+        foreach ($porTipo as $tipo => $v) {
+            $b = $v['up'] + $v['degraded'] + $v['down'];
+            $filasTipo[] = [$tipo, $v['recursos'], self::dispTxt($b > 0 ? round(($v['up'] + $v['degraded']) / $b * 100, 2) : null)];
+        }
+
+        // Top recursos con peor disponibilidad / más incidencias
+        $orden = $disp;
+        usort($orden, fn ($a, $b) => ($a->disponibilidad ?? 101) <=> ($b->disponibilidad ?? 101) ?: $b->incidencias <=> $a->incidencias);
+        $filasTop = array_map(fn ($r) => [
+            $r->nombre, $r->tipo_nombre, $r->sitio_nombre, ucfirst($r->estado_actual),
+            self::dispTxt($r->disponibilidad), (int) $r->incidencias,
+        ], array_slice($orden, 0, 10));
+
+        // Servicios
+        $filasSvc = array_map(fn ($s) => [
+            $s['nombre'], ucfirst($s['estado']), self::ms($s['experiencia_ms']),
+            self::ms($s['objetivo_ms']), $s['cuello'] ?? '—', $s['alto_impacto'] ? 'Sí' : 'No',
+        ], $servicios);
+
+        return [
+            'titulo' => 'Reporte ejecutivo de monitoreo',
+            'subtitulo' => 'Periodo: '.self::rangoTexto($rango).'  ·  Generado: '.self::generado(),
+            'kpis' => [
+                ['label' => 'Recursos monitoreados', 'valor' => count($disp)],
+                ['label' => 'Disponibilidad promedio', 'valor' => self::dispTxt($prom)],
+                ['label' => 'Operativos', 'valor' => $est['up']],
+                ['label' => 'Degradados', 'valor' => $est['degraded']],
+                ['label' => 'Caídos', 'valor' => $est['down']],
+                ['label' => 'Incidencias abiertas', 'valor' => $incAbiertas],
+                ['label' => 'Incidencias en el periodo', 'valor' => $incPeriodo],
+                ['label' => 'Servicios con afectación', 'valor' => $svcAfectados.' / '.count($servicios)],
+            ],
+            'tablas' => [
+                ['titulo' => 'Disponibilidad por sitio', 'columnas' => ['Sitio', 'Recursos', 'Disponibilidad', 'Incidencias'], 'filas' => $filasSitio],
+                ['titulo' => 'Disponibilidad por tipo', 'columnas' => ['Tipo', 'Recursos', 'Disponibilidad'], 'filas' => $filasTipo],
+                ['titulo' => 'Recursos que requieren atención (peor disponibilidad)', 'columnas' => ['Recurso', 'Tipo', 'Sitio', 'Estado', 'Disponibilidad', 'Incid.'], 'filas' => $filasTop],
+                ['titulo' => 'Servicios (observabilidad)', 'columnas' => ['Servicio', 'Estado', 'Experiencia', 'Objetivo', 'Cuello de botella', 'Afectación'], 'filas' => $filasSvc],
+            ],
+        ];
+    }
+
+    // ── 2) Reporte por sitio ──────────────────────────────────────────
+    public static function porSitio(string $rango, ?int $sitioId): array
+    {
+        $disp = self::disponibilidad(self::rangoSeg($rango), $sitioId);
+        $sitioNom = $sitioId ? (DB::table('sitios')->where('id', $sitioId)->value('nombre') ?? "Sitio #$sitioId") : 'Todos los sitios';
+
+        // Agrupar por sitio
+        $grupos = [];
+        foreach ($disp as $r) { $grupos[$r->sitio_nombre][] = $r; }
+        $tablas = [];
+        foreach ($grupos as $sitio => $rs) {
+            $filas = array_map(fn ($r) => [
+                $r->nombre, $r->tipo_nombre, ucfirst($r->estado_actual),
+                self::dispTxt($r->disponibilidad), (int) $r->incidencias,
+            ], $rs);
+            $tablas[] = ['titulo' => 'Sitio: '.$sitio.' ('.count($rs).' recursos)',
+                'columnas' => ['Recurso', 'Tipo', 'Estado', 'Disponibilidad', 'Incidencias'], 'filas' => $filas];
+        }
+
+        $dispVals = array_values(array_filter(array_map(fn ($r) => $r->disponibilidad, $disp), fn ($x) => $x !== null));
+        $prom = $dispVals ? round(array_sum($dispVals) / count($dispVals), 2) : null;
+
+        return [
+            'titulo' => 'Reporte por sitio — '.$sitioNom,
+            'subtitulo' => 'Periodo: '.self::rangoTexto($rango).'  ·  Generado: '.self::generado(),
+            'kpis' => [
+                ['label' => 'Sitios', 'valor' => count($grupos)],
+                ['label' => 'Recursos', 'valor' => count($disp)],
+                ['label' => 'Disponibilidad promedio', 'valor' => self::dispTxt($prom)],
+                ['label' => 'Incidencias en el periodo', 'valor' => array_sum(array_map(fn ($r) => (int) $r->incidencias, $disp))],
+            ],
+            'tablas' => $tablas ?: [['titulo' => 'Sin datos', 'columnas' => ['—'], 'filas' => []]],
+        ];
+    }
+
+    // ── 3) Reporte por recurso ────────────────────────────────────────
+    public static function porRecurso(string $rango, ?int $recursoId): array
+    {
+        $disp = self::disponibilidad(self::rangoSeg($rango), null, $recursoId);
+        $filas = array_map(fn ($r) => [
+            $r->nombre, $r->tipo_nombre, $r->sitio_nombre, ucfirst($r->estado_actual),
+            self::dispTxt($r->disponibilidad), (int) $r->up, (int) $r->degraded, (int) $r->down, (int) $r->incidencias,
+        ], $disp);
+
+        $tablas = [['titulo' => 'Detalle por recurso',
+            'columnas' => ['Recurso', 'Tipo', 'Sitio', 'Estado', 'Disponibilidad', 'Up', 'Degr.', 'Caído', 'Incid.'],
+            'filas' => $filas]];
+
+        // Si es un recurso puntual, añade su histórico de incidencias del periodo.
+        if ($recursoId) {
+            $desde = now()->subSeconds(self::rangoSeg($rango))->toDateTimeString();
+            $inc = DB::table('incidencias')->where('recurso_id', $recursoId)
+                ->where('abierta_at', '>=', $desde)->orderByDesc('abierta_at')
+                ->get(['severidad', 'titulo', 'abierta_at', 'resuelta_at', 'estado']);
+            $filasInc = $inc->map(fn ($i) => [
+                ucfirst($i->severidad), $i->titulo,
+                substr((string) $i->abierta_at, 0, 16),
+                $i->resuelta_at ? substr((string) $i->resuelta_at, 0, 16) : 'en curso',
+                ucfirst($i->estado),
+            ])->all();
+            $tablas[] = ['titulo' => 'Incidencias del periodo',
+                'columnas' => ['Severidad', 'Título', 'Inicio', 'Fin', 'Estado'], 'filas' => $filasInc];
+        }
+
+        $nom = $recursoId ? ($disp[0]->nombre ?? "Recurso #$recursoId") : 'Todos los recursos';
+
+        return [
+            'titulo' => 'Reporte por recurso — '.$nom,
+            'subtitulo' => 'Periodo: '.self::rangoTexto($rango).'  ·  Generado: '.self::generado(),
+            'kpis' => [['label' => 'Recursos', 'valor' => count($disp)]],
+            'tablas' => $tablas,
+        ];
+    }
+
+    // ── 4) Reporte de servicios (observabilidad) ──────────────────────
+    public static function servicios(string $rango): array
+    {
+        $svc = self::serviciosAnalisis();
+        usort($svc, fn ($a, $b) => self::PESO[$b['estado']] <=> self::PESO[$a['estado']]
+            ?: ($b['alto_impacto'] <=> $a['alto_impacto']));
+        $filas = array_map(fn ($s) => [
+            $s['nombre'], ucfirst($s['estado']), self::ms($s['experiencia_ms']), self::ms($s['objetivo_ms']),
+            $s['cuello'] ?? '—', $s['alto_impacto'] ? 'Sí' : 'No',
+        ], $svc);
+
+        return [
+            'titulo' => 'Reporte de servicios (observabilidad)',
+            'subtitulo' => 'Generado: '.self::generado(),
+            'kpis' => [
+                ['label' => 'Servicios', 'valor' => count($svc)],
+                ['label' => 'Con afectación', 'valor' => count(array_filter($svc, fn ($s) => $s['alto_impacto']))],
+                ['label' => 'Sanos', 'valor' => count(array_filter($svc, fn ($s) => ! $s['alto_impacto']))],
+            ],
+            'tablas' => [
+                ['titulo' => 'Estado de los servicios', 'columnas' => ['Servicio', 'Estado', 'Experiencia', 'Objetivo', 'Cuello de botella', 'Afectación'], 'filas' => $filas],
+            ],
+        ];
+    }
+
+    /** Despacha por tipo de reporte. */
+    public static function construir(string $tipo, string $rango, ?int $id): array
+    {
+        return match ($tipo) {
+            'ejecutivo' => self::ejecutivo($rango),
+            'sitio'     => self::porSitio($rango, $id),
+            'recurso'   => self::porRecurso($rango, $id),
+            'servicios' => self::servicios($rango),
+            default     => self::ejecutivo($rango),
+        };
+    }
+}

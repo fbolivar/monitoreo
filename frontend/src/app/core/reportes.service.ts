@@ -1,3 +1,4 @@
+import { HttpResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
@@ -13,6 +14,12 @@ export class ReportesService {
 
   pronosticos(): Observable<Pronostico[]> {
     return this.api.get<Pronostico[]>('/pronosticos');
+  }
+
+  /** Exporta un reporte (ejecutivo/sitio/recurso/servicios) en csv/xlsx/pdf. */
+  exportar(tipo: string, formato: 'csv' | 'xlsx' | 'pdf',
+           query?: Record<string, unknown>): Observable<HttpResponse<Blob>> {
+    return this.api.descargar(`/reportes/export/${tipo}`, { formato, ...query });
   }
 
   // ── Reportes programados (CRUD) ──
