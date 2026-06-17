@@ -15,6 +15,19 @@ log = logging.getLogger(__name__)
 _ORDEN = {"down": 3, "degraded": 2, "up": 1, "unknown": 0}
 
 
+def desambiguar(comps: list[dict]) -> list[dict]:
+    """Hace únicos los (categoria, nombre): algunos BMC repiten nombres genéricos
+    ('Temp', 'Fan'). Añade un sufijo incremental a los duplicados."""
+    vistos: dict[tuple[str, str], int] = {}
+    for c in comps:
+        clave = (c["categoria"], c["nombre"])
+        n = vistos.get(clave, 0) + 1
+        vistos[clave] = n
+        if n > 1:
+            c["nombre"] = f"{c['nombre']} #{n}"
+    return comps
+
+
 def peor_estado(estados: list[str]) -> str:
     """Combina estados: down > degraded > up > unknown."""
     presentes = [e for e in estados if _ORDEN.get(e, 0) > 0]
@@ -51,14 +64,15 @@ def recolectar(recurso, secretos, settings) -> tuple[dict, list[dict]]:
 
     if proto in ("auto", "redfish"):
         try:
-            return _desde_redfish(host, user, password, verify, timeout)
+            inv, comps = _desde_redfish(host, user, password, verify, timeout)
+            return inv, desambiguar(comps)
         except Exception as e:  # noqa: BLE001
             if proto == "redfish":
                 raise
             log.info("Redfish falló en %s (%s); intento IPMI.", recurso.nombre, e)
 
     inv, comps = _desde_ipmi(host, user, password, timeout)
-    return inv, comps
+    return inv, desambiguar(comps)
 
 
 def _desde_redfish(host, user, password, verify, timeout) -> tuple[dict, list[dict]]:

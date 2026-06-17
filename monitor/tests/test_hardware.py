@@ -1,6 +1,21 @@
 """Tests de los parsers puros de hardware (Redfish + IPMI) y la combinación de salud."""
-from monitor.hardware import peor_estado
+from monitor.hardware import desambiguar, peor_estado
 from monitor.probes import ipmi_probe, redfish
+
+
+def test_desambiguar_nombres_repetidos():
+    comps = [
+        {"categoria": "thermal", "nombre": "Temp"},
+        {"categoria": "thermal", "nombre": "Temp"},
+        {"categoria": "thermal", "nombre": "Temp"},
+        {"categoria": "fan", "nombre": "Temp"},   # otra categoría: no colisiona
+    ]
+    out = desambiguar(comps)
+    nombres = [(c["categoria"], c["nombre"]) for c in out]
+    assert nombres == [
+        ("thermal", "Temp"), ("thermal", "Temp #2"), ("thermal", "Temp #3"),
+        ("fan", "Temp"),
+    ]
 
 
 # ── Redfish: mapeo de estado ──────────────────────────────────────────
