@@ -15,9 +15,23 @@ h1 { font-size: 18px; margin: 0; }
 .grid { display: grid; grid-template-columns: minmax(280px, 1fr) minmax(320px, 1.1fr); gap: 16px; align-items: start; }
 @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }
 
-.lienzo { padding: 12px; display: flex; justify-content: center; }
-svg { width: 100%; max-width: 460px; height: auto; }
-.pais { fill: var(--primary-50, #eaf3ec); stroke: var(--primary, #2e7d3a); stroke-width: 1.2; }
+.lienzo {
+  padding: 14px; display: flex; justify-content: center;
+  background: linear-gradient(160deg, #eef6fb 0%, #e3eef6 100%); /* mar */
+  border-radius: var(--radius);
+}
+svg { width: 100%; max-width: 470px; height: auto; }
+
+/* Mapa vectorial real (departamentos) */
+.pais .dep {
+  fill: #cfe6d4;
+  stroke: #ffffff;
+  stroke-width: 0.6;
+  stroke-linejoin: round;
+  transition: fill .12s;
+}
+.pais:hover .dep { fill: #c6e0cc; }
+.pais .dep:hover { fill: #b6d8be; }
 
 .sede { stroke: #fff; stroke-width: 1.5; transition: r .12s; }
 .num { fill: #fff; font-size: 11px; font-weight: 700; text-anchor: middle; dominant-baseline: central; pointer-events: none; }

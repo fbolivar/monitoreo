@@ -2,6 +2,7 @@ import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Estado, Recurso, Sitio } from '../../core/models';
 import { RecursosService } from '../../core/recursos.service';
+import { COLOMBIA_DEPARTAMENTOS } from './colombia-geo';
 
 interface Sede {
   sitio: Sitio;
@@ -14,18 +15,6 @@ interface Sede {
   x: number | null;        // proyección (null si la sede no tiene coordenadas)
   y: number | null;
 }
-
-// Contorno simplificado de Colombia (lon, lat). Se proyecta con la MISMA
-// función equirectangular que los marcadores, por lo que quedan alineados.
-const COLOMBIA: [number, number][] = [
-  [-71.66, 12.46], [-72.6, 11.7], [-73.4, 11.3], [-74.2, 11.24], [-74.85, 11.1],
-  [-75.53, 10.4], [-76.25, 9.4], [-76.9, 8.6], [-77.35, 8.67], [-77.5, 7.5],
-  [-77.3, 6.5], [-77.45, 5.6], [-77.2, 4.3], [-78.2, 2.6], [-78.86, 1.45],
-  [-77.7, 0.65], [-76.4, 0.38], [-75.2, -0.15], [-74.0, -0.9], [-71.2, -2.3],
-  [-70.05, -4.2], [-69.6, -1.3], [-69.4, 1.07], [-67.3, 1.75], [-66.87, 1.23],
-  [-67.0, 2.8], [-67.85, 5.3], [-69.4, 6.1], [-70.1, 6.95], [-72.0, 7.1],
-  [-72.45, 8.35], [-72.9, 9.1], [-72.5, 10.5], [-71.9, 11.5],
-];
 
 const PESO: Record<Estado, number> = { down: 5, degraded: 4, unknown: 3, maintenance: 2, up: 1 };
 
@@ -51,8 +40,8 @@ export class Mapa implements OnInit {
   cargando = signal(true);
   hoverId = signal<number | null>(null);   // sincroniza marcador <-> fila de la lista
 
-  outline = COLOMBIA.map(([lon, lat]) => this.proj(lon, lat));
-  outlinePath = 'M ' + this.outline.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' L ') + ' Z';
+  // Mapa vectorial real: departamentos de Colombia (ya proyectados con la misma proj).
+  departamentos = COLOMBIA_DEPARTAMENTOS;
 
   // Todas las sedes con sus conteos (tengan o no coordenadas).
   sedes = computed<Sede[]>(() => {

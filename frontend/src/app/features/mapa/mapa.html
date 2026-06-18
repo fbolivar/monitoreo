@@ -25,7 +25,19 @@
     <!-- Mapa geográfico -->
     <div class="lienzo card">
       <svg [attr.viewBox]="'0 0 ' + W + ' ' + H" preserveAspectRatio="xMidYMid meet">
-        <path [attr.d]="outlinePath" class="pais" />
+        <defs>
+          <filter id="sombraPais" x="-6%" y="-6%" width="112%" height="112%">
+            <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#1a3a2a" flood-opacity="0.22" />
+          </filter>
+        </defs>
+        <!-- Mapa real: departamentos de Colombia -->
+        <g class="pais" filter="url(#sombraPais)">
+          @for (d of departamentos; track d.nombre) {
+            <path [attr.d]="d.d" class="dep">
+              <title>{{ d.nombre }}</title>
+            </path>
+          }
+        </g>
         @for (m of marcadores(); track m.sitio.id) {
           <a [routerLink]="['/recursos']" [queryParams]="{ sitio: m.sitio.id }"
              (mouseenter)="hoverId.set(m.sitio.id)" (mouseleave)="hoverId.set(null)">
