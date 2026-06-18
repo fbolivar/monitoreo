@@ -170,8 +170,10 @@ $up: #16d97e; $deg: #f5b301; $down: #ff3b51; $unk: #8a97ad; $mnt: #3aa0ff; $cy: 
 .net-kpi span { font-size: 11px; color: #8a97ad; text-transform: uppercase; letter-spacing: .04em; }
 .net-kpi b { display: block; font-size: 24px; font-weight: 800; margin-top: 4px; }
 .net-talk { background: linear-gradient(90deg, #0c2230, #0c1626); border: 1px solid #16414e; border-radius: 12px; padding: 10px 12px; }
-.net-talk span { font-size: 11px; color: #8a97ad; text-transform: uppercase; }
-.net-talk b { display: block; font-size: 20px; color: var(--cy); margin-top: 4px; }
+.net-talk > span { font-size: 11px; color: #8a97ad; text-transform: uppercase; }
+.net-talk > span em { font-style: normal; text-transform: none; color: #6c7b96; font-size: 10.5px; }
+.net-talk b { display: block; font-size: 20px; color: var(--cy); margin-top: 4px; line-height: 1.1; }
+.net-talk .sub { display: block; font-size: 11.5px; color: #9fb2cf; text-transform: none; margin-top: 2px; }
 .mono { font-family: ui-monospace, Consolas, monospace; }
 .vacio-mini { color: #8a97ad; padding: 18px; text-align: center; }
 

@@ -142,6 +142,8 @@ export class Wallboard implements OnInit, OnDestroy {
   trafArea = computed<string>(() => { const p = this.trafSpark(); return p ? `0,60 ${p} 300,60 Z` : ''; });
   topApp = computed(() => this.flujo()?.apps?.[0]?.app ?? '—');
   topTalker = computed(() => this.flujo()?.talkers?.[0]?.ip ?? '—');
+  // Top hablante con detalle: IP que más tráfico genera + volumen y %.
+  topTalkerInfo = computed(() => this.flujo()?.talkers?.[0] ?? null);
 
   ngOnInit(): void {
     this.refrescar();

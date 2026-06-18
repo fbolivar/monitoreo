@@ -124,7 +124,13 @@
           <div class="net-kpi"><span>Flujos</span><b>{{ f.kpis.flows | number }}</b></div>
           <div class="net-kpi"><span>Hosts</span><b>{{ f.kpis.hosts }}</b></div>
           <div class="net-kpi"><span>Top app</span><b>{{ topApp() }}</b></div>
-          <div class="net-talk"><span>Top hablante</span><b class="mono">{{ topTalker() }}</b></div>
+          <div class="net-talk">
+            <span>Top hablante <em>· IP con más tráfico</em></span>
+            @if (topTalkerInfo(); as t) {
+              <b class="mono">{{ t.ip }}</b>
+              <span class="sub">{{ fmtBytes(t.bytes) }} · {{ t.pct }}% del total</span>
+            } @else { <b>—</b> }
+          </div>
         </div>
       } @else { <div class="vacio-mini">Sin flujos (NetFlow)</div> }
     </section>
