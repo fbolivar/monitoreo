@@ -1,0 +1,82 @@
+<div class="head">
+  <h1>Flujos de tráfico <span class="text-dim">(NetFlow / IPFIX)</span></h1>
+  <div class="rangos">
+    @for (r of rangos; track r) {
+      <button class="r" [class.activo]="rango() === r" (click)="cambiar(r)">{{ r }}</button>
+    }
+  </div>
+  @if (data(); as d) {
+    <span class="text-dim total">Total: {{ fmtBytes(d.total_bytes) }}</span>
+  }
+</div>
+
+<p class="intro text-dim">Quién consume el ancho de banda, según los flujos que exporta el FortiGate (y switches).
+  Activa la exportación: <code>config system netflow</code> → <code>collector-ip</code> = IP de SIMON, puerto 2055.</p>
+
+@if (cargando()) {
+  <p class="text-dim">Cargando…</p>
+} @else if (!data() || totalBytes() === 0) {
+  <p class="vacio">Sin flujos en esta ventana. Verifica que el FortiGate exporte NetFlow/IPFIX a
+    la IP de SIMON (UDP/2055) y que el servicio <code>simon-netflow</code> esté activo.</p>
+} @else {
+  <div class="grid">
+    <!-- Top hablantes -->
+    <section class="card">
+      <h2>Top hablantes (origen)</h2>
+      @for (f of data()!.talkers; track $index) {
+        <div class="fila">
+          <span class="etq mono">{{ f.ip }}</span>
+          <span class="bar"><i [style.width.%]="pct(f, data()!.talkers)"></i></span>
+          <span class="val">{{ fmtBytes(f.bytes) }}</span>
+        </div>
+      }
+    </section>
+
+    <!-- Top destinos -->
+    <section class="card">
+      <h2>Top destinos</h2>
+      @for (f of data()!.destinos; track $index) {
+        <div class="fila">
+          <span class="etq mono">{{ f.ip }}</span>
+          <span class="bar dst"><i [style.width.%]="pct(f, data()!.destinos)"></i></span>
+          <span class="val">{{ fmtBytes(f.bytes) }}</span>
+        </div>
+      }
+    </section>
+
+    <!-- Top aplicaciones -->
+    <section class="card">
+      <h2>Aplicaciones</h2>
+      @for (f of data()!.apps; track $index) {
+        <div class="fila">
+          <span class="etq"><span class="chip">{{ f.app || 'otros' }}</span></span>
+          <span class="bar app"><i [style.width.%]="pct(f, data()!.apps)"></i></span>
+          <span class="val">{{ fmtBytes(f.bytes) }}</span>
+        </div>
+      }
+    </section>
+
+    <!-- Conversaciones -->
+    <section class="card ancha">
+      <h2>Conversaciones principales</h2>
+      <table>
+        <thead>
+          <tr><th>Origen</th><th>Destino</th><th>Puerto</th><th>Proto</th><th>App</th><th class="num">Tráfico</th><th class="num">Paquetes</th></tr>
+        </thead>
+        <tbody>
+          @for (c of data()!.conversaciones; track $index) {
+            <tr>
+              <td class="mono">{{ c.src_ip }}</td>
+              <td class="mono">{{ c.dst_ip }}</td>
+              <td class="num">{{ c.dst_port ?? '—' }}</td>
+              <td>{{ proto(c.protocolo) }}</td>
+              <td><span class="chip">{{ c.app || 'otros' }}</span></td>
+              <td class="num"><b>{{ fmtBytes(c.bytes) }}</b></td>
+              <td class="num">{{ c.paquetes }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  </div>
+}

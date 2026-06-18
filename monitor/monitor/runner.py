@@ -508,6 +508,53 @@ def recolectar_topologia(db: Database, settings: Settings) -> None:
         log.info("LLDP %s (%s): %d vecino(s).", recurso.id, recurso.nombre, len(vecinos))
 
 
+def medir_calidad_wan(db: Database, settings: Settings) -> None:
+    """Mide la calidad activa de los enlaces WAN/Starlink opt-in (parametros.wan_calidad):
+    latencia/jitter/pérdida (ICMP) + throughput (iperf3 si hay servidor) -> MOS."""
+    if not settings.wan_calidad_enabled:
+        return
+    from . import wan_calidad as wc
+
+    filtro = settings.sitios_filtro()
+    recursos = repo.recursos_wan_calidad(db)
+    if filtro:
+        recursos = [r for r in recursos if r.sitio_id in filtro]
+
+    ahora = datetime.now(timezone.utc)
+    for recurso in recursos:
+        host = (recurso.hostname or "").split(":", 1)[0].strip()
+        if not host:
+            continue
+        if repo.en_mantenimiento(db, recurso, ahora):
+            continue
+        cfg = recurso.parametros.get("wan_calidad") if recurso.parametros else None
+        cfg = cfg if isinstance(cfg, dict) else {}
+        try:
+            datos = wc.medir(
+                host, settings,
+                iperf_host=cfg.get("iperf_host"),
+                iperf_port=int(cfg.get("iperf_port", 5201)),
+                iperf_seg=int(cfg.get("iperf_seg", 5)),
+            )
+        except Exception as e:  # noqa: BLE001
+            log.warning("Calidad WAN %s (%s): %s", recurso.id, recurso.nombre, e)
+            continue
+        repo.guardar_wan_calidad(db, recurso.id, datos)
+        # Emite también como métricas para que se grafiquen e historicen solas.
+        muestras = [("wan_latency", datos["latency_ms"], "ms"),
+                    ("wan_jitter", datos["jitter_ms"], "ms"),
+                    ("wan_loss", datos["loss_pct"], "%"),
+                    ("wan_mos", datos["mos"], "")]
+        if datos["down_mbps"] is not None:
+            muestras.append(("wan_down", datos["down_mbps"], "Mbps"))
+        if datos["up_mbps"] is not None:
+            muestras.append(("wan_up", datos["up_mbps"], "Mbps"))
+        repo.guardar_metricas(db, recurso.id,
+                              [(n, v, u) for n, v, u in muestras if v is not None], ahora)
+        log.info("Calidad WAN %s (%s): MOS %s (%s).",
+                 recurso.id, recurso.nombre, datos["mos"], datos["calidad"])
+
+
 def procesar_hardware(db: Database, settings: Settings) -> None:
     """Sondea el hardware físico (Redfish/IPMI) de los recursos opt-in y persiste
     el snapshot de componentes + inventario. Avisa cuando un componente se degrada."""

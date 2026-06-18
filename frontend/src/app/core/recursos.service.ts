@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { Baseline, HardwareResp, Interfaz, MuestraInterfaz, Paginated, Recurso, Respaldo, RespaldoDetalle, Sitio, TipoRecurso, TopologiaResp, VecinoLldp } from './models';
+import { Baseline, FlujosResp, HardwareResp, Interfaz, MuestraInterfaz, Paginated, Recurso, Respaldo, RespaldoDetalle, Sitio, TipoRecurso, TopologiaResp, VecinoLldp, WanCalidadResp } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class RecursosService {
@@ -47,6 +47,14 @@ export class RecursosService {
 
   topologia(): Observable<TopologiaResp> {
     return this.api.get<TopologiaResp>('/topologia');
+  }
+
+  flujos(query?: Record<string, unknown>): Observable<FlujosResp> {
+    return this.api.get<FlujosResp>('/flujos', query);
+  }
+
+  wanCalidad(id: number, rango: '1h' | '24h' | '7d' | '30d' = '24h'): Observable<WanCalidadResp> {
+    return this.api.get<WanCalidadResp>(`/recursos/${id}/wan-calidad`, { rango });
   }
 
   respaldos(id: number): Observable<Respaldo[]> {

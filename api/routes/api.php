@@ -7,6 +7,7 @@ use App\Http\Controllers\ChequeoController;
 use App\Http\Controllers\ConfigLdapController;
 use App\Http\Controllers\DescubrimientoController;
 use App\Http\Controllers\DosFactorController;
+use App\Http\Controllers\FlujoController;
 use App\Http\Controllers\IncidenciaController;
 use App\Http\Controllers\MantenimientoController;
 use App\Http\Controllers\MetricaController;
@@ -23,6 +24,7 @@ use App\Http\Controllers\TopologiaController;
 use App\Http\Controllers\TrapController;
 use App\Http\Controllers\TipoRecursoController;
 use App\Http\Controllers\UmbralController;
+use App\Http\Controllers\WanCalidadController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -101,6 +103,12 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
 
     // SNMP traps recibidos (lectura).
     Route::get('traps', [TrapController::class, 'index']);
+
+    // Flujos de tráfico (NetFlow/IPFIX): top hablantes/destinos/apps/conversaciones.
+    Route::get('flujos', [FlujoController::class, 'index']);
+
+    // Calidad activa de enlace WAN/Starlink de un recurso (lectura).
+    Route::get('recursos/{id}/wan-calidad', [WanCalidadController::class, 'index'])->whereNumber('id');
 
     // Auto-descubrimiento de red (lectura): escaneos y candidatos.
     Route::get('descubrimiento', [DescubrimientoController::class, 'index']);

@@ -373,6 +373,45 @@ export interface TopologiaResp {
   enlaces: TopologiaEnlace[];
 }
 
+// ── Flujos de tráfico (NetFlow/IPFIX) ──────────────────────────────────
+export interface FlujoAgregado {
+  ip?: string;
+  app?: string;
+  src_ip?: string;
+  dst_ip?: string;
+  dst_port?: number | null;
+  protocolo?: number | null;
+  bytes: number;
+  paquetes: number;
+}
+
+export interface FlujosResp {
+  rango: string;
+  total_bytes: number;
+  talkers: FlujoAgregado[];
+  destinos: FlujoAgregado[];
+  apps: FlujoAgregado[];
+  conversaciones: FlujoAgregado[];
+}
+
+// ── Calidad activa de enlace WAN ───────────────────────────────────────
+export interface WanCalidadMuestra {
+  id: number;
+  ts: string;
+  latency_ms: number | null;
+  jitter_ms: number | null;
+  loss_pct: number | null;
+  down_mbps: number | null;
+  up_mbps: number | null;
+  mos: number | null;
+  calidad: 'buena' | 'aceptable' | 'mala' | null;
+}
+
+export interface WanCalidadResp {
+  ultimo: WanCalidadMuestra | null;
+  serie: WanCalidadMuestra[];
+}
+
 // ── Hardware físico (Redfish / IPMI) ───────────────────────────────────
 export interface HardwareInventario {
   recurso_id: number;

@@ -94,3 +94,21 @@ section { margin-top: 8px; }
 .lldp .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
 .lldp .ext { font-size: 11px; border: 1px solid var(--border); border-radius: 8px; padding: 0 6px; }
 .lldp .ver-mapa { font-size: 12px; font-weight: 400; margin-left: 8px; }
+
+/* Calidad WAN */
+.wan { margin-top: 8px; }
+.wan-grid { display: flex; gap: 18px; align-items: stretch; flex-wrap: wrap; }
+.wan .mos {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-width: 120px; padding: 12px 18px; border-radius: 12px; color: #fff;
+  background: #9aa0a6;
+}
+.wan .mos[data-calidad="buena"] { background: #1b8a3a; }
+.wan .mos[data-calidad="aceptable"] { background: #e0a400; color: #222; }
+.wan .mos[data-calidad="mala"] { background: #d11d1d; }
+.wan .mos-val { font-size: 34px; font-weight: 800; line-height: 1; }
+.wan .mos-lbl { font-size: 11px; margin-top: 4px; text-transform: uppercase; letter-spacing: .04em; }
+.wan-kpis { display: grid; grid-template-columns: repeat(3, minmax(110px, 1fr)); gap: 10px 18px; align-content: center; }
+.wan-kpis .k { display: flex; flex-direction: column; }
+.wan-kpis .k span { font-size: 10.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .03em; }
+.wan-kpis .k b { font-size: 16px; font-variant-numeric: tabular-nums; }

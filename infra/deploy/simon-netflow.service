@@ -1,0 +1,16 @@
+[Unit]
+Description=SIMON - Colector NetFlow/IPFIX (UDP/2055)
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/monitoreo/monitor
+EnvironmentFile=/opt/monitoreo/monitor/.env
+ExecStart=/opt/monitoreo/monitor/.venv/bin/python /opt/monitoreo/monitor/netflow_listener.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -983,4 +983,46 @@ def purgar_datos(db: Database) -> dict[str, Any]:
         r = cur.fetchone()["r"]
         # Histórico de interfaces: retención corta (7 días).
         cur.execute("DELETE FROM interfaces_historico WHERE ts < now() - interval '7 days'")
+        # Flujos de tráfico (NetFlow): retención corta (7 días).
+        cur.execute("DELETE FROM flujos WHERE ventana_fin < now() - interval '7 days'")
+        # Calidad WAN: retención media (30 días).
+        cur.execute("DELETE FROM wan_calidad WHERE ts < now() - interval '30 days'")
         return r
+
+
+# ── Flujos de tráfico (NetFlow/IPFIX) ─────────────────────────────────
+def guardar_flujos(db: Database, filas: list[tuple]) -> None:
+    """Inserta el TOP de conversaciones agregadas de una ventana.
+
+    Cada fila: (exporter_ip, recurso_id, ventana_inicio, ventana_fin,
+                src_ip, dst_ip, src_port, dst_port, protocolo, app, bytes, paquetes)
+    """
+    if not filas:
+        return
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.executemany(
+            "INSERT INTO flujos (exporter_ip, recurso_id, ventana_inicio, ventana_fin, "
+            "src_ip, dst_ip, src_port, dst_port, protocolo, app, bytes, paquetes) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            filas,
+        )
+
+
+# ── Calidad de enlace WAN (medición activa) ───────────────────────────
+def recursos_wan_calidad(db: Database) -> list[Recurso]:
+    """Recursos activos que optaron por medición de calidad WAN (parametros.wan_calidad)."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(_SELECT_RECURSO +
+                    " WHERE r.activo = true AND r.parametros ? 'wan_calidad' ORDER BY r.id")
+        return [_fila_a_recurso(r) for r in cur.fetchall()]
+
+
+def guardar_wan_calidad(db: Database, recurso_id: int, datos: dict) -> None:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO wan_calidad (recurso_id, latency_ms, jitter_ms, loss_pct, "
+            "down_mbps, up_mbps, mos, calidad) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+            (recurso_id, datos.get("latency_ms"), datos.get("jitter_ms"),
+             datos.get("loss_pct"), datos.get("down_mbps"), datos.get("up_mbps"),
+             datos.get("mos"), datos.get("calidad")),
+        )

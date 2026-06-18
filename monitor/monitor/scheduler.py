@@ -19,6 +19,7 @@ from .runner import (
     escalar_incidencias,
     latido_externo,
     marcar_obsoletos,
+    medir_calidad_wan,
     procesar_descubrimientos,
     procesar_hardware,
     pronosticar_capacidad,
@@ -115,6 +116,17 @@ def registrar_tareas_internas(scheduler: BackgroundScheduler, db: Database, sett
             replace_existing=True,
         )
         log.info("Topología LLDP activa (cada %ss).", settings.topologia_check_seg)
+
+    # Calidad activa de enlaces WAN/Starlink: mide latencia/jitter/pérdida + throughput.
+    if settings.wan_calidad_enabled:
+        scheduler.add_job(
+            medir_calidad_wan,
+            trigger=IntervalTrigger(seconds=settings.wan_calidad_check_seg),
+            args=[db, settings],
+            id="wan-calidad",
+            replace_existing=True,
+        )
+        log.info("Calidad WAN activa (cada %ss).", settings.wan_calidad_check_seg)
 
     # Hardware físico (Redfish/IPMI): sondeo de los recursos opt-in.
     if settings.hardware_enabled:

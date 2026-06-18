@@ -240,6 +240,27 @@
     </section>
   }
 
+  <!-- Calidad activa de enlace WAN/Starlink -->
+  @if (wan()?.ultimo; as u) {
+    <section class="wan">
+      <h2>Calidad de enlace WAN <span class="text-dim">· medición activa</span></h2>
+      <div class="wan-grid">
+        <div class="mos" [attr.data-calidad]="u.calidad">
+          <div class="mos-val">{{ u.mos ?? '—' }}</div>
+          <div class="mos-lbl">MOS · {{ u.calidad ?? 's/d' }}</div>
+        </div>
+        <div class="wan-kpis">
+          <div class="k"><span>Latencia</span><b>{{ u.latency_ms ?? '—' }} ms</b></div>
+          <div class="k"><span>Jitter</span><b>{{ u.jitter_ms ?? '—' }} ms</b></div>
+          <div class="k"><span>Pérdida</span><b>{{ u.loss_pct ?? '—' }} %</b></div>
+          <div class="k"><span>Bajada</span><b>{{ u.down_mbps ?? '—' }} Mbps</b></div>
+          <div class="k"><span>Subida</span><b>{{ u.up_mbps ?? '—' }} Mbps</b></div>
+          <div class="k"><span>Medido</span><b>{{ hace(u.ts) }}</b></div>
+        </div>
+      </div>
+    </section>
+  }
+
   <!-- Vecinos LLDP (topología L2) -->
   @if (vecinos().length > 0) {
     <section class="lldp">

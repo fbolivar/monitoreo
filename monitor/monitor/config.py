@@ -128,6 +128,20 @@ class Settings:
     trap_port: int = _int("TRAP_PORT", 162)
     trap_community: str = os.getenv("TRAP_COMMUNITY", "public")
 
+    # Colector NetFlow/IPFIX (servicio aparte: netflow_listener.py). Recibe los
+    # flujos exportados por el FortiGate/switches y guarda el TOP-N por ventana.
+    netflow_enabled: bool = _bool("NETFLOW_ENABLED", True)
+    netflow_bind: str = os.getenv("NETFLOW_BIND", "0.0.0.0")
+    netflow_port: int = _int("NETFLOW_PORT", 2055)
+    netflow_flush_seg: int = _int("NETFLOW_FLUSH_SEG", 60)   # ventana de agregación
+    netflow_top_n: int = _int("NETFLOW_TOP_N", 50)           # top conversaciones por ventana
+
+    # Calidad activa de enlaces WAN/Starlink (#4): job medir_calidad_wan.
+    # Opt-in por recurso (parametros.wan_calidad). Mide latencia/jitter/pérdida y,
+    # si hay iperf3 + servidor configurado, throughput; estima MOS.
+    wan_calidad_enabled: bool = _bool("WAN_CALIDAD_ENABLED", True)
+    wan_calidad_check_seg: int = _int("WAN_CALIDAD_CHECK_SEG", 300)
+
     # Dead-man's switch: el worker manda un "latido" a esta URL externa cada
     # deadman_interval_seg. Si SIMON (o el servidor) se cae, ese servicio externo
     # deja de recibir el latido y alerta. Vacío = desactivado.

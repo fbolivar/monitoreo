@@ -57,6 +57,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/topologia/topologia').then((m) => m.Topologia),
       },
       {
+        path: 'flujos',
+        loadComponent: () => import('./features/flujos/flujos').then((m) => m.Flujos),
+      },
+      {
         // El mapa de sedes ahora vive como tab dentro de Topología; se conserva
         // la ruta como redirección para no romper enlaces guardados.
         path: 'mapa',
