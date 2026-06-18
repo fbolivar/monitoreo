@@ -23,7 +23,7 @@ class CorrelacionController extends Controller
             ->leftJoin('recursos as r', 'r.id', '=', 'i.recurso_id')
             ->whereIn('i.correlacion_id', $ids)
             ->select('i.id', 'i.correlacion_id', 'i.titulo', 'i.severidad', 'i.estado',
-                'i.inicio', 'r.nombre as recurso_nombre')
+                'i.abierta_at as inicio', 'r.nombre as recurso_nombre')
             ->get()->groupBy('correlacion_id');
 
         $corr->getCollection()->transform(function ($c) use ($incs) {

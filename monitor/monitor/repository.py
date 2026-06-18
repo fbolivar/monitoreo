@@ -1141,10 +1141,10 @@ def set_ticket_externo(db: Database, incidencia_id: int, ticket: str) -> None:
 def incidencias_abiertas_correlacion(db: Database) -> list[dict]:
     with db.connection() as conn, conn.cursor() as cur:
         cur.execute(
-            "SELECT i.id, i.inicio, i.correlacion_id, r.sitio_id, r.id AS recurso_id, "
+            "SELECT i.id, i.abierta_at AS inicio, i.correlacion_id, r.sitio_id, r.id AS recurso_id, "
             "r.depende_de_id "
             "FROM incidencias i JOIN recursos r ON r.id = i.recurso_id "
-            "WHERE i.estado = 'abierta' ORDER BY i.inicio"
+            "WHERE i.estado = 'abierta' ORDER BY i.abierta_at"
         )
         return cur.fetchall()
 
