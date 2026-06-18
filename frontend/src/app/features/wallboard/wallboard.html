@@ -1,70 +1,113 @@
-<div class="wb">
-  <header class="wb-top">
+<div class="wb" [attr.data-nivel]="nivelDispo()">
+  <div class="scan"></div>
+
+  <!-- Barra superior -->
+  <header class="top">
     <div class="marca">
       <img src="logo-simon.png" alt="SIMON" />
-      <div><b>SIMON</b><span>Centro de Operaciones de Red</span></div>
+      <div class="mt"><b>SIMON</b><span>Centro de Operaciones de Red · NOC</span></div>
     </div>
     <div class="reloj">
       <b>{{ reloj() }}</b>
-      <span class="estado-conn" [class.vivo]="enVivo()">{{ enVivo() ? '● EN VIVO' : '○ SIN CONEXIÓN' }}</span>
+      <span class="fch">{{ fecha() }}</span>
     </div>
-    <a routerLink="/" class="salir" title="Salir del tablero">✕</a>
+    <div class="liveside">
+      <span class="live" [class.on]="enVivo()"><i></i>{{ enVivo() ? 'EN VIVO' : 'SIN CONEXIÓN' }}</span>
+      <a routerLink="/" class="salir" title="Salir">✕</a>
+    </div>
   </header>
 
-  <!-- Banda de disponibilidad -->
-  <section class="banda">
-    <div class="dispo" [attr.data-nivel]="nivelDispo()">
-      <div class="num">{{ operatividad() }}<small>%</small></div>
-      <div class="lbl">Disponibilidad</div>
+  <!-- Franja superior: anillo + contadores + KPIs -->
+  <section class="hero">
+    <div class="ring-card" [attr.data-nivel]="nivelDispo()">
+      <svg viewBox="0 0 300 300" class="ring">
+        <circle cx="150" cy="150" [attr.r]="RING_R" class="ring-bg" />
+        <circle cx="150" cy="150" [attr.r]="RING_R" class="ring-fg" [attr.data-nivel]="nivelDispo()"
+                [attr.stroke-dasharray]="RING_C" [attr.stroke-dashoffset]="ringOffset()"
+                transform="rotate(-90 150 150)" />
+        <text x="150" y="142" class="ring-num">{{ dispAnim() | number:'1.0-1' }}<tspan class="pc">%</tspan></text>
+        <text x="150" y="178" class="ring-lbl">DISPONIBILIDAD</text>
+      </svg>
+      <div class="ring-foot">{{ total() }} recursos · {{ marcadores().length }} sedes</div>
     </div>
 
-    <div class="barra-wrap">
-      <div class="barra">
-        @if (resumen().up) { <span class="seg up" [style.flex]="resumen().up"></span> }
-        @if (resumen().degraded) { <span class="seg degraded" [style.flex]="resumen().degraded"></span> }
-        @if (resumen().down) { <span class="seg down" [style.flex]="resumen().down"></span> }
-        @if (resumen().unknown) { <span class="seg unknown" [style.flex]="resumen().unknown"></span> }
-        @if (resumen().maintenance) { <span class="seg maintenance" [style.flex]="resumen().maintenance"></span> }
+    <div class="estados">
+      <div class="es up"><b>{{ upAnim() }}</b><span>Operativo</span><i></i></div>
+      <div class="es degraded"><b>{{ resumen().degraded }}</b><span>Degradado</span><i></i></div>
+      <div class="es down" [class.alarma]="resumen().down > 0"><b>{{ downAnim() }}</b><span>Caído</span><i></i></div>
+      <div class="es unknown"><b>{{ resumen().unknown }}</b><span>Sin dato</span><i></i></div>
+      <div class="es maint"><b>{{ resumen().maintenance }}</b><span>Mant.</span><i></i></div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi" [class.alarma]="incCriticas() > 0">
+        <span class="kl">Incidencias activas</span>
+        <b class="kv">{{ incAnim() }}</b>
+        <span class="ks">{{ incCriticas() }} críticas</span>
       </div>
-      <div class="barra-pie">{{ total() }} recursos monitoreados</div>
-    </div>
-
-    <div class="contadores">
-      <div class="c up"><b>{{ resumen().up }}</b><span>Operativo</span></div>
-      <div class="c degraded"><b>{{ resumen().degraded }}</b><span>Degradado</span></div>
-      <div class="c down" [class.alarma]="resumen().down > 0"><b>{{ resumen().down }}</b><span>Caído</span></div>
-      <div class="c unknown"><b>{{ resumen().unknown }}</b><span>Sin dato</span></div>
-      <div class="c maintenance"><b>{{ resumen().maintenance }}</b><span>Mant.</span></div>
+      <div class="kpi" [class.alarma]="sedesConProblema() > 0">
+        <span class="kl">Sedes con problema</span>
+        <b class="kv">{{ sedesConProblema() }}</b>
+        <span class="ks">de {{ marcadores().length }} sedes</span>
+      </div>
+      <div class="kpi net">
+        <span class="kl">Tráfico de red <i class="dot"></i></span>
+        <b class="kv">{{ mbpsAnim() | number:'1.0-1' }}<small> Mbps</small></b>
+        <svg viewBox="0 0 300 60" class="mini" preserveAspectRatio="none">
+          <polygon [attr.points]="trafArea()" />
+          <polyline [attr.points]="trafSpark()" />
+        </svg>
+        <span class="ks">{{ topApp() }} · {{ flujo()?.kpis?.hosts ?? 0 }} hosts</span>
+      </div>
     </div>
   </section>
 
-  <!-- Cuerpo: alertas (protagonista) + salud por sede -->
+  <!-- Cuerpo: mapa + alertas -->
   <div class="cuerpo">
-    <section class="panel alertas">
-      <h2><span class="pt">Alertas activas</span><span class="n" [class.cero]="alertas().length === 0">{{ alertas().length }}</span></h2>
+    <section class="panel mapa-card">
+      <h2>Mapa operativo <span class="dim">· Colombia</span></h2>
+      <div class="mapa-wrap">
+        <svg [attr.viewBox]="'0 0 ' + MW + ' ' + MH" class="mapa" preserveAspectRatio="xMidYMid meet">
+          <g class="pais">
+            @for (d of departamentos; track d.nombre) { <path [attr.d]="d.d" /> }
+          </g>
+          @for (m of marcadores(); track m.nombre) {
+            <g class="mk" [attr.data-estado]="m.estado">
+              @if (m.problemas > 0) { <circle [attr.cx]="m.x" [attr.cy]="m.y" [attr.r]="m.r + 6" class="pulse" /> }
+              <circle [attr.cx]="m.x" [attr.cy]="m.y" [attr.r]="m.r" class="dot" />
+              <text [attr.x]="m.x" [attr.y]="m.y + 4" class="cnt">{{ m.total }}</text>
+              <text [attr.x]="m.x" [attr.y]="m.y - m.r - 5" class="nm">{{ m.nombre }}</text>
+            </g>
+          }
+        </svg>
+      </div>
+      <div class="leyenda">
+        <span class="lg up">Operativo</span><span class="lg degraded">Degradado</span>
+        <span class="lg down">Caído</span><span class="lg unknown">Sin dato</span>
+      </div>
+    </section>
 
+    <section class="panel alertas">
+      <h2>Alertas activas <span class="n" [class.cero]="alertas().length === 0">{{ alertas().length }}</span></h2>
       @if (alertas().length === 0) {
         <div class="ok">
           <div class="check">✓</div>
           <b>Todos los sistemas operativos</b>
-          <span>No hay incidencias activas</span>
+          <span>Sin incidencias activas</span>
         </div>
       } @else {
         <div class="lista" #lista (mouseenter)="scrollHover = true" (mouseleave)="scrollHover = false">
           @for (a of alertas(); track a.recurso.id) {
-            <article class="al" [attr.data-estado]="a.estado" [class.ack]="a.reconocida">
-              <div class="sev"></div>
+            <article class="al" [attr.data-estado]="a.estado" [class.ack]="a.reconocida"
+                     [class.crit]="a.severidad === 'critical' && !a.reconocida">
               <div class="ico">{{ abrev(a.recurso) }}</div>
               <div class="info">
-                <div class="l1">
-                  <b>{{ a.recurso.nombre }}</b>
-                  @if (a.reconocida) { <em class="ack-tag">reconocida</em> }
-                </div>
+                <div class="l1"><b>{{ a.recurso.nombre }}</b>@if (a.reconocida) { <em>reconocida</em> }</div>
                 <div class="l2">{{ a.titulo }}</div>
               </div>
               <div class="meta">
                 <span class="badge" [attr.data-estado]="a.estado">{{ etiqueta(a.estado) }}</span>
-                <span class="sitio">{{ a.recurso.sitio?.nombre ?? 'Sin sitio' }}</span>
+                <span class="sit">{{ a.recurso.sitio?.nombre ?? 'Sin sitio' }}</span>
                 <span class="dur">{{ hace(a.desde) }}</span>
               </div>
             </article>
@@ -72,35 +115,28 @@
         </div>
       }
     </section>
+  </div>
 
-    <section class="panel salud">
-      <h2><span class="pt">Estado por sede</span><span class="n">{{ sedes().length }}</span></h2>
-      <div class="grid">
-        @for (s of sedes(); track s.sitio) {
-          <div class="sede" [attr.data-peor]="s.peor">
-            <div class="cab">
-              <b [title]="s.sitio">{{ s.sitio }}</b>
-              <span class="frac" [class.full]="s.up === s.total">{{ s.up }}/{{ s.total }}</span>
-            </div>
-            <div class="dots">
-              @if (s.conteo.down) { <i class="d down" [style.flex]="s.conteo.down"></i> }
-              @if (s.conteo.degraded) { <i class="d degraded" [style.flex]="s.conteo.degraded"></i> }
-              @if (s.conteo.unknown) { <i class="d unknown" [style.flex]="s.conteo.unknown"></i> }
-              @if (s.conteo.maintenance) { <i class="d maintenance" [style.flex]="s.conteo.maintenance"></i> }
-              @if (s.conteo.up) { <i class="d up" [style.flex]="s.conteo.up"></i> }
-            </div>
-            @if (s.problemas) {
-              <div class="pie prob">{{ s.problemas }} con problema</div>
-            } @else {
-              <div class="pie okp">Operativa</div>
-            }
+  <!-- Franja inferior: tráfico vivo + top duración -->
+  <div class="franja">
+    <section class="panel net">
+      <h2>Tráfico en vivo <span class="dim">· NetFlow (1h)</span></h2>
+      @if (flujo(); as f) {
+        <div class="net-grid">
+          <div class="net-kpi"><span>Total</span><b>{{ fmtBytes(f.kpis.total_bytes) }}</b></div>
+          <div class="net-kpi"><span>Flujos</span><b>{{ f.kpis.flows | number }}</b></div>
+          <div class="net-kpi"><span>Hosts</span><b>{{ f.kpis.hosts }}</b></div>
+          <div class="net-kpi"><span>Top app</span><b>{{ topApp() }}</b></div>
+          <div class="net-talk">
+            <span>Top hablante</span>
+            <b class="mono">{{ topTalker() }}</b>
           </div>
-        }
-      </div>
+        </div>
+      } @else { <div class="vacio-mini">Sin flujos (NetFlow)</div> }
     </section>
 
     <section class="panel topdur">
-      <h2><span class="pt">Mayor duración</span></h2>
+      <h2>Mayor duración</h2>
       @if (topDuracion().length === 0) {
         <div class="vacio-mini">Sin incidencias activas</div>
       } @else {
@@ -108,11 +144,8 @@
           @for (t of topDuracion(); track t.alerta.recurso.id; let i = $index) {
             <li [attr.data-estado]="t.alerta.estado">
               <span class="pos">{{ i + 1 }}</span>
-              <div class="rinfo">
-                <div class="rl1">
-                  <b [title]="t.alerta.recurso.nombre">{{ t.alerta.recurso.nombre }}</b>
-                  <span class="rdur">{{ hace(t.alerta.desde) }}</span>
-                </div>
+              <div class="ri">
+                <div class="rl1"><b>{{ t.alerta.recurso.nombre }}</b><span>{{ hace(t.alerta.desde) }}</span></div>
                 <div class="rbar"><i [style.width.%]="t.pct" [attr.data-estado]="t.alerta.estado"></i></div>
               </div>
             </li>
