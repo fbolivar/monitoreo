@@ -142,6 +142,30 @@ class Settings:
     wan_calidad_enabled: bool = _bool("WAN_CALIDAD_ENABLED", True)
     wan_calidad_check_seg: int = _int("WAN_CALIDAD_CHECK_SEG", 300)
 
+    # Auto-remediación / runbooks (#5): ejecuta acciones al abrir incidencias.
+    remediacion_enabled: bool = _bool("REMEDIACION_ENABLED", True)
+
+    # Cumplimiento de configuración (#7): evalúa la última config respaldada
+    # contra las políticas activas. Cadencia amplia (cambia despacio).
+    cumplimiento_enabled: bool = _bool("CUMPLIMIENTO_ENABLED", True)
+    cumplimiento_check_seg: int = _int("CUMPLIMIENTO_CHECK_SEG", 3600)
+
+    # Virtualización (#9): inventario por-VM de hosts vCenter opt-in.
+    virtualizacion_enabled: bool = _bool("VIRTUALIZACION_ENABLED", True)
+    virtualizacion_check_seg: int = _int("VIRTUALIZACION_CHECK_SEG", 300)
+
+    # AIOps: correlación de alertas (#14): agrupa incidencias abiertas relacionadas.
+    correlacion_enabled: bool = _bool("CORRELACION_ENABLED", True)
+    correlacion_check_seg: int = _int("CORRELACION_CHECK_SEG", 60)
+    correlacion_ventana_seg: int = _int("CORRELACION_VENTANA_SEG", 180)
+
+    # Web Push (PWA) (#11): VAPID. Vacío = push desactivado (se generan con
+    # `vapid --gen` o el script del despliegue; la pública también va al frontend).
+    push_enabled: bool = _bool("PUSH_ENABLED", True)
+    vapid_private_key: str = os.getenv("VAPID_PRIVATE_KEY", "")
+    vapid_public_key: str = os.getenv("VAPID_PUBLIC_KEY", "")
+    vapid_subject: str = os.getenv("VAPID_SUBJECT", "mailto:noc@parquesnacionales.gov.co")
+
     # Dead-man's switch: el worker manda un "latido" a esta URL externa cada
     # deadman_interval_seg. Si SIMON (o el servidor) se cae, ese servicio externo
     # deja de recibir el latido y alerta. Vacío = desactivado.

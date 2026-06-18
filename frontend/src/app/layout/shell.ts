@@ -2,6 +2,7 @@ import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from '../core/auth.service';
 import { IdleService } from '../core/idle.service';
+import { PushService } from '../core/push.service';
 
 /** Marco principal: barra lateral institucional + topbar. */
 @Component({
@@ -29,11 +30,19 @@ import { IdleService } from '../core/idle.service';
           <a routerLink="/flujos" routerLinkActive="active">Flujos</a>
           <a routerLink="/servicios" routerLinkActive="active">Servicios</a>
           <a routerLink="/incidencias" routerLinkActive="active">Incidencias</a>
+          <a routerLink="/correlaciones" routerLinkActive="active">Correlaciones</a>
           <a routerLink="/traps" routerLinkActive="active">Traps</a>
+          <a routerLink="/rum" routerLinkActive="active">Experiencia (RUM)</a>
           <a routerLink="/reportes" routerLinkActive="active">Reportes</a>
+          <a routerLink="/cumplimiento" routerLinkActive="active">Cumplimiento</a>
+          @if (auth.puedeEditar()) {
+            <a routerLink="/runbooks" routerLinkActive="active">Runbooks</a>
+          }
           <a routerLink="/wallboard">Tablero NOC ↗</a>
+          <a routerLink="/status">Estado público ↗</a>
           <a routerLink="/configuracion" routerLinkActive="active">Configuración</a>
           @if (auth.esAdmin()) {
+            <a routerLink="/agentes" routerLinkActive="active">Agentes</a>
             <a routerLink="/usuarios" routerLinkActive="active">Usuarios</a>
             <a routerLink="/auditoria" routerLinkActive="active">Auditoría</a>
           }
@@ -47,6 +56,9 @@ import { IdleService } from '../core/idle.service';
           <div class="user">
             <span class="text-dim">{{ auth.perfil()?.email }}</span>
             <span class="rol">{{ auth.rol() }}</span>
+            @if (push.soportado) {
+              <button class="btn" title="Activar notificaciones push" (click)="activarPush()">🔔</button>
+            }
             <a routerLink="/seguridad" class="btn">Seguridad</a>
             <button class="btn" (click)="salir()">Salir</button>
           </div>
@@ -103,8 +115,13 @@ import { IdleService } from '../core/idle.service';
 })
 export class Shell implements OnInit, OnDestroy {
   auth = inject(AuthService);
+  push = inject(PushService);
   private router = inject(Router);
   private idle = inject(IdleService);
+
+  async activarPush(): Promise<void> {
+    alert(await this.push.activar());
+  }
 
   ngOnInit(): void {
     this.idle.iniciar();

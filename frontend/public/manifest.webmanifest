@@ -1,0 +1,13 @@
+{
+  "name": "SIMON · Monitoreo",
+  "short_name": "SIMON",
+  "description": "Sistema Integral de Monitoreo · Parques Nacionales Naturales de Colombia",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1e5631",
+  "icons": [
+    { "src": "favicon-64.png", "sizes": "64x64", "type": "image/png" },
+    { "src": "logo-simon.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

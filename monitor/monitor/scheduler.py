@@ -14,14 +14,17 @@ from .config import Settings
 from .db import Database
 from .notificaciones import reintentar_pendientes
 from .runner import (
+    correlacionar_incidencias,
     ejecutar_chequeo_por_id,
     enviar_reportes_programados,
     escalar_incidencias,
+    evaluar_cumplimiento,
     latido_externo,
     marcar_obsoletos,
     medir_calidad_wan,
     procesar_descubrimientos,
     procesar_hardware,
+    procesar_virtualizacion,
     pronosticar_capacidad,
     recolectar_topologia,
     recalcular_baselines,
@@ -127,6 +130,34 @@ def registrar_tareas_internas(scheduler: BackgroundScheduler, db: Database, sett
             replace_existing=True,
         )
         log.info("Calidad WAN activa (cada %ss).", settings.wan_calidad_check_seg)
+
+    # Virtualización (#9): inventario por-VM de hosts vCenter opt-in.
+    if settings.virtualizacion_enabled:
+        scheduler.add_job(
+            procesar_virtualizacion,
+            trigger=IntervalTrigger(seconds=settings.virtualizacion_check_seg),
+            args=[db, settings], id="virtualizacion", replace_existing=True,
+        )
+        log.info("Virtualización activa (cada %ss).", settings.virtualizacion_check_seg)
+
+    # Cumplimiento de configuración (#7): evalúa políticas contra la última config.
+    if settings.cumplimiento_enabled:
+        scheduler.add_job(
+            evaluar_cumplimiento,
+            trigger=IntervalTrigger(seconds=settings.cumplimiento_check_seg),
+            args=[db, settings], id="cumplimiento", replace_existing=True,
+        )
+        log.info("Cumplimiento de config activo (cada %ss).", settings.cumplimiento_check_seg)
+
+    # AIOps: correlación de alertas (#14): agrupa incidencias relacionadas.
+    if settings.correlacion_enabled:
+        scheduler.add_job(
+            correlacionar_incidencias,
+            trigger=IntervalTrigger(seconds=settings.correlacion_check_seg),
+            args=[db, settings], id="correlacion", replace_existing=True,
+        )
+        log.info("Correlación de alertas activa (cada %ss, ventana %ss).",
+                 settings.correlacion_check_seg, settings.correlacion_ventana_seg)
 
     # Hardware físico (Redfish/IPMI): sondeo de los recursos opt-in.
     if settings.hardware_enabled:

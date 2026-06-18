@@ -412,6 +412,75 @@ export interface WanCalidadResp {
   serie: WanCalidadMuestra[];
 }
 
+// ── Olas 2–5 ───────────────────────────────────────────────────────────
+export interface Runbook {
+  id: number;
+  nombre: string;
+  descripcion?: string | null;
+  activo: boolean;
+  trigger_tipo_id?: number | null;
+  trigger_severidad?: 'info' | 'warning' | 'critical' | null;
+  trigger_match?: string | null;
+  accion: { tipo: 'webhook' | 'ssh'; [k: string]: unknown };
+  cooldown_seg?: number;
+  tiene_secretos?: boolean;
+  ejecuciones?: RunbookEjecucion[];
+}
+export interface RunbookEjecucion {
+  id: number; ts: string; exito: boolean; salida: string | null;
+  incidencia_id?: number | null; recurso_id?: number | null;
+}
+
+export interface PoliticaCumplimiento {
+  id: number;
+  nombre: string;
+  descripcion?: string | null;
+  tipo: 'contiene' | 'no_contiene' | 'regex';
+  patron: string;
+  severidad: 'info' | 'warning' | 'critical';
+  aplica_tipo_id?: number | null;
+  activo: boolean;
+}
+export interface ResultadoCumplimiento {
+  id: number; recurso_id: number; politica_id: number; cumple: boolean;
+  detalle: string | null; ts: string; politica: string; severidad: string; recurso_nombre: string;
+}
+
+export interface Vm {
+  id: number; vm_id: string; nombre: string | null; power_state: string | null;
+  cpu_count: number | null; memoria_mb: number | null; guest_os: string | null; ts: string;
+}
+export interface VmResp { total: number; encendidas: number; vms: Vm[]; }
+
+export interface Agente {
+  id: number; recurso_id: number | null; nombre: string; hostname: string | null;
+  so: string | null; version: string | null; last_seen: string | null;
+  inventario?: Record<string, unknown> | null; activo: boolean;
+}
+
+export interface RumResp {
+  rango: string;
+  kpis: { muestras: number; avg_ms: number | null; p95_ms: number | null; max_ms: number | null };
+  errores: number;
+  por_url: { url: string; muestras: number; avg_ms: number; max_ms: number }[];
+  spans: { servicio: string; n: number; avg_ms: number }[];
+}
+
+export interface Correlacion {
+  id: number; creada_at: string; sitio_id: number | null; sitio_nombre: string | null;
+  causa_incidencia_id: number | null; resumen: string; n_incidencias: number; abierta: boolean;
+  incidencias: { id: number; titulo: string; severidad: string; estado: string;
+    inicio: string; recurso_nombre: string }[];
+}
+
+export interface StatusResp {
+  operativo: boolean;
+  estado_global: Estado;
+  actualizado: string;
+  sedes: { sitio: string; up: number; degraded: number; down: number; otros: number;
+    total: number; estado: Estado }[];
+}
+
 // ── Hardware físico (Redfish / IPMI) ───────────────────────────────────
 export interface HardwareInventario {
   recurso_id: number;

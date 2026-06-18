@@ -112,3 +112,10 @@ section { margin-top: 8px; }
 .wan-kpis .k { display: flex; flex-direction: column; }
 .wan-kpis .k span { font-size: 10.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .03em; }
 .wan-kpis .k b { font-size: 16px; font-variant-numeric: tabular-nums; }
+
+/* Virtualización (VMs) */
+.vms { margin-top: 8px; }
+.vms table { width: 100%; font-size: 13px; border-collapse: collapse; }
+.vms th, .vms td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--border); }
+.vms .pw { font-size: 11px; padding: 1px 8px; border-radius: 10px; background: #eceff1; color: #607d8b; font-weight: 600; }
+.vms .pw.on { background: #e6f4ea; color: #1b8a3a; }

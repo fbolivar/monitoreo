@@ -73,7 +73,72 @@ def enviar(canal: Canal, msg: dict) -> tuple[bool, str | None, str | None]:
         return _webhook(canal, msg)
     if canal.tipo == "teams":
         return _teams(canal, msg)
+    if canal.tipo == "glpi":
+        return _glpi(canal, msg)
     return False, f"tipo de canal no soportado: {canal.tipo}", None
+
+
+def enviar_push(suscripciones: list[dict], msg: dict, settings) -> None:
+    """Envía una notificación Web Push (PWA) a cada suscripción (#11). Best-effort:
+    los errores se registran pero no rompen el ciclo. Las suscripciones caducadas
+    (404/410) las limpia la API cuando el navegador re-suscribe."""
+    try:
+        from pywebpush import webpush, WebPushException
+    except ImportError:
+        log.warning("pywebpush no instalado; push deshabilitado.")
+        return
+    import json
+
+    payload = json.dumps({"title": msg["asunto"], "body": msg["texto"],
+                          "severidad": msg.get("severidad", "info")})
+    claims = {"sub": settings.vapid_subject}
+    for s in suscripciones:
+        try:
+            webpush(
+                subscription_info={"endpoint": s["endpoint"],
+                                   "keys": {"p256dh": s["p256dh"], "auth": s["auth"]}},
+                data=payload,
+                vapid_private_key=settings.vapid_private_key,
+                vapid_claims=dict(claims),
+            )
+        except WebPushException as e:  # noqa: PERF203
+            log.warning("Push falló (%s): %s", s.get("endpoint", "")[:40], e)
+        except Exception as e:  # noqa: BLE001
+            log.warning("Push error: %s", e)
+
+
+def _glpi(canal: Canal, msg: dict):
+    """Mesa de ayuda GLPI vía REST: crea un ticket por la incidencia. (Dejar lista:
+    funciona en cuanto se configure un canal tipo 'glpi' con url + app_token + user_token.)
+    config: {url}; secretos: {app_token, user_token, [urgencia]}."""
+    import httpx
+
+    cfg = canal.config or {}
+    sec = canal.secretos or {}
+    url = (cfg.get("url") or "").rstrip("/")
+    app_token = sec.get("app_token")
+    user_token = sec.get("user_token")
+    if not url or not app_token or not user_token:
+        return False, "config de GLPI incompleta (url/app_token/user_token)", None
+
+    base = f"{url}/apirest.php"
+    try:
+        with httpx.Client(timeout=20, verify=cfg.get("verify_tls", True)) as cli:
+            ini = cli.get(f"{base}/initSession",
+                          headers={"Authorization": f"user_token {user_token}",
+                                   "App-Token": app_token})
+            ini.raise_for_status()
+            session = ini.json().get("session_token")
+            h = {"Session-Token": session, "App-Token": app_token}
+            payload = {"input": {"name": msg["asunto"], "content": msg["texto"],
+                                 "urgency": int(cfg.get("urgencia", 4))}}
+            cr = cli.post(f"{base}/Ticket", headers=h, json=payload)
+            cr.raise_for_status()
+            ticket = cr.json().get("id")
+            cli.get(f"{base}/killSession", headers=h)
+            return True, None, f"GLPI#{ticket}"
+    except Exception as e:  # noqa: BLE001
+        return False, str(e), None
 
 
 def _email(canal: Canal, msg: dict):

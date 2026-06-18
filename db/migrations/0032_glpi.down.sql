@@ -1,0 +1,3 @@
+BEGIN;
+ALTER TABLE incidencias DROP COLUMN IF EXISTS ticket_externo;
+COMMIT;

@@ -104,8 +104,15 @@ def notificar(db: Database, settings: Settings, *, incidencia_id: int, recurso: 
             )
             if ok:
                 log.info("Notif %s -> canal %s (%s) OK", evento, canal.nombre, canal.tipo)
+                # GLPI: guarda el nº de ticket creado en la incidencia (una vez).
+                if canal.tipo == "glpi" and evento == "apertura" and destino:
+                    repo.set_ticket_externo(db, incidencia_id, destino)
             else:
                 log.warning("Notif %s -> canal %s (%s) FALLó: %s", evento, canal.nombre, canal.tipo, error)
+
+        # Web Push (PWA): notifica a los navegadores suscritos (#11).
+        if settings.push_enabled and settings.vapid_private_key:
+            senders.enviar_push(repo.push_suscripciones(db), msg, settings)
     except Exception:  # nunca romper el ciclo de chequeo por una notificación
         log.exception("Error notificando %s de incidencia %s", evento, incidencia_id)
 

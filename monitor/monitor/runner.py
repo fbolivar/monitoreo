@@ -773,6 +773,7 @@ def _gestionar_incidencia(db: Database, settings: Settings, recurso: Recurso, ev
                 db, settings, incidencia_id=nueva, recurso=recurso,
                 severidad=ev.severidad, evento="apertura", titulo=titulo, descripcion=descripcion,
             )
+            _disparar_remediacion(db, settings, recurso, ev.severidad, titulo, nueva)
     else:
         # Ya hay incidencia abierta: si SUBE de severidad, escalar (y notificar).
         anterior = abierta.get("severidad")
@@ -785,3 +786,130 @@ def _gestionar_incidencia(db: Database, settings: Settings, recurso: Recurso, ev
                     titulo=f"Escalamiento de severidad: {anterior} -> {ev.severidad}",
                     descripcion="; ".join(ev.motivos) or None,
                 )
+
+
+# ── Auto-remediación / runbooks (#5) ──────────────────────────────────
+def _disparar_remediacion(db: Database, settings: Settings, recurso: Recurso,
+                          severidad: str, titulo: str, incidencia_id: int) -> None:
+    """Ejecuta los runbooks cuyos disparadores coinciden con la incidencia recién abierta."""
+    if not settings.remediacion_enabled:
+        return
+    from . import remediacion
+
+    try:
+        runbooks = repo.cargar_runbooks_activos(db, settings.app_crypto_key)
+    except Exception:  # noqa: BLE001
+        log.exception("No se pudieron cargar runbooks")
+        return
+    if not runbooks:
+        return
+
+    tipo_id = repo.tipo_id_de_recurso(db, recurso.id)
+    ctx = {
+        "tipo_id": tipo_id, "severidad": severidad, "titulo": titulo,
+        "recurso": recurso.nombre, "hostname": (recurso.hostname or "").split(":", 1)[0],
+        "incidencia_id": incidencia_id,
+    }
+    ahora = datetime.now(timezone.utc)
+    for rb in runbooks:
+        if not remediacion.runbook_coincide(rb, ctx):
+            continue
+        # Cooldown por (runbook, recurso) para no repetir la acción en cada chequeo.
+        ultima = repo.ultima_ejecucion_runbook(db, rb["id"], recurso.id)
+        if ultima and (ahora - ultima).total_seconds() < rb.get("cooldown_seg", 300):
+            continue
+        exito, salida = remediacion.ejecutar_accion(rb.get("accion") or {}, ctx, rb.get("secretos"))
+        repo.registrar_ejecucion_runbook(db, rb["id"], incidencia_id, recurso.id, exito, salida)
+        log.warning("Runbook '%s' ejecutado (recurso %s): exito=%s", rb["nombre"], recurso.id, exito)
+
+
+# ── Cumplimiento de configuración (#7) ────────────────────────────────
+def evaluar_cumplimiento(db: Database, settings: Settings) -> None:
+    """Evalúa la última config respaldada de cada recurso contra las políticas activas.
+    Avisa cuando un recurso PASA a incumplir una política (transición)."""
+    if not settings.cumplimiento_enabled:
+        return
+    from . import cumplimiento as cmp
+
+    politicas = repo.cargar_politicas_cumplimiento(db)
+    if not politicas:
+        return
+    filtro = settings.sitios_filtro()
+    recursos = repo.cargar_recursos_activos(db)
+    if filtro:
+        recursos = [r for r in recursos if r.sitio_id in filtro]
+
+    for recurso in recursos:
+        texto = repo.ultimo_respaldo_texto(db, recurso.id)
+        if not texto:
+            continue
+        tipo_id = repo.tipo_id_de_recurso(db, recurso.id)
+        for pol in politicas:
+            if not cmp.aplica(pol, tipo_id):
+                continue
+            cumple, detalle = cmp.evaluar_politica(texto, pol)
+            previo = repo.guardar_resultado_cumplimiento(db, recurso.id, pol["id"], cumple, detalle)
+            if (not cumple) and previo is not False:   # nuevo incumplimiento (o primera vez)
+                notificar_simple(
+                    db, settings,
+                    asunto=f"Incumplimiento de config: {recurso.nombre}",
+                    texto=f"Política «{pol['nombre']}»: {detalle}",
+                    severidad=pol.get("severidad", "warning"),
+                )
+                log.warning("Cumplimiento: %s incumple '%s' (%s)", recurso.nombre, pol["nombre"], detalle)
+
+
+# ── Virtualización (#9) ───────────────────────────────────────────────
+def procesar_virtualizacion(db: Database, settings: Settings) -> None:
+    """Inventario por-VM de los hosts vCenter opt-in (parametros.virtualizacion)."""
+    if not settings.virtualizacion_enabled:
+        return
+    from .probes import vmware
+
+    filtro = settings.sitios_filtro()
+    recursos = repo.recursos_virtualizacion(db)
+    if filtro:
+        recursos = [r for r in recursos if r.sitio_id in filtro]
+    timeout = max(20.0, settings.probe_timeout_ms / 1000)
+
+    for recurso in recursos:
+        cfg = (recurso.parametros or {}).get("virtualizacion") or {}
+        if cfg.get("tipo", "vmware") != "vmware":
+            continue   # Hyper-V se reporta vía el agente ligero
+        host = cfg.get("host") or (recurso.hostname or "").split(":", 1)[0]
+        secretos = (repo.descifrar_secretos(db, recurso.id, settings.app_crypto_key)
+                    if settings.app_crypto_key else None) or {}
+        usuario = secretos.get("vcenter_user") or cfg.get("usuario")
+        password = secretos.get("vcenter_password", "")
+        if not host or not usuario:
+            continue
+        try:
+            vms = vmware.obtener_inventario(host, usuario, password,
+                                            bool(cfg.get("verify_tls", False)), timeout)
+        except Exception as e:  # noqa: BLE001
+            log.warning("Virtualización %s (%s): %s", recurso.id, recurso.nombre, e)
+            continue
+        repo.guardar_vms(db, recurso.id, vms)
+        log.info("Virtualización %s (%s): %d VM(s).", recurso.id, recurso.nombre, len(vms))
+
+
+# ── AIOps: correlación de alertas (#14) ───────────────────────────────
+def correlacionar_incidencias(db: Database, settings: Settings) -> None:
+    """Agrupa incidencias abiertas relacionadas (misma sede + ventana) en una
+    correlación, marcando la causa raíz probable. Reduce el ruido del operador."""
+    if not settings.correlacion_enabled:
+        return
+    from . import correlacion as corr
+
+    abiertas = [dict(i) for i in repo.incidencias_abiertas_correlacion(db)]
+    # Solo las que aún no pertenecen a una correlación.
+    sin_grupo = [i for i in abiertas if not i.get("correlacion_id")]
+    if len(sin_grupo) < 2:
+        return
+
+    for grupo in corr.agrupar(sin_grupo, settings.correlacion_ventana_seg):
+        causa = corr.causa_raiz(grupo)
+        ids = [i["id"] for i in grupo]
+        resumen = f"{len(ids)} incidencias correlacionadas (causa probable: incidencia #{causa['id']})"
+        cid = repo.crear_correlacion(db, grupo[0].get("sitio_id"), causa["id"], resumen, ids)
+        log.info("Correlación %s creada: %s", cid, resumen)

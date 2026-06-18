@@ -2,8 +2,9 @@ import { DecimalPipe, JsonPipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { Baseline, Chequeo, HardwareComponente, HardwareInventario, Incidencia, Interfaz, Metrica, MuestraInterfaz, PasoSintetico, Recurso, Respaldo, RespaldoDetalle, VecinoLldp, WanCalidadResp } from '../../core/models';
+import { Baseline, Chequeo, HardwareComponente, HardwareInventario, Incidencia, Interfaz, Metrica, MuestraInterfaz, PasoSintetico, Recurso, Respaldo, RespaldoDetalle, VecinoLldp, VmResp, WanCalidadResp } from '../../core/models';
 import { AuthService } from '../../core/auth.service';
+import { OperacionService } from '../../core/operacion.service';
 import { RecursosService } from '../../core/recursos.service';
 import { TelemetriaService } from '../../core/telemetria.service';
 import { EstadoBadge } from '../../shared/estado-badge';
@@ -22,6 +23,7 @@ interface SerieMetrica { metrica: string; unidad: string; puntos: Punto[]; }
 export class RecursoDetalle {
   private route = inject(ActivatedRoute);
   private recursosSvc = inject(RecursosService);
+  private opSvc = inject(OperacionService);
   private tele = inject(TelemetriaService);
   auth = inject(AuthService);
 
@@ -37,6 +39,7 @@ export class RecursoDetalle {
   hwComponentes = signal<HardwareComponente[]>([]);
   vecinos = signal<VecinoLldp[]>([]);
   wan = signal<WanCalidadResp | null>(null);
+  vms = signal<VmResp | null>(null);
   respaldoSel = signal<RespaldoDetalle | null>(null);
   respaldoVista = signal<'diff' | 'completo'>('diff');
   rango = signal<'1h' | '24h' | '7d'>('24h');
@@ -163,6 +166,11 @@ export class RecursoDetalle {
     this.recursosSvc.wanCalidad(this.id, '24h').subscribe({
       next: (w) => this.wan.set(w?.ultimo ? w : null),
       error: () => this.wan.set(null),
+    });
+    this.vms.set(null);
+    this.opSvc.vms(this.id).subscribe({
+      next: (v) => this.vms.set(v?.total ? v : null),
+      error: () => this.vms.set(null),
     });
     this.tele.chequeos({ recurso_id: this.id, per_page: 1 }).subscribe({
       next: (p) => this.ultimoChequeo.set(p.data[0] ?? null),

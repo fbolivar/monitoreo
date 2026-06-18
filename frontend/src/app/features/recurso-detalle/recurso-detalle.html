@@ -261,6 +261,27 @@
     </section>
   }
 
+  <!-- Virtualización: VMs del host -->
+  @if (vms(); as v) {
+    <section class="vms">
+      <h2>Máquinas virtuales <span class="text-dim">({{ v.encendidas }}/{{ v.total }} encendidas)</span></h2>
+      <table>
+        <thead><tr><th>VM</th><th>Estado</th><th>vCPU</th><th>RAM</th><th>SO invitado</th></tr></thead>
+        <tbody>
+          @for (m of v.vms; track m.id) {
+            <tr>
+              <td><b>{{ m.nombre || m.vm_id }}</b></td>
+              <td><span class="pw" [class.on]="m.power_state === 'POWERED_ON'">{{ m.power_state }}</span></td>
+              <td>{{ m.cpu_count ?? '—' }}</td>
+              <td>{{ m.memoria_mb ? (m.memoria_mb / 1024 | number:'1.0-1') + ' GB' : '—' }}</td>
+              <td class="text-dim">{{ m.guest_os ?? '—' }}</td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </section>
+  }
+
   <!-- Vecinos LLDP (topología L2) -->
   @if (vecinos().length > 0) {
     <section class="lldp">

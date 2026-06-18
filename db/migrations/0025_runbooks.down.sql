@@ -1,0 +1,4 @@
+BEGIN;
+DROP TABLE IF EXISTS runbook_ejecuciones;
+DROP TABLE IF EXISTS runbooks;
+COMMIT;

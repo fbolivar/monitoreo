@@ -5,9 +5,18 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CanalNotificacionController;
 use App\Http\Controllers\ChequeoController;
 use App\Http\Controllers\ConfigLdapController;
+use App\Http\Controllers\AgenteController;
+use App\Http\Controllers\CorrelacionController;
+use App\Http\Controllers\CumplimientoController;
 use App\Http\Controllers\DescubrimientoController;
 use App\Http\Controllers\DosFactorController;
 use App\Http\Controllers\FlujoController;
+use App\Http\Controllers\IngestController;
+use App\Http\Controllers\PushController;
+use App\Http\Controllers\RumController;
+use App\Http\Controllers\RunbookController;
+use App\Http\Controllers\StatusController;
+use App\Http\Controllers\VmController;
 use App\Http\Controllers\IncidenciaController;
 use App\Http\Controllers\MantenimientoController;
 use App\Http\Controllers\MetricaController;
@@ -44,6 +53,16 @@ use Illuminate\Support\Facades\Route;
 // Autenticación local (pública): devuelve un JWT propio.
 Route::post('auth/login', [AuthController::class, 'login']);
 
+// ── PÚBLICO (sin JWT) ────────────────────────────────────────────────
+// Página de estado público (#12).
+Route::get('status', [StatusController::class, 'index']);
+// Ingesta: agente ligero (#8, token propio) y APM/RUM (#13, beacon).
+Route::post('ingest/agente', [IngestController::class, 'agente']);
+Route::post('ingest/rum', [IngestController::class, 'rum']);
+Route::post('ingest/span', [IngestController::class, 'span']);
+// Clave pública VAPID para Web Push (#11).
+Route::get('push/vapid', [PushController::class, 'vapid']);
+
 // Recursos de configuración con CRUD completo.
 $crud = [
     'tipos-recurso'        => TipoRecursoController::class,
@@ -55,6 +74,8 @@ $crud = [
     'servicios'            => ServicioController::class,
     'mantenimientos'       => MantenimientoController::class,
     'canales-notificacion' => CanalNotificacionController::class,
+    'runbooks'             => RunbookController::class,
+    'cumplimiento-politicas' => CumplimientoController::class,
 ];
 
 Route::middleware('auth.jwt')->group(function () use ($crud) {
@@ -110,6 +131,22 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
     // Calidad activa de enlace WAN/Starlink de un recurso (lectura).
     Route::get('recursos/{id}/wan-calidad', [WanCalidadController::class, 'index'])->whereNumber('id');
 
+    // Virtualización (#9): inventario de VMs de un host (lectura).
+    Route::get('recursos/{id}/vms', [VmController::class, 'index'])->whereNumber('id');
+
+    // Cumplimiento de configuración (#7): resultados (lectura).
+    Route::get('cumplimiento/resultados', [CumplimientoController::class, 'resultados']);
+
+    // AIOps (#14): correlaciones de incidencias (lectura).
+    Route::get('correlaciones', [CorrelacionController::class, 'index']);
+
+    // APM/RUM (#13): experiencia real del usuario (lectura).
+    Route::get('rum', [RumController::class, 'index']);
+
+    // Web Push (#11): registrar/quitar la suscripción del navegador.
+    Route::post('push/suscribir', [PushController::class, 'suscribir']);
+    Route::post('push/desuscribir', [PushController::class, 'desuscribir']);
+
     // Auto-descubrimiento de red (lectura): escaneos y candidatos.
     Route::get('descubrimiento', [DescubrimientoController::class, 'index']);
     Route::get('descubrimiento/tipos', [DescubrimientoController::class, 'tiposSugeridos']);
@@ -155,6 +192,11 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
     // ── USUARIOS (perfiles) y AUDITORÍA: solo admin ──────────────────
     Route::middleware('role:admin')->group(function () {
         Route::get('auditoria', [AuditoriaController::class, 'index']);
+
+        // Agentes ligeros (#8): el token se muestra una sola vez al crear.
+        Route::get('agentes', [AgenteController::class, 'index']);
+        Route::post('agentes', [AgenteController::class, 'store']);
+        Route::delete('agentes/{id}', [AgenteController::class, 'destroy'])->whereNumber('id');
 
         // Configuración de SSO LDAP/AD.
         Route::get('config/ldap', [ConfigLdapController::class, 'mostrar']);

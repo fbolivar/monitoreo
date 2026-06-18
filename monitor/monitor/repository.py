@@ -1026,3 +1026,145 @@ def guardar_wan_calidad(db: Database, recurso_id: int, datos: dict) -> None:
              datos.get("loss_pct"), datos.get("down_mbps"), datos.get("up_mbps"),
              datos.get("mos"), datos.get("calidad")),
         )
+
+
+# ── Auto-remediación / runbooks (#5) ──────────────────────────────────
+def cargar_runbooks_activos(db: Database, clave: str) -> list[dict]:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, nombre, activo, trigger_tipo_id, trigger_severidad, trigger_match, "
+            "accion, cooldown_seg, descifrar_secreto(secretos, %s) AS secretos "
+            "FROM runbooks WHERE activo = true ORDER BY id",
+            (clave,),
+        )
+        return cur.fetchall()
+
+
+def ultima_ejecucion_runbook(db: Database, runbook_id: int, recurso_id: int) -> datetime | None:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT max(ts) AS ts FROM runbook_ejecuciones WHERE runbook_id = %s AND recurso_id = %s",
+            (runbook_id, recurso_id),
+        )
+        row = cur.fetchone()
+        return row["ts"] if row else None
+
+
+def registrar_ejecucion_runbook(db: Database, runbook_id: int, incidencia_id: int | None,
+                                recurso_id: int | None, exito: bool, salida: str | None) -> None:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO runbook_ejecuciones (runbook_id, incidencia_id, recurso_id, exito, salida) "
+            "VALUES (%s, %s, %s, %s, %s)",
+            (runbook_id, incidencia_id, recurso_id, exito, (salida or "")[:4000]),
+        )
+
+
+# ── Cumplimiento de configuración (#7) ────────────────────────────────
+def cargar_politicas_cumplimiento(db: Database) -> list[dict]:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, nombre, tipo, patron, severidad, aplica_tipo_id "
+            "FROM cumplimiento_politicas WHERE activo = true ORDER BY id"
+        )
+        return cur.fetchall()
+
+
+def ultimo_respaldo_texto(db: Database, recurso_id: int) -> str | None:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT contenido FROM config_respaldos WHERE recurso_id = %s ORDER BY id DESC LIMIT 1",
+            (recurso_id,),
+        )
+        row = cur.fetchone()
+        return row["contenido"] if row else None
+
+
+def guardar_resultado_cumplimiento(db: Database, recurso_id: int, politica_id: int,
+                                   cumple: bool, detalle: str) -> bool | None:
+    """Upsert del resultado; devuelve el valor PREVIO de `cumple` (None si no había)."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT cumple FROM cumplimiento_resultados WHERE recurso_id = %s AND politica_id = %s",
+            (recurso_id, politica_id),
+        )
+        row = cur.fetchone()
+        previo = row["cumple"] if row else None
+        cur.execute(
+            "INSERT INTO cumplimiento_resultados (recurso_id, politica_id, cumple, detalle, ts) "
+            "VALUES (%s, %s, %s, %s, now()) "
+            "ON CONFLICT (recurso_id, politica_id) DO UPDATE SET "
+            "cumple = EXCLUDED.cumple, detalle = EXCLUDED.detalle, ts = now()",
+            (recurso_id, politica_id, cumple, detalle),
+        )
+        return previo
+
+
+# ── Virtualización (#9) ───────────────────────────────────────────────
+def recursos_virtualizacion(db: Database) -> list[Recurso]:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(_SELECT_RECURSO +
+                    " WHERE r.activo = true AND r.parametros ? 'virtualizacion' ORDER BY r.id")
+        return [_fila_a_recurso(r) for r in cur.fetchall()]
+
+
+def guardar_vms(db: Database, host_recurso_id: int, vms: list[dict]) -> None:
+    with db.connection() as conn, conn.cursor() as cur:
+        for v in vms:
+            cur.execute(
+                "INSERT INTO vm_inventario (host_recurso_id, vm_id, nombre, power_state, "
+                "cpu_count, memoria_mb, guest_os, ts) VALUES (%s,%s,%s,%s,%s,%s,%s, now()) "
+                "ON CONFLICT (host_recurso_id, vm_id) DO UPDATE SET nombre=EXCLUDED.nombre, "
+                "power_state=EXCLUDED.power_state, cpu_count=EXCLUDED.cpu_count, "
+                "memoria_mb=EXCLUDED.memoria_mb, guest_os=EXCLUDED.guest_os, ts=now()",
+                (host_recurso_id, v.get("vm_id"), v.get("nombre"), v.get("power_state"),
+                 v.get("cpu_count"), v.get("memoria_mb"), v.get("guest_os")),
+            )
+
+
+# ── Web Push (#11) y GLPI (#3) ────────────────────────────────────────
+def push_suscripciones(db: Database) -> list[dict]:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT endpoint, p256dh, auth FROM push_suscripciones")
+        return cur.fetchall()
+
+
+def set_ticket_externo(db: Database, incidencia_id: int, ticket: str) -> None:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE incidencias SET ticket_externo = %s WHERE id = %s AND ticket_externo IS NULL",
+            (ticket, incidencia_id),
+        )
+
+
+# ── AIOps: correlación de alertas (#14) ───────────────────────────────
+def incidencias_abiertas_correlacion(db: Database) -> list[dict]:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT i.id, i.inicio, i.correlacion_id, r.sitio_id, r.id AS recurso_id, "
+            "r.depende_de_id "
+            "FROM incidencias i JOIN recursos r ON r.id = i.recurso_id "
+            "WHERE i.estado = 'abierta' ORDER BY i.inicio"
+        )
+        return cur.fetchall()
+
+
+def crear_correlacion(db: Database, sitio_id, causa_incidencia_id, resumen: str,
+                      incidencia_ids: list[int]) -> int:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO correlaciones (sitio_id, causa_incidencia_id, resumen, n_incidencias) "
+            "VALUES (%s, %s, %s, %s) RETURNING id",
+            (sitio_id, causa_incidencia_id, resumen, len(incidencia_ids)),
+        )
+        cid = cur.fetchone()["id"]
+        cur.execute("UPDATE incidencias SET correlacion_id = %s WHERE id = ANY(%s)",
+                    (cid, incidencia_ids))
+        return cid
+
+
+def tipo_id_de_recurso(db: Database, recurso_id: int) -> int | None:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT tipo_id FROM recursos WHERE id = %s", (recurso_id,))
+        row = cur.fetchone()
+        return row["tipo_id"] if row else None

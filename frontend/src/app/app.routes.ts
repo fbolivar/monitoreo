@@ -14,6 +14,11 @@ export const routes: Routes = [
     loadComponent: () => import('./features/wallboard/wallboard').then((m) => m.Wallboard),
   },
   {
+    // Página de estado PÚBLICA (sin login, fuera del Shell).
+    path: 'status',
+    loadComponent: () => import('./features/status/status').then((m) => m.Status),
+  },
+  {
     path: '',
     component: Shell,
     canActivate: [authGuard],
@@ -59,6 +64,27 @@ export const routes: Routes = [
       {
         path: 'flujos',
         loadComponent: () => import('./features/flujos/flujos').then((m) => m.Flujos),
+      },
+      {
+        path: 'runbooks',
+        loadComponent: () => import('./features/runbooks/runbooks').then((m) => m.Runbooks),
+      },
+      {
+        path: 'cumplimiento',
+        loadComponent: () => import('./features/cumplimiento/cumplimiento').then((m) => m.Cumplimiento),
+      },
+      {
+        path: 'correlaciones',
+        loadComponent: () => import('./features/correlaciones/correlaciones').then((m) => m.Correlaciones),
+      },
+      {
+        path: 'rum',
+        loadComponent: () => import('./features/rum/rum').then((m) => m.Rum),
+      },
+      {
+        path: 'agentes',
+        canActivate: [adminGuard],
+        loadComponent: () => import('./features/agentes/agentes').then((m) => m.Agentes),
       },
       {
         // El mapa de sedes ahora vive como tab dentro de Topología; se conserva

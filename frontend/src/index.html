@@ -8,11 +8,32 @@
   <meta name="description" content="SIMON — Sistema Integral de Monitoreo · Parques Nacionales Naturales de Colombia">
   <meta name="theme-color" content="#1e5631">
   <link rel="icon" type="image/png" href="favicon-64.png">
+  <link rel="manifest" href="manifest.webmanifest">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700&family=Work+Sans:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
   <app-root></app-root>
+  <!-- RUM beacon (#13): reporta el tiempo real de carga del navegador. -->
+  <script>
+    window.addEventListener('load', function () {
+      try {
+        var nav = performance.getEntriesByType('navigation')[0];
+        var ms = nav ? Math.round(nav.loadEventEnd - nav.startTime) : Math.round(performance.now());
+        if (ms > 0 && ms < 600000) {
+          fetch('/api/ingest/rum', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: location.pathname, tipo: 'pageload', valor_ms: ms, sitio: 'simon-web' }),
+            keepalive: true,
+          }).catch(function () {});
+        }
+      } catch (e) {}
+    });
+    window.addEventListener('error', function () {
+      fetch('/api/ingest/rum', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: location.pathname, tipo: 'error' }), keepalive: true }).catch(function () {});
+    });
+  </script>
 </body>
 </html>
