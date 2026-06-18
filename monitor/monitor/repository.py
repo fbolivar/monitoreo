@@ -593,8 +593,13 @@ def marcar_escalada(db: Database, incidencia_id: int, ahora: datetime) -> None:
 
 # ── SNMP traps ────────────────────────────────────────────────────────
 def recurso_id_por_host(db: Database, ip: str) -> int | None:
+    # Empareja por la IP ignorando el puerto del hostname (p.ej. '192.168.50.1:25443'
+    # del API FortiGate). Útil para vincular exportadores NetFlow y traps al recurso.
     with db.connection() as conn, conn.cursor() as cur:
-        cur.execute("SELECT id FROM recursos WHERE hostname = %s ORDER BY id LIMIT 1", (ip,))
+        cur.execute(
+            "SELECT id FROM recursos WHERE split_part(hostname, ':', 1) = %s ORDER BY id LIMIT 1",
+            (ip,),
+        )
         row = cur.fetchone()
         return row["id"] if row else None
 
