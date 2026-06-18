@@ -522,13 +522,15 @@ def medir_calidad_wan(db: Database, settings: Settings) -> None:
 
     ahora = datetime.now(timezone.utc)
     for recurso in recursos:
-        host = (recurso.hostname or "").split(":", 1)[0].strip()
+        cfg = recurso.parametros.get("wan_calidad") if recurso.parametros else None
+        cfg = cfg if isinstance(cfg, dict) else {}
+        # Objetivo del sondeo: `target` explícito (p.ej. 1.1.1.1 para medir el enlace
+        # de Internet del sitio) o, por defecto, el propio hostname del recurso.
+        host = str(cfg.get("target") or (recurso.hostname or "").split(":", 1)[0]).strip()
         if not host:
             continue
         if repo.en_mantenimiento(db, recurso, ahora):
             continue
-        cfg = recurso.parametros.get("wan_calidad") if recurso.parametros else None
-        cfg = cfg if isinstance(cfg, dict) else {}
         try:
             datos = wc.medir(
                 host, settings,
