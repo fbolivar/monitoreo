@@ -5,9 +5,9 @@ $up: #16d97e; $deg: #f5b301; $down: #ff3b51; $unk: #8a97ad; $mnt: #3aa0ff; $cy: 
 
 .wb {
   --up: #{$up}; --deg: #{$deg}; --down: #{$down}; --unk: #{$unk}; --mnt: #{$mnt}; --cy: #{$cy};
-  position: relative; width: 100%; height: 100vh; overflow: hidden;
-  display: grid; grid-template-rows: auto auto minmax(0, 1fr) auto; gap: 12px;
-  padding: 14px 20px;
+  position: fixed; top: 0; left: 0; right: 0; bottom: 0; overflow: hidden;
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 12px 20px;
   color: #e7eefb;
   font-family: "Segoe UI", system-ui, sans-serif;
   background:
@@ -32,18 +32,19 @@ $up: #16d97e; $deg: #f5b301; $down: #ff3b51; $unk: #8a97ad; $mnt: #3aa0ff; $cy: 
 
 .dim { color: #8a97ad; font-weight: 400; }
 .panel {
-  background: linear-gradient(180deg, #0e1a30cc, #0a1322cc);
-  border: 1px solid #1f3556; border-radius: 16px; padding: 14px 16px;
-  backdrop-filter: blur(6px); box-shadow: inset 0 1px 0 #ffffff0a, 0 10px 30px #00000055;
+  background: linear-gradient(180deg, #0e1a30, #0a1322);
+  border: 1px solid #1f3556; border-radius: 16px; padding: 12px 16px;
+  box-shadow: inset 0 1px 0 #ffffff0a, 0 10px 30px #00000055;
 }
 .panel h2 { font-size: 15px; margin: 0 0 12px; font-weight: 700; letter-spacing: .02em; display: flex; align-items: center; gap: 10px; }
 .panel h2 .n { margin-left: auto; background: #1f3556; color: #cfe0ff; padding: 1px 12px; border-radius: 12px; font-size: 14px; }
 .panel h2 .n.cero { background: #16402c; color: var(--up); }
 
 // ── Barra superior ──────────────────────────────────────────────────
-.top { display: flex; align-items: center; gap: 20px; }
+.top { flex: 0 0 auto; display: flex; align-items: center; gap: 20px; }
 .marca { display: flex; align-items: center; gap: 14px; }
-.marca img { height: 40px; filter: drop-shadow(0 0 8px #22d3ee55); }
+.marca img { height: 56px; width: 56px; object-fit: contain; padding: 6px; border-radius: 12px;
+  background: #ffffff12; border: 1px solid #2a4366; }
 .mt { display: flex; flex-direction: column; line-height: 1.1; }
 .mt b { font-size: 24px; letter-spacing: .12em; font-weight: 800; }
 .mt span { font-size: 12px; color: #8a97ad; letter-spacing: .04em; }
@@ -59,10 +60,10 @@ $up: #16d97e; $deg: #f5b301; $down: #ff3b51; $unk: #8a97ad; $mnt: #3aa0ff; $cy: 
 @keyframes blink { 50% { opacity: .35; } }
 
 // ── Hero: anillo + estados + kpis ───────────────────────────────────
-.hero { display: grid; grid-template-columns: 300px 1.1fr 1.4fr; gap: 14px; align-items: stretch; }
+.hero { flex: 0 0 auto; height: 208px; display: grid; grid-template-columns: 270px 1.05fr 1.35fr; gap: 14px; align-items: stretch; }
 .ring-card { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  background: radial-gradient(circle at 50% 38%, #0f2540, #0a1322); border: 1px solid #1f3556; border-radius: 16px; padding: 8px; }
-.ring { width: 100%; max-width: 230px; height: auto; }
+  background: radial-gradient(circle at 50% 38%, #0f2540, #0a1322); border: 1px solid #1f3556; border-radius: 16px; padding: 6px; }
+.ring { width: 100%; max-width: 188px; height: auto; }
 .ring-bg { fill: none; stroke: #16263f; stroke-width: 18; }
 .ring-fg { fill: none; stroke-width: 18; stroke-linecap: round; transition: stroke-dashoffset .2s linear; }
 .ring-fg[data-nivel=ok] { stroke: var(--up); filter: drop-shadow(0 0 10px #16d97eaa); }
@@ -73,10 +74,10 @@ $up: #16d97e; $deg: #f5b301; $down: #ff3b51; $unk: #8a97ad; $mnt: #3aa0ff; $cy: 
 .ring-lbl { fill: #8a97ad; font-size: 14px; text-anchor: middle; letter-spacing: .18em; }
 .ring-foot { font-size: 12px; color: #9fb2cf; margin-top: 2px; }
 
-.estados { display: grid; grid-template-rows: repeat(5, 1fr); gap: 8px; }
-.es { position: relative; display: flex; align-items: center; gap: 12px; padding: 0 16px; border-radius: 12px; overflow: hidden;
+.estados { display: grid; grid-template-rows: repeat(5, 1fr); gap: 7px; }
+.es { position: relative; display: flex; align-items: center; gap: 12px; padding: 0 16px; border-radius: 10px; overflow: hidden;
   background: linear-gradient(90deg, #0e1a30, #0a1322); border: 1px solid #1c3050; }
-.es b { font-size: 30px; font-weight: 800; min-width: 56px; font-variant-numeric: tabular-nums; }
+.es b { font-size: 26px; font-weight: 800; min-width: 50px; font-variant-numeric: tabular-nums; }
 .es span { font-size: 14px; color: #b9c6dd; font-weight: 600; }
 .es i { position: absolute; left: 0; top: 0; bottom: 0; width: 5px; }
 .es.up i { background: var(--up); } .es.up b { color: var(--up); }
@@ -90,7 +91,7 @@ $up: #16d97e; $deg: #f5b301; $down: #ff3b51; $unk: #8a97ad; $mnt: #3aa0ff; $cy: 
 .kpis { display: grid; grid-template-columns: 1fr 1fr 1.3fr; gap: 12px; }
 .kpi { background: linear-gradient(180deg, #0e1a30, #0a1322); border: 1px solid #1c3050; border-radius: 14px; padding: 12px 16px; display: flex; flex-direction: column; }
 .kpi .kl { font-size: 12.5px; color: #8a97ad; display: flex; align-items: center; gap: 8px; }
-.kpi .kv { font-size: 42px; font-weight: 800; line-height: 1; margin: 6px 0; font-variant-numeric: tabular-nums; }
+.kpi .kv { font-size: 34px; font-weight: 800; line-height: 1; margin: 4px 0; font-variant-numeric: tabular-nums; }
 .kpi .kv small { font-size: 16px; color: #8a97ad; font-weight: 600; }
 .kpi .ks { font-size: 12px; color: #9fb2cf; margin-top: auto; }
 .kpi.alarma { border-color: #7a2330; }
@@ -102,7 +103,7 @@ $up: #16d97e; $deg: #f5b301; $down: #ff3b51; $unk: #8a97ad; $mnt: #3aa0ff; $cy: 
 .kpi.net .mini polygon { fill: #22d3ee22; }
 
 // ── Cuerpo: mapa + alertas ──────────────────────────────────────────
-.cuerpo { display: grid; grid-template-columns: 1.8fr 1fr; gap: 14px; min-height: 0; }
+.cuerpo { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 2fr 1fr; gap: 14px; }
 .mapa-card { display: flex; flex-direction: column; min-height: 0; }
 .mapa-wrap { flex: 1; min-height: 0; display: flex; justify-content: center; align-items: center; padding: 4px 0; }
 .mapa { height: 100%; max-height: 100%; width: 100%; }
@@ -154,7 +155,7 @@ $up: #16d97e; $deg: #f5b301; $down: #ff3b51; $unk: #8a97ad; $mnt: #3aa0ff; $cy: 
 .al .sit { font-size: 11px; color: #8a97ad; } .al .dur { font-size: 11px; color: #6c7b96; }
 
 // ── Franja inferior ─────────────────────────────────────────────────
-.franja { display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; }
+.franja { flex: 0 0 auto; display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; }
 .net-grid { display: grid; grid-template-columns: repeat(4, 1fr) 1.4fr; gap: 10px; }
 .net-kpi { background: #0c1626; border: 1px solid #1c3050; border-radius: 12px; padding: 10px 12px; }
 .net-kpi span { font-size: 11px; color: #8a97ad; text-transform: uppercase; letter-spacing: .04em; }
