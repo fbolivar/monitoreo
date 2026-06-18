@@ -76,7 +76,9 @@ def _webhook(accion: dict, ctx: dict, secretos: dict) -> tuple[bool, str]:
 
 
 def _ssh(accion: dict, ctx: dict, secretos: dict) -> tuple[bool, str]:
-    import paramiko
+    # Reutiliza el shell interactivo del backup SSH (invoke_shell): los equipos de
+    # red (FortiOS, Dell OS9, etc.) NO soportan exec_command no interactivo.
+    from .probes import ssh_config
 
     host = accion.get("host") or ctx.get("hostname")
     comando = interpolar(accion.get("comando", ""), ctx)
@@ -86,21 +88,15 @@ def _ssh(accion: dict, ctx: dict, secretos: dict) -> tuple[bool, str]:
     if not usuario:
         return False, "ssh sin usuario"
 
-    cli = paramiko.SSHClient()
-    cli.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    # Secuencia opcional para desactivar el paginador (p.ej. FortiOS:
+    # "config system console\nset output standard\nend").
+    sin_pag = accion.get("sin_paginacion") or ""
     try:
-        kwargs: dict = {"username": usuario, "timeout": 20, "look_for_keys": False, "allow_agent": False}
-        if secretos.get("ssh_key"):
-            from io import StringIO
-            kwargs["pkey"] = paramiko.RSAKey.from_private_key(StringIO(secretos["ssh_key"]))
-        else:
-            kwargs["password"] = secretos.get("ssh_password", "")
-        cli.connect(host.split(":", 1)[0], port=int(accion.get("puerto", 22)), **kwargs)
-        _in, out, err = cli.exec_command(comando, timeout=25)
-        salida = out.read().decode("utf-8", "replace")[:2000]
-        error = err.read().decode("utf-8", "replace")[:500]
-        return True, (salida or error or "ok")
+        salida = ssh_config.obtener_config(
+            host.split(":", 1)[0], int(accion.get("puerto", 22)), usuario,
+            secretos.get("ssh_password"), secretos.get("ssh_key"),
+            comando, sin_pag or "", 25.0,
+        )
+        return True, (salida[:2000] or "ok")
     except Exception as e:  # noqa: BLE001
         return False, str(e)
-    finally:
-        cli.close()
