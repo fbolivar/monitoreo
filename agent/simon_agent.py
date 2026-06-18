@@ -75,7 +75,8 @@ WATCH_DEFAULT = [
 def _servicios_vigilados() -> list[dict]:
     """Estado explícito (running/stopped/absent) de una lista vigilada de servicios."""
     env = os.getenv("SIMON_SERVICIOS", "").strip()
-    nombres = [n.strip() for n in env.split(",") if n.strip()] or WATCH_DEFAULT
+    extra = [n.strip() for n in env.split(",") if n.strip()]
+    nombres = list(dict.fromkeys(WATCH_DEFAULT + extra))  # default + extra (env), sin duplicados
     out: list[dict] = []
     try:
         if sys.platform.startswith("win"):
