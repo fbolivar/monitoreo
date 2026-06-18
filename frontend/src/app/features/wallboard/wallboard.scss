@@ -43,11 +43,12 @@ $up: #16d97e; $deg: #f5b301; $down: #ff3b51; $unk: #8a97ad; $mnt: #3aa0ff; $cy: 
 // ── Barra superior ──────────────────────────────────────────────────
 .top { flex: 0 0 auto; display: flex; align-items: center; gap: 20px; }
 .marca { display: flex; align-items: center; gap: 14px; }
-.marca img { height: 56px; width: 56px; object-fit: contain; padding: 6px; border-radius: 12px;
-  background: #ffffff12; border: 1px solid #2a4366; }
-.mt { display: flex; flex-direction: column; line-height: 1.1; }
+.marca img { height: 60px; width: 60px; object-fit: contain; padding: 7px; border-radius: 12px;
+  background: #ffffff; border: 1px solid #ffffff; box-shadow: 0 0 16px #22d3ee33; }
+.mt { display: flex; flex-direction: column; line-height: 1.18; }
 .mt b { font-size: 24px; letter-spacing: .12em; font-weight: 800; }
-.mt span { font-size: 12px; color: #8a97ad; letter-spacing: .04em; }
+.mt .ent { font-size: 13px; color: #cfe0ff; font-weight: 600; }
+.mt .sub { font-size: 11.5px; color: #8a97ad; letter-spacing: .03em; }
 .reloj { margin-left: auto; text-align: center; }
 .reloj b { font-size: 40px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .04em; text-shadow: 0 0 18px #22d3ee44; }
 .reloj .fch { display: block; font-size: 13px; color: #8a97ad; text-transform: capitalize; }
@@ -60,10 +61,18 @@ $up: #16d97e; $deg: #f5b301; $down: #ff3b51; $unk: #8a97ad; $mnt: #3aa0ff; $cy: 
 @keyframes blink { 50% { opacity: .35; } }
 
 // ── Hero: anillo + estados + kpis ───────────────────────────────────
-.hero { flex: 0 0 auto; height: 208px; display: grid; grid-template-columns: 270px 1.05fr 1.35fr; gap: 14px; align-items: stretch; }
-.ring-card { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
+// Cuerpo: mapa (izq, grande) | datos+alertas (der)
+.main { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 1.5fr 1fr; gap: 14px; }
+.right { display: flex; flex-direction: column; gap: 14px; min-height: 0; }
+
+// Hero = contenedor de layout (sin fondo propio): anillo | estados / kpis abajo
+.hero { flex: 0 0 auto; background: transparent; border: 0; box-shadow: none; padding: 0;
+  display: grid; grid-template-columns: 168px 1fr; grid-template-areas: "ring estados" "kpis kpis"; gap: 12px; }
+.estados { grid-area: estados; }
+.kpis { grid-area: kpis; }
+.ring-card { grid-area: ring; position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center;
   background: radial-gradient(circle at 50% 38%, #0f2540, #0a1322); border: 1px solid #1f3556; border-radius: 16px; padding: 6px; }
-.ring { width: 100%; max-width: 188px; height: auto; }
+.ring { width: 100%; max-width: 150px; height: auto; }
 .ring-bg { fill: none; stroke: #16263f; stroke-width: 18; }
 .ring-fg { fill: none; stroke-width: 18; stroke-linecap: round; transition: stroke-dashoffset .2s linear; }
 .ring-fg[data-nivel=ok] { stroke: var(--up); filter: drop-shadow(0 0 10px #16d97eaa); }
@@ -74,11 +83,11 @@ $up: #16d97e; $deg: #f5b301; $down: #ff3b51; $unk: #8a97ad; $mnt: #3aa0ff; $cy: 
 .ring-lbl { fill: #8a97ad; font-size: 14px; text-anchor: middle; letter-spacing: .18em; }
 .ring-foot { font-size: 12px; color: #9fb2cf; margin-top: 2px; }
 
-.estados { display: grid; grid-template-rows: repeat(5, 1fr); gap: 7px; }
-.es { position: relative; display: flex; align-items: center; gap: 12px; padding: 0 16px; border-radius: 10px; overflow: hidden;
+.estados { grid-area: estados; display: grid; grid-template-rows: repeat(5, 1fr); gap: 6px; }
+.es { position: relative; display: flex; align-items: center; gap: 10px; padding: 0 14px; border-radius: 10px; overflow: hidden;
   background: linear-gradient(90deg, #0e1a30, #0a1322); border: 1px solid #1c3050; }
-.es b { font-size: 26px; font-weight: 800; min-width: 50px; font-variant-numeric: tabular-nums; }
-.es span { font-size: 14px; color: #b9c6dd; font-weight: 600; }
+.es b { font-size: 22px; font-weight: 800; min-width: 42px; font-variant-numeric: tabular-nums; }
+.es span { font-size: 13px; color: #b9c6dd; font-weight: 600; }
 .es i { position: absolute; left: 0; top: 0; bottom: 0; width: 5px; }
 .es.up i { background: var(--up); } .es.up b { color: var(--up); }
 .es.degraded i { background: var(--deg); } .es.degraded b { color: var(--deg); }
@@ -88,22 +97,21 @@ $up: #16d97e; $deg: #f5b301; $down: #ff3b51; $unk: #8a97ad; $mnt: #3aa0ff; $cy: 
 .es.alarma { border-color: #7a2330; box-shadow: 0 0 0 1px #ff3b5133, 0 0 22px #ff3b5122; animation: alarma 1.6s ease-in-out infinite; }
 @keyframes alarma { 50% { box-shadow: 0 0 0 1px #ff3b5166, 0 0 30px #ff3b5144; } }
 
-.kpis { display: grid; grid-template-columns: 1fr 1fr 1.3fr; gap: 12px; }
-.kpi { background: linear-gradient(180deg, #0e1a30, #0a1322); border: 1px solid #1c3050; border-radius: 14px; padding: 12px 16px; display: flex; flex-direction: column; }
-.kpi .kl { font-size: 12.5px; color: #8a97ad; display: flex; align-items: center; gap: 8px; }
-.kpi .kv { font-size: 34px; font-weight: 800; line-height: 1; margin: 4px 0; font-variant-numeric: tabular-nums; }
+.kpis { grid-area: kpis; display: grid; grid-template-columns: 1fr 1fr 1.2fr; gap: 10px; }
+.kpi { background: linear-gradient(180deg, #0e1a30, #0a1322); border: 1px solid #1c3050; border-radius: 12px; padding: 9px 13px; display: flex; flex-direction: column; }
+.kpi .kl { font-size: 11.5px; color: #8a97ad; display: flex; align-items: center; gap: 8px; }
+.kpi .kv { font-size: 28px; font-weight: 800; line-height: 1; margin: 4px 0; font-variant-numeric: tabular-nums; }
 .kpi .kv small { font-size: 16px; color: #8a97ad; font-weight: 600; }
 .kpi .ks { font-size: 12px; color: #9fb2cf; margin-top: auto; }
 .kpi.alarma { border-color: #7a2330; }
 .kpi.alarma .kv { color: var(--down); text-shadow: 0 0 18px #ff3b5155; }
 .kpi.net .kv { color: var(--cy); text-shadow: 0 0 16px #22d3ee44; }
 .kpi.net .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cy); box-shadow: 0 0 8px var(--cy); animation: blink 1.2s infinite; }
-.kpi.net .mini { width: 100%; height: 38px; margin: 2px 0; }
+.kpi.net .mini { width: 100%; height: 26px; margin: 1px 0; }
 .kpi.net .mini polyline { fill: none; stroke: var(--cy); stroke-width: 2; }
 .kpi.net .mini polygon { fill: #22d3ee22; }
 
-// ── Cuerpo: mapa + alertas ──────────────────────────────────────────
-.cuerpo { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 2fr 1fr; gap: 14px; }
+// ── Mapa ────────────────────────────────────────────────────────────
 .mapa-card { display: flex; flex-direction: column; min-height: 0; }
 .mapa-wrap { flex: 1; min-height: 0; display: flex; justify-content: center; align-items: center; padding: 4px 0; }
 .mapa { height: 100%; max-height: 100%; width: 100%; }
@@ -126,7 +134,7 @@ $up: #16d97e; $deg: #f5b301; $down: #ff3b51; $unk: #8a97ad; $mnt: #3aa0ff; $cy: 
 .leyenda .down::before { background: var(--down); } .leyenda .unknown::before { background: var(--unk); }
 
 // ── Alertas ─────────────────────────────────────────────────────────
-.alertas { display: flex; flex-direction: column; min-height: 0; }
+.alertas { flex: 1 1 auto; display: flex; flex-direction: column; min-height: 0; }
 .ok { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
 .ok .check { width: 92px; height: 92px; border-radius: 50%; display: grid; place-items: center; font-size: 50px; color: var(--up);
   background: #0f2e1f; border: 2px solid #1d6b46; box-shadow: 0 0 40px #16d97e44; }
