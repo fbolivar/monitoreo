@@ -48,7 +48,9 @@
               }
               <circle [attr.cx]="m.x" [attr.cy]="m.y" [attr.r]="radio(m)"
                       [attr.fill]="color(m.estado)" class="sede" />
-              <text [attr.x]="m.x" [attr.y]="m.y" class="num">{{ m.total }}</text>
+              @if (hayProblema(m) || m.total > 1) {
+                <text [attr.x]="m.x" [attr.y]="m.y" class="num">{{ m.total }}</text>
+              }
               <title>{{ m.sitio.nombre }} — {{ m.total }} recurso(s){{ m.down ? ', ' + m.down + ' caído(s)' : '' }}</title>
             </g>
           </a>

@@ -128,7 +128,8 @@ export class Wallboard implements OnInit, OnDestroy {
         const peor = rs.reduce<Estado>((p, x) => (PESO[x.estado_actual] > PESO[p] ? x.estado_actual : p), 'up');
         const problemas = rs.filter((r) => ['down', 'degraded', 'unknown'].includes(r.estado_actual)).length;
         const p = this.proj(Number(s.longitud), Number(s.latitud));
-        return { nombre: s.nombre, x: p.x, y: p.y, estado: rs.length ? peor : 'unknown', total: rs.length, problemas, r: Math.max(7, Math.min(15, 6 + Math.sqrt(rs.length) * 2.4)) };
+        // Operativas: punto pequeño y limpio. Con problema: más grande (resalta).
+        return { nombre: s.nombre, x: p.x, y: p.y, estado: rs.length ? peor : 'unknown', total: rs.length, problemas, r: problemas > 0 ? 9 : 4.5 };
       })
       .sort((a, b) => PESO[a.estado] - PESO[b.estado]);   // problemáticos al final = se dibujan encima
   });
@@ -162,6 +163,7 @@ export class Wallboard implements OnInit, OnDestroy {
   }
 
   abrev(r: Recurso): string { const c = r.tipo?.codigo ?? ''; return TIPO_ABREV[c] ?? (c ? c.slice(0, 3).toUpperCase() : '—'); }
+  recortar(s: string, n = 26): string { return s && s.length > n ? s.slice(0, n - 1) + '…' : s; }
   etiqueta(e: Estado): string { return ETIQUETA[e]; }
   hace(iso: string | null): string {
     if (!iso) return ''; const ms = Date.now() - new Date(iso).getTime();

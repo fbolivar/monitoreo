@@ -117,9 +117,12 @@ $up: #16d97e; $deg: #f5b301; $down: #ff3b51; $unk: #8a97ad; $mnt: #3aa0ff; $cy: 
 .mapa-wrap { flex: 1; min-height: 0; display: flex; justify-content: center; align-items: center; padding: 4px 0; }
 .mapa { height: 100%; max-height: 100%; width: 100%; }
 .pais path { fill: #143055; stroke: #294a72; stroke-width: .6; }
-.mk .dot { stroke: #0a1322; stroke-width: 2.5; }
-.mk .cnt { fill: #fff; font-size: 14px; font-weight: 800; text-anchor: middle; dominant-baseline: central; pointer-events: none; }
-.mk .nm { fill: #dfeaff; font-size: 13px; text-anchor: middle; font-weight: 700; paint-order: stroke; stroke: #060c18; stroke-width: 3.5px; }
+.mk .dot { stroke: #0b1526; stroke-width: 1.4; opacity: .92; }
+.mk.prob .dot { stroke: #fff; stroke-width: 1.8; }
+.mk[data-estado=down].prob .dot { filter: drop-shadow(0 0 6px #ff3b51); }
+.mk[data-estado=degraded].prob .dot { filter: drop-shadow(0 0 5px #f5b301); }
+.mk .nm { fill: #fff; font-size: 12px; text-anchor: middle; font-weight: 700; pointer-events: none;
+  paint-order: stroke; stroke: #060c18; stroke-width: 4px; stroke-linejoin: round; }
 .mk[data-estado=up] .dot { fill: var(--up); }
 .mk[data-estado=degraded] .dot { fill: var(--deg); }
 .mk[data-estado=down] .dot { fill: var(--down); }

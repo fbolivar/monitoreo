@@ -105,9 +105,11 @@ export class Mapa implements OnInit {
              unknown: '#9aa0a6', maintenance: '#3b82f6' }[estado];
   }
 
-  // Radio según número de recursos (mínimo legible, tope para no tapar).
+  // Radio compacto: con 80+ sedes, las operativas van pequeñas y las que tienen
+  // problema (o varios recursos) un poco más grandes para resaltar.
   radio(s: Sede): number {
-    return Math.max(9, Math.min(20, 8 + Math.sqrt(s.total) * 3));
+    if (s.down > 0 || s.degraded > 0) return 10;
+    return Math.max(5, Math.min(11, 4 + Math.sqrt(s.total) * 2));
   }
 
   hayProblema(s: Sede): boolean {
