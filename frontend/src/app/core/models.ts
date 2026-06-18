@@ -394,6 +394,23 @@ export interface FlujosResp {
   conversaciones: FlujoAgregado[];
 }
 
+export interface FlujoOverview {
+  rango: string;
+  kpis: {
+    total_bytes: number; total_delta: number | null;
+    avg_mbps: number; avg_delta: number | null;
+    flows: number; flows_delta: number | null;
+    hosts: number; hosts_delta: number | null;
+  };
+  spark: { traffic: number[]; flows: number[]; hosts: number[]; bandwidth: number[] };
+  serie: { labels: string[]; apilada: { app: string; valores: number[] }[] };
+  apps: { app: string; bytes: number }[];
+  protocolos: { proto: string; bytes: number }[];
+  talkers: { ip: string; bytes: number; pct: number }[];
+  destinos: { ip: string; bytes: number; pct: number }[];
+  flujo: { src: string; dst: string; app: string; bytes: number }[];
+}
+
 // ── Calidad activa de enlace WAN ───────────────────────────────────────
 export interface WanCalidadMuestra {
   id: number;

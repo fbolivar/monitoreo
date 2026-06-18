@@ -127,6 +127,7 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
 
     // Flujos de tráfico (NetFlow/IPFIX): top hablantes/destinos/apps/conversaciones.
     Route::get('flujos', [FlujoController::class, 'index']);
+    Route::get('flujos/overview', [FlujoController::class, 'overview']);  // tablero NetFlow
 
     // Calidad activa de enlace WAN/Starlink de un recurso (lectura).
     Route::get('recursos/{id}/wan-calidad', [WanCalidadController::class, 'index'])->whereNumber('id');

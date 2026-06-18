@@ -1,82 +1,156 @@
-<div class="head">
-  <h1>Flujos de tráfico <span class="text-dim">(NetFlow / IPFIX)</span></h1>
-  <div class="rangos">
-    @for (r of rangos; track r) {
-      <button class="r" [class.activo]="rango() === r" (click)="cambiar(r)">{{ r }}</button>
-    }
+@if (d(); as data) {
+<div class="nf">
+  <!-- Cabecera -->
+  <div class="nf-head">
+    <h1>NetFlow <span class="dim">· Overview</span></h1>
+    <div class="ctrls">
+      <div class="rangos">
+        @for (r of rangos; track r) {
+          <button [class.on]="rango() === r" (click)="cambiar(r)">{{ r }}</button>
+        }
+      </div>
+      <button class="ref" (click)="refrescar()">⟳ Refrescar</button>
+    </div>
   </div>
-  @if (data(); as d) {
-    <span class="text-dim total">Total: {{ fmtBytes(d.total_bytes) }}</span>
+
+  <!-- KPIs -->
+  <div class="kpis">
+    <div class="kpi">
+      <span class="lbl">Tráfico total</span>
+      <span class="val">{{ fmtBytes(data.kpis.total_bytes) }}</span>
+      <span class="delta" [class]="claseDelta(data.kpis.total_delta)">{{ signo(data.kpis.total_delta) }} <i>vs periodo previo</i></span>
+      <svg viewBox="0 0 110 36" class="sp" preserveAspectRatio="none">
+        <polygon [attr.points]="sparkArea(data.spark.traffic)" fill="#3b82f633" />
+        <polyline [attr.points]="spark(data.spark.traffic)" fill="none" stroke="#3b82f6" stroke-width="1.6" />
+      </svg>
+    </div>
+    <div class="kpi">
+      <span class="lbl">Ancho de banda medio</span>
+      <span class="val">{{ data.kpis.avg_mbps }} <small>Mbps</small></span>
+      <span class="delta" [class]="claseDelta(data.kpis.avg_delta)">{{ signo(data.kpis.avg_delta) }} <i>vs periodo previo</i></span>
+      <svg viewBox="0 0 110 36" class="sp" preserveAspectRatio="none">
+        <polygon [attr.points]="sparkArea(data.spark.bandwidth)" fill="#10b98133" />
+        <polyline [attr.points]="spark(data.spark.bandwidth)" fill="none" stroke="#10b981" stroke-width="1.6" />
+      </svg>
+    </div>
+    <div class="kpi">
+      <span class="lbl">Flujos</span>
+      <span class="val">{{ fmtNum(data.kpis.flows) }}</span>
+      <span class="delta" [class]="claseDelta(data.kpis.flows_delta)">{{ signo(data.kpis.flows_delta) }} <i>vs periodo previo</i></span>
+      <svg viewBox="0 0 110 36" class="sp" preserveAspectRatio="none">
+        <polygon [attr.points]="sparkArea(data.spark.flows)" fill="#8b5cf633" />
+        <polyline [attr.points]="spark(data.spark.flows)" fill="none" stroke="#8b5cf6" stroke-width="1.6" />
+      </svg>
+    </div>
+    <div class="kpi">
+      <span class="lbl">Hosts activos</span>
+      <span class="val">{{ fmtNum(data.kpis.hosts) }}</span>
+      <span class="delta" [class]="claseDelta(data.kpis.hosts_delta)">{{ signo(data.kpis.hosts_delta) }} <i>vs periodo previo</i></span>
+      <svg viewBox="0 0 110 36" class="sp" preserveAspectRatio="none">
+        <polygon [attr.points]="sparkArea(data.spark.hosts)" fill="#06b6d433" />
+        <polyline [attr.points]="spark(data.spark.hosts)" fill="none" stroke="#06b6d4" stroke-width="1.6" />
+      </svg>
+    </div>
+  </div>
+
+  <!-- Apps + Traffic over time -->
+  <div class="fila a">
+    <div class="card">
+      <h2>Top aplicaciones por tráfico</h2>
+      <div class="dona-wrap">
+        <svg viewBox="0 0 140 140" class="dona">
+          @for (s of appsDona(); track $index) { <path [attr.d]="s.path" [attr.fill]="s.color" /> }
+          <text x="70" y="66" class="dc-n">{{ fmtBytes(totalApps()) }}</text>
+          <text x="70" y="82" class="dc-l">Total</text>
+        </svg>
+        <ul class="leg">
+          @for (s of appsDona(); track $index) {
+            <li><i [style.background]="s.color"></i><span>{{ s.label }}</span><b>{{ fmtBytes(s.value) }}</b><em>{{ s.pct }}%</em></li>
+          }
+        </ul>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Tráfico en el tiempo</h2>
+      <svg [attr.viewBox]="'0 0 ' + AW + ' ' + (AH + 22)" class="area" preserveAspectRatio="none">
+        @for (g of [0.25,0.5,0.75,1]; track g) { <line [attr.x1]="0" [attr.x2]="AW" [attr.y1]="AH*g" [attr.y2]="AH*g" class="grid" /> }
+        @for (a of areas(); track $index) { <path [attr.d]="a.path" [attr.fill]="a.color" fill-opacity="0.75" /> }
+        @for (e of ejeX(); track $index) { <text [attr.x]="e.x" [attr.y]="AH + 16" class="xl">{{ e.t }}</text> }
+      </svg>
+      <ul class="leg horiz">
+        @for (a of areas(); track $index) { <li><i [style.background]="a.color"></i>{{ a.app }}</li> }
+      </ul>
+    </div>
+  </div>
+
+  <!-- Talkers + Destinos + Protocolos -->
+  <div class="fila b">
+    <div class="card">
+      <h2>Top hablantes (origen)</h2>
+      <ul class="rank">
+        @for (t of data.talkers; track $index) {
+          <li><span class="ip">{{ t.ip }}</span><span class="bar"><i [style.width.%]="t.pct" style="background:#3b82f6"></i></span><b>{{ fmtBytes(t.bytes) }}</b><em>{{ t.pct }}%</em></li>
+        }
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Top destinos</h2>
+      <ul class="rank">
+        @for (t of data.destinos; track $index) {
+          <li><span class="ip">{{ t.ip }}</span><span class="bar"><i [style.width.%]="t.pct" style="background:#06b6d4"></i></span><b>{{ fmtBytes(t.bytes) }}</b><em>{{ t.pct }}%</em></li>
+        }
+      </ul>
+    </div>
+    <div class="card">
+      <h2>Tráfico por protocolo</h2>
+      <div class="dona-wrap chico">
+        <svg viewBox="0 0 140 140" class="dona">
+          @for (s of protoDona(); track $index) { <path [attr.d]="s.path" [attr.fill]="s.color" /> }
+          <text x="70" y="66" class="dc-n">{{ fmtBytes(totalProto()) }}</text>
+          <text x="70" y="82" class="dc-l">Total</text>
+        </svg>
+        <ul class="leg">
+          @for (s of protoDona(); track $index) {
+            <li><i [style.background]="s.color"></i><span>{{ s.label }}</span><em>{{ s.pct }}%</em></li>
+          }
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mapa de flujo -->
+  <div class="card flow">
+    <h2>Mapa de flujo de red <span class="dim">· top conversaciones</span></h2>
+    <div class="flow-grid">
+      <svg [attr.viewBox]="'0 0 ' + FW + ' ' + FH" class="flowmap">
+        @for (arc of flowArcs(); track $index) {
+          <path [attr.d]="arc.path" fill="none" [attr.stroke]="arc.color" [attr.stroke-width]="arc.w" stroke-opacity="0.55" stroke-linecap="round">
+            <title>{{ arc.label }}</title>
+          </path>
+        }
+        @for (n of flowNodes().src; track n.ip) {
+          <g><circle [attr.cx]="n.x" [attr.cy]="n.y" r="4" fill="#3b82f6" /><text [attr.x]="n.x - 10" [attr.y]="n.y + 4" text-anchor="end" class="fn">{{ n.ip }}</text></g>
+        }
+        @for (n of flowNodes().dst; track n.ip) {
+          <g><circle [attr.cx]="n.x" [attr.cy]="n.y" r="4" fill="#06b6d4" /><text [attr.x]="n.x + 10" [attr.y]="n.y + 4" class="fn">{{ n.ip }}</text></g>
+        }
+      </svg>
+      <div class="topflow">
+        <h3>Top flujo (por tráfico)</h3>
+        <ul>
+          @for (f of topFlujo(); track $index) {
+            <li><i [style.background]="colorApp(f.app)"></i>
+              <span class="par">{{ f.src }} → {{ f.dst }}</span><b>{{ fmtBytes(f.bytes) }}</b></li>
+          }
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  @if (data.kpis.total_bytes === 0) {
+    <p class="vacio">Sin flujos en esta ventana. Verifica la exportación NetFlow del FortiGate y el servicio <code>simon-netflow</code>.</p>
   }
 </div>
-
-<p class="intro text-dim">Quién consume el ancho de banda, según los flujos que exporta el FortiGate (y switches).
-  Activa la exportación: <code>config system netflow</code> → <code>collector-ip</code> = IP de SIMON, puerto 2055.</p>
-
-@if (cargando()) {
-  <p class="text-dim">Cargando…</p>
-} @else if (!data() || totalBytes() === 0) {
-  <p class="vacio">Sin flujos en esta ventana. Verifica que el FortiGate exporte NetFlow/IPFIX a
-    la IP de SIMON (UDP/2055) y que el servicio <code>simon-netflow</code> esté activo.</p>
-} @else {
-  <div class="grid">
-    <!-- Top hablantes -->
-    <section class="card">
-      <h2>Top hablantes (origen)</h2>
-      @for (f of data()!.talkers; track $index) {
-        <div class="fila">
-          <span class="etq mono">{{ f.ip }}</span>
-          <span class="bar"><i [style.width.%]="pct(f, data()!.talkers)"></i></span>
-          <span class="val">{{ fmtBytes(f.bytes) }}</span>
-        </div>
-      }
-    </section>
-
-    <!-- Top destinos -->
-    <section class="card">
-      <h2>Top destinos</h2>
-      @for (f of data()!.destinos; track $index) {
-        <div class="fila">
-          <span class="etq mono">{{ f.ip }}</span>
-          <span class="bar dst"><i [style.width.%]="pct(f, data()!.destinos)"></i></span>
-          <span class="val">{{ fmtBytes(f.bytes) }}</span>
-        </div>
-      }
-    </section>
-
-    <!-- Top aplicaciones -->
-    <section class="card">
-      <h2>Aplicaciones</h2>
-      @for (f of data()!.apps; track $index) {
-        <div class="fila">
-          <span class="etq"><span class="chip">{{ f.app || 'otros' }}</span></span>
-          <span class="bar app"><i [style.width.%]="pct(f, data()!.apps)"></i></span>
-          <span class="val">{{ fmtBytes(f.bytes) }}</span>
-        </div>
-      }
-    </section>
-
-    <!-- Conversaciones -->
-    <section class="card ancha">
-      <h2>Conversaciones principales</h2>
-      <table>
-        <thead>
-          <tr><th>Origen</th><th>Destino</th><th>Puerto</th><th>Proto</th><th>App</th><th class="num">Tráfico</th><th class="num">Paquetes</th></tr>
-        </thead>
-        <tbody>
-          @for (c of data()!.conversaciones; track $index) {
-            <tr>
-              <td class="mono">{{ c.src_ip }}</td>
-              <td class="mono">{{ c.dst_ip }}</td>
-              <td class="num">{{ c.dst_port ?? '—' }}</td>
-              <td>{{ proto(c.protocolo) }}</td>
-              <td><span class="chip">{{ c.app || 'otros' }}</span></td>
-              <td class="num"><b>{{ fmtBytes(c.bytes) }}</b></td>
-              <td class="num">{{ c.paquetes }}</td>
-            </tr>
-          }
-        </tbody>
-      </table>
-    </section>
-  </div>
+} @else if (cargando()) {
+  <p class="dim" style="padding:20px">Cargando tablero…</p>
 }
