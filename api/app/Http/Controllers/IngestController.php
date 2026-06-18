@@ -63,7 +63,79 @@ class IngestController extends Controller
             }
         }
 
+        // Puente con Cumplimiento (#7): guarda un snapshot de configuración del
+        // servidor (SO/discos/servicios) en config_respaldos —solo si cambió—,
+        // para que el motor de cumplimiento pueda evaluar políticas de servidor.
+        if ($agente->recurso_id) {
+            $snap = $this->snapshotConfig($data);
+            if ($snap !== '') {
+                $hash = hash('sha256', $snap);
+                $last = DB::table('config_respaldos')->where('recurso_id', $agente->recurso_id)
+                    ->orderByDesc('id')->first();
+                if (! $last || $last->hash !== $hash) {
+                    DB::table('config_respaldos')->insert([
+                        'recurso_id' => $agente->recurso_id,
+                        'hash'       => $hash,
+                        'bytes'      => strlen($snap),
+                        'cambio'     => (bool) $last,
+                        'diff'       => $last ? $this->diffLineas($last->contenido, $snap) : null,
+                        'contenido'  => $snap,
+                    ]);
+                }
+            }
+        }
+
         return response()->json(['ok' => true]);
+    }
+
+    /** Construye un snapshot de configuración determinista del servidor desde el inventario del agente. */
+    private function snapshotConfig(array $data): string
+    {
+        $inv = $data['inventario'] ?? [];
+        if (empty($inv['discos']) && empty($inv['servicios'])) {
+            return '';
+        }
+        $l = ['# Snapshot de configuración del servidor (agente SIMON)'];
+        $l[] = 'SO: '.($data['so'] ?? '');
+        $l[] = 'Agente version: '.($data['version'] ?? '');
+
+        $l[] = '';
+        $l[] = '[Discos]';
+        $discos = $inv['discos'] ?? [];
+        usort($discos, fn ($a, $b) => strcmp($a['montaje'] ?? '', $b['montaje'] ?? ''));
+        foreach ($discos as $d) {
+            $l[] = 'disco '.($d['montaje'] ?? '?').' total='.($d['total_gb'] ?? '?').'GB';
+        }
+
+        $l[] = '';
+        $l[] = '[Servicios no activos]';
+        $svcs = $inv['servicios'] ?? [];
+        usort($svcs, fn ($a, $b) => strcmp($a['nombre'] ?? '', $b['nombre'] ?? ''));
+        foreach ($svcs as $s) {
+            $l[] = 'servicio: '.($s['nombre'] ?? '?').' = '.($s['estado'] ?? '?');
+        }
+
+        return implode("\n", $l);
+    }
+
+    /** Diff simple (líneas añadidas/quitadas) para mostrar en la sección "Respaldos". */
+    private function diffLineas(string $old, string $new): string
+    {
+        $o = array_flip(explode("\n", $old));
+        $n = array_flip(explode("\n", $new));
+        $out = [];
+        foreach (array_diff_key($n, $o) as $line => $_) {
+            if (trim((string) $line) !== '') {
+                $out[] = '+ '.$line;
+            }
+        }
+        foreach (array_diff_key($o, $n) as $line => $_) {
+            if (trim((string) $line) !== '') {
+                $out[] = '- '.$line;
+            }
+        }
+
+        return implode("\n", array_slice($out, 0, 200));
     }
 
     public function rum(Request $request): JsonResponse
