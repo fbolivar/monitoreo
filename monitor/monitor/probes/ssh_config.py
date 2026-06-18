@@ -129,7 +129,11 @@ def obtener_config(host: str, port: int, user: str, password: str | None,
                 shell.send(linea + "\n")
                 time.sleep(0.4)
                 _drenar(shell)
-        shell.send(comando + "\n")
+        # `comando` puede ser multilínea (p.ej. la secuencia de config para
+        # rebotar un puerto): se envía línea a línea.
+        for linea in comando.split("\n"):
+            shell.send(linea + "\n")
+            time.sleep(0.3)
         salida = _leer_hasta_inactividad(shell, timeout)
     finally:
         client.close()

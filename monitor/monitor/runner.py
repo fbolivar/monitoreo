@@ -717,6 +717,8 @@ def _gestionar_incidencias_interfaces(db: Database, settings: Settings, recurso:
                             nueva, recurso.id, nombre)
                 notificar(db, settings, incidencia_id=nueva, recurso=recurso,
                           severidad="warning", evento="apertura", titulo=titulo)
+                _disparar_remediacion(db, settings, recurso, "warning", titulo, nueva,
+                                      extra_ctx={"puerto": nombre, "if_index": idx})
         elif oper == "up":
             ab = repo.incidencia_interfaz_abierta(db, recurso.id, idx)
             if ab:
@@ -792,8 +794,14 @@ def _gestionar_incidencia(db: Database, settings: Settings, recurso: Recurso, ev
 
 # ── Auto-remediación / runbooks (#5) ──────────────────────────────────
 def _disparar_remediacion(db: Database, settings: Settings, recurso: Recurso,
-                          severidad: str, titulo: str, incidencia_id: int) -> None:
-    """Ejecuta los runbooks cuyos disparadores coinciden con la incidencia recién abierta."""
+                          severidad: str, titulo: str, incidencia_id: int,
+                          extra_ctx: dict | None = None) -> None:
+    """Ejecuta los runbooks cuyos disparadores coinciden con la incidencia recién abierta.
+
+    `extra_ctx` añade variables (p.ej. {'puerto': 'port5'} en incidencias de interfaz).
+    Las acciones SSH reutilizan los secretos del propio recurso (ssh_user/ssh_password,
+    los mismos del backup) si el runbook no trae credenciales propias.
+    """
     if not settings.remediacion_enabled:
         return
     from . import remediacion
@@ -812,6 +820,13 @@ def _disparar_remediacion(db: Database, settings: Settings, recurso: Recurso,
         "recurso": recurso.nombre, "hostname": (recurso.hostname or "").split(":", 1)[0],
         "incidencia_id": incidencia_id,
     }
+    if extra_ctx:
+        ctx.update(extra_ctx)
+
+    # Secretos del recurso (fallback de credenciales SSH para los runbooks).
+    res_sec = (repo.descifrar_secretos(db, recurso.id, settings.app_crypto_key)
+               if settings.app_crypto_key else None) or {}
+
     ahora = datetime.now(timezone.utc)
     for rb in runbooks:
         if not remediacion.runbook_coincide(rb, ctx):
@@ -820,7 +835,9 @@ def _disparar_remediacion(db: Database, settings: Settings, recurso: Recurso,
         ultima = repo.ultima_ejecucion_runbook(db, rb["id"], recurso.id)
         if ultima and (ahora - ultima).total_seconds() < rb.get("cooldown_seg", 300):
             continue
-        exito, salida = remediacion.ejecutar_accion(rb.get("accion") or {}, ctx, rb.get("secretos"))
+        # El runbook puede traer sus propios secretos; si no, usa los del recurso.
+        secretos = {**res_sec, **(rb.get("secretos") or {})}
+        exito, salida = remediacion.ejecutar_accion(rb.get("accion") or {}, ctx, secretos)
         repo.registrar_ejecucion_runbook(db, rb["id"], incidencia_id, recurso.id, exito, salida)
         log.warning("Runbook '%s' ejecutado (recurso %s): exito=%s", rb["nombre"], recurso.id, exito)
 

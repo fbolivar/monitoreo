@@ -36,8 +36,8 @@ def runbook_coincide(rb: dict, ctx: dict) -> bool:
 
 
 def interpolar(texto: str, ctx: dict) -> str:
-    """Sustituye {recurso}/{hostname}/{titulo}/{severidad} en comandos/URLs."""
-    for k in ("recurso", "hostname", "titulo", "severidad", "incidencia_id"):
+    """Sustituye {recurso}/{hostname}/{titulo}/{severidad}/{puerto}/{if_index} en comandos/URLs."""
+    for k in ("recurso", "hostname", "titulo", "severidad", "incidencia_id", "puerto", "if_index"):
         texto = texto.replace("{" + k + "}", str(ctx.get(k, "")))
     return texto
 
