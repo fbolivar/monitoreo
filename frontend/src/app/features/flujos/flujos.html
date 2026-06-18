@@ -2,7 +2,7 @@
 <div class="nf">
   <!-- Cabecera -->
   <div class="nf-head">
-    <h1>NetFlow <span class="dim">· Overview</span></h1>
+    <h1>Flujos de tráfico <span class="dim">· NetFlow / IPFIX</span></h1>
     <div class="ctrls">
       <div class="rangos">
         @for (r of rangos; track r) {
@@ -20,8 +20,8 @@
       <span class="val">{{ fmtBytes(data.kpis.total_bytes) }}</span>
       <span class="delta" [class]="claseDelta(data.kpis.total_delta)">{{ signo(data.kpis.total_delta) }} <i>vs periodo previo</i></span>
       <svg viewBox="0 0 110 36" class="sp" preserveAspectRatio="none">
-        <polygon [attr.points]="sparkArea(data.spark.traffic)" fill="#3b82f633" />
-        <polyline [attr.points]="spark(data.spark.traffic)" fill="none" stroke="#3b82f6" stroke-width="1.6" />
+        <polygon [attr.points]="sparkArea(data.spark.traffic)" fill="#2e7d4622" />
+        <polyline [attr.points]="spark(data.spark.traffic)" fill="none" stroke="#2e7d46" stroke-width="1.6" />
       </svg>
     </div>
     <div class="kpi">
@@ -29,8 +29,8 @@
       <span class="val">{{ data.kpis.avg_mbps }} <small>Mbps</small></span>
       <span class="delta" [class]="claseDelta(data.kpis.avg_delta)">{{ signo(data.kpis.avg_delta) }} <i>vs periodo previo</i></span>
       <svg viewBox="0 0 110 36" class="sp" preserveAspectRatio="none">
-        <polygon [attr.points]="sparkArea(data.spark.bandwidth)" fill="#10b98133" />
-        <polyline [attr.points]="spark(data.spark.bandwidth)" fill="none" stroke="#10b981" stroke-width="1.6" />
+        <polygon [attr.points]="sparkArea(data.spark.bandwidth)" fill="#2f6fb022" />
+        <polyline [attr.points]="spark(data.spark.bandwidth)" fill="none" stroke="#2f6fb0" stroke-width="1.6" />
       </svg>
     </div>
     <div class="kpi">
@@ -38,8 +38,8 @@
       <span class="val">{{ fmtNum(data.kpis.flows) }}</span>
       <span class="delta" [class]="claseDelta(data.kpis.flows_delta)">{{ signo(data.kpis.flows_delta) }} <i>vs periodo previo</i></span>
       <svg viewBox="0 0 110 36" class="sp" preserveAspectRatio="none">
-        <polygon [attr.points]="sparkArea(data.spark.flows)" fill="#8b5cf633" />
-        <polyline [attr.points]="spark(data.spark.flows)" fill="none" stroke="#8b5cf6" stroke-width="1.6" />
+        <polygon [attr.points]="sparkArea(data.spark.flows)" fill="#7c3aed22" />
+        <polyline [attr.points]="spark(data.spark.flows)" fill="none" stroke="#7c3aed" stroke-width="1.6" />
       </svg>
     </div>
     <div class="kpi">
@@ -47,8 +47,8 @@
       <span class="val">{{ fmtNum(data.kpis.hosts) }}</span>
       <span class="delta" [class]="claseDelta(data.kpis.hosts_delta)">{{ signo(data.kpis.hosts_delta) }} <i>vs periodo previo</i></span>
       <svg viewBox="0 0 110 36" class="sp" preserveAspectRatio="none">
-        <polygon [attr.points]="sparkArea(data.spark.hosts)" fill="#06b6d433" />
-        <polyline [attr.points]="spark(data.spark.hosts)" fill="none" stroke="#06b6d4" stroke-width="1.6" />
+        <polygon [attr.points]="sparkArea(data.spark.hosts)" fill="#0d948822" />
+        <polyline [attr.points]="spark(data.spark.hosts)" fill="none" stroke="#0d9488" stroke-width="1.6" />
       </svg>
     </div>
   </div>
@@ -89,7 +89,7 @@
       <h2>Top hablantes (origen)</h2>
       <ul class="rank">
         @for (t of data.talkers; track $index) {
-          <li><span class="ip">{{ t.ip }}</span><span class="bar"><i [style.width.%]="t.pct" style="background:#3b82f6"></i></span><b>{{ fmtBytes(t.bytes) }}</b><em>{{ t.pct }}%</em></li>
+          <li><span class="ip">{{ t.ip }}</span><span class="bar"><i [style.width.%]="t.pct" style="background:#2f6fb0"></i></span><b>{{ fmtBytes(t.bytes) }}</b><em>{{ t.pct }}%</em></li>
         }
       </ul>
     </div>
@@ -97,7 +97,7 @@
       <h2>Top destinos</h2>
       <ul class="rank">
         @for (t of data.destinos; track $index) {
-          <li><span class="ip">{{ t.ip }}</span><span class="bar"><i [style.width.%]="t.pct" style="background:#06b6d4"></i></span><b>{{ fmtBytes(t.bytes) }}</b><em>{{ t.pct }}%</em></li>
+          <li><span class="ip">{{ t.ip }}</span><span class="bar"><i [style.width.%]="t.pct" style="background:#0d9488"></i></span><b>{{ fmtBytes(t.bytes) }}</b><em>{{ t.pct }}%</em></li>
         }
       </ul>
     </div>
@@ -129,10 +129,10 @@
           </path>
         }
         @for (n of flowNodes().src; track n.ip) {
-          <g><circle [attr.cx]="n.x" [attr.cy]="n.y" r="4" fill="#3b82f6" /><text [attr.x]="n.x - 10" [attr.y]="n.y + 4" text-anchor="end" class="fn">{{ n.ip }}</text></g>
+          <g><circle [attr.cx]="n.x" [attr.cy]="n.y" r="4" fill="#2f6fb0" /><text [attr.x]="n.x - 10" [attr.y]="n.y + 4" text-anchor="end" class="fn">{{ n.ip }}</text></g>
         }
         @for (n of flowNodes().dst; track n.ip) {
-          <g><circle [attr.cx]="n.x" [attr.cy]="n.y" r="4" fill="#06b6d4" /><text [attr.x]="n.x + 10" [attr.y]="n.y + 4" class="fn">{{ n.ip }}</text></g>
+          <g><circle [attr.cx]="n.x" [attr.cy]="n.y" r="4" fill="#0d9488" /><text [attr.x]="n.x + 10" [attr.y]="n.y + 4" class="fn">{{ n.ip }}</text></g>
         }
       </svg>
       <div class="topflow">

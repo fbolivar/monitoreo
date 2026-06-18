@@ -9,10 +9,10 @@ interface Area { path: string; color: string; app: string; }
 interface FlowNode { x: number; y: number; ip: string; }
 interface FlowArc { path: string; color: string; w: number; label: string; }
 
-const PALETA = ['#3b82f6', '#10b981', '#06b6d4', '#f59e0b', '#8b5cf6', '#94a3b8'];
-const PROTO_COLOR: Record<string, string> = { TCP: '#3b82f6', UDP: '#06b6d4', ICMP: '#f59e0b', Otros: '#94a3b8' };
-// Paleta cálida/brillante para los arcos del mapa de flujo (estilo imagen).
-const FLOW_PALETA = ['#22d3ee', '#f59e0b', '#34d399', '#a78bfa', '#60a5fa', '#f472b6'];
+// Paleta corporativa (verde Parques + complementarios accesibles sobre fondo claro).
+const PALETA = ['#2e7d46', '#2f6fb0', '#d98a00', '#7c3aed', '#0d9488', '#9aa6a0'];
+const PROTO_COLOR: Record<string, string> = { TCP: '#2f6fb0', UDP: '#0d9488', ICMP: '#d98a00', Otros: '#9aa6a0' };
+const FLOW_PALETA = ['#2f6fb0', '#2e9e4f', '#d98a00', '#7c3aed', '#0d9488', '#d23b3b'];
 
 @Component({
   selector: 'app-flujos',
