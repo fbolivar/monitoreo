@@ -64,7 +64,8 @@ def recolectar() -> dict:
 # Su ESTADO explícito (running/stopped/absent) habilita políticas de cumplimiento
 # en ambos sentidos: "debe estar activo" y "no debe estar corriendo".
 WATCH_DEFAULT = [
-    "vmms", "vmcompute", "nvspwmi",                    # Hyper-V (rol del servidor)
+    "vmms", "vmcompute",                               # Hyper-V (rol del servidor)
+    "FCTSvc", "FCT_SecSvr",                            # antivirus/endpoint: FortiClient
     "WinDefend", "MpsSvc",                             # seguridad: Defender, Firewall
     "EventLog", "Schedule", "W32Time",                 # logging, tareas (de él vive el agente), hora
     "LanmanServer", "Dnscache", "RpcSs",               # red / infraestructura
