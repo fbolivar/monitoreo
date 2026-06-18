@@ -92,7 +92,7 @@ class IngestController extends Controller
     private function snapshotConfig(array $data): string
     {
         $inv = $data['inventario'] ?? [];
-        if (empty($inv['discos']) && empty($inv['servicios'])) {
+        if (empty($inv['discos']) && empty($inv['servicios']) && empty($inv['servicios_vigilados'])) {
             return '';
         }
         $l = ['# Snapshot de configuración del servidor (agente SIMON)'];
@@ -107,12 +107,24 @@ class IngestController extends Controller
             $l[] = 'disco '.($d['montaje'] ?? '?').' total='.($d['total_gb'] ?? '?').'GB';
         }
 
-        $l[] = '';
-        $l[] = '[Servicios no activos]';
-        $svcs = $inv['servicios'] ?? [];
-        usort($svcs, fn ($a, $b) => strcmp($a['nombre'] ?? '', $b['nombre'] ?? ''));
-        foreach ($svcs as $s) {
-            $l[] = 'servicio: '.($s['nombre'] ?? '?').' = '.($s['estado'] ?? '?');
+        // Servicios vigilados (estado explícito running/stopped/absent): base estable
+        // para cumplimiento en ambos sentidos. Si el agente no los envía, se cae a los "no activos".
+        $vig = $inv['servicios_vigilados'] ?? [];
+        if (! empty($vig)) {
+            usort($vig, fn ($a, $b) => strcmp($a['nombre'] ?? '', $b['nombre'] ?? ''));
+            $l[] = '';
+            $l[] = '[Servicios vigilados]';
+            foreach ($vig as $s) {
+                $l[] = 'servicio: '.($s['nombre'] ?? '?').' = '.($s['estado'] ?? '?');
+            }
+        } else {
+            $svcs = $inv['servicios'] ?? [];
+            usort($svcs, fn ($a, $b) => strcmp($a['nombre'] ?? '', $b['nombre'] ?? ''));
+            $l[] = '';
+            $l[] = '[Servicios no activos]';
+            foreach ($svcs as $s) {
+                $l[] = 'servicio: '.($s['nombre'] ?? '?').' = '.($s['estado'] ?? '?');
+            }
         }
 
         return implode("\n", $l);

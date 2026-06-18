@@ -54,8 +54,50 @@ def recolectar() -> dict:
         "version": "1.0",
         "metricas": {"cpu": cpu, "mem": vm.percent,
                      **{f"disco_{d['montaje']}": d["pct"] for d in discos}},
-        "inventario": {"discos": discos, "top_procesos": top, "servicios": servicios},
+        "inventario": {"discos": discos, "top_procesos": top, "servicios": servicios,
+                       "servicios_vigilados": _servicios_vigilados()},
     }
+
+
+# Lista vigilada por defecto (Windows / Hyper-V). Se puede sobreescribir por
+# entorno con SIMON_SERVICIOS="svc1,svc2,..." (p. ej. en servidores Linux).
+# Su ESTADO explícito (running/stopped/absent) habilita políticas de cumplimiento
+# en ambos sentidos: "debe estar activo" y "no debe estar corriendo".
+WATCH_DEFAULT = [
+    "vmms", "vmcompute", "nvspwmi",                    # Hyper-V (rol del servidor)
+    "WinDefend", "MpsSvc",                             # seguridad: Defender, Firewall
+    "EventLog", "Schedule", "W32Time",                 # logging, tareas (de él vive el agente), hora
+    "LanmanServer", "Dnscache", "RpcSs",               # red / infraestructura
+    "TlntSvr", "FTPSVC", "RemoteRegistry", "SSDPSRV",  # inseguros: deberían estar apagados
+]
+
+
+def _servicios_vigilados() -> list[dict]:
+    """Estado explícito (running/stopped/absent) de una lista vigilada de servicios."""
+    env = os.getenv("SIMON_SERVICIOS", "").strip()
+    nombres = [n.strip() for n in env.split(",") if n.strip()] or WATCH_DEFAULT
+    out: list[dict] = []
+    try:
+        if sys.platform.startswith("win"):
+            import psutil
+            for n in nombres:
+                try:
+                    out.append({"nombre": n, "estado": psutil.win_service_get(n).status()})
+                except Exception:  # noqa: BLE001  (servicio inexistente)
+                    out.append({"nombre": n, "estado": "absent"})
+        else:
+            import subprocess
+            for n in nombres:
+                try:
+                    r = subprocess.run(["systemctl", "is-active", n],
+                                       capture_output=True, text=True, timeout=5)
+                    est = (r.stdout or "").strip()
+                    out.append({"nombre": n, "estado": "running" if est == "active" else (est or "absent")})
+                except Exception:  # noqa: BLE001
+                    out.append({"nombre": n, "estado": "absent"})
+    except Exception:  # noqa: BLE001
+        return []
+    return out
 
 
 def _servicios() -> list[dict]:
