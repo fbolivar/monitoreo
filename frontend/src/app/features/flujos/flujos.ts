@@ -9,8 +9,10 @@ interface Area { path: string; color: string; app: string; }
 interface FlowNode { x: number; y: number; ip: string; }
 interface FlowArc { path: string; color: string; w: number; label: string; }
 
-const PALETA = ['#3b82f6', '#10b981', '#06b6d4', '#8b5cf6', '#f59e0b', '#94a3b8'];
-const PROTO_COLOR: Record<string, string> = { TCP: '#3b82f6', UDP: '#10b981', ICMP: '#f59e0b', Otros: '#94a3b8' };
+const PALETA = ['#3b82f6', '#10b981', '#06b6d4', '#f59e0b', '#8b5cf6', '#94a3b8'];
+const PROTO_COLOR: Record<string, string> = { TCP: '#3b82f6', UDP: '#06b6d4', ICMP: '#f59e0b', Otros: '#94a3b8' };
+// Paleta cálida/brillante para los arcos del mapa de flujo (estilo imagen).
+const FLOW_PALETA = ['#22d3ee', '#f59e0b', '#34d399', '#a78bfa', '#60a5fa', '#f472b6'];
 
 @Component({
   selector: 'app-flujos',
@@ -146,7 +148,7 @@ export class Flujos implements OnInit, OnDestroy {
       const mx = (a.x + b.x) / 2;
       out.push({
         path: `M${a.x},${a.y} C${mx},${a.y} ${mx},${b.y} ${b.x},${b.y}`,
-        color: PALETA[apps.indexOf(x.app) % PALETA.length],
+        color: FLOW_PALETA[Math.max(0, apps.indexOf(x.app)) % FLOW_PALETA.length],
         w: 1 + (x.bytes / max) * 5,
         label: `${x.src} → ${x.dst} · ${x.app} · ${this.fmtBytes(x.bytes)}`,
       });
@@ -156,6 +158,6 @@ export class Flujos implements OnInit, OnDestroy {
   topFlujo = computed(() => (this.d()?.flujo ?? []).slice(0, 5));
   colorApp(app: string): string {
     const apps = [...new Set((this.d()?.flujo ?? []).map((x) => x.app))];
-    return PALETA[Math.max(0, apps.indexOf(app)) % PALETA.length];
+    return FLOW_PALETA[Math.max(0, apps.indexOf(app)) % FLOW_PALETA.length];
   }
 }

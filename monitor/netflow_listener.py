@@ -24,16 +24,20 @@ log = logging.getLogger("monitor.netflow")
 
 def _flush(db: Database, acc: dict, ventana_inicio: datetime, top_n: int,
            cache_recurso: dict) -> int:
-    """Vuelca el TOP-N de conversaciones de cada exportador a la BD."""
+    """Vuelca el TOP-N de conversaciones (tabla flujos) Y los totales agregados de
+    TODO el tráfico por (app, protocolo) (tabla flujo_totales) de cada exportador."""
     if not acc:
         return 0
     ahora = datetime.now(timezone.utc)
     filas: list[tuple] = []
+    totales: list[tuple] = []
     for exporter_ip, convs in acc.items():
         if exporter_ip not in cache_recurso:
             cache_recurso[exporter_ip] = (
                 repo.recurso_id_por_host(db, exporter_ip) if exporter_ip else None)
         recurso_id = cache_recurso[exporter_ip]
+
+        # Top-N conversaciones (detalle por IP).
         top = sorted(convs.values(), key=lambda c: c["bytes"], reverse=True)[:top_n]
         for c in top:
             filas.append((
@@ -42,7 +46,22 @@ def _flush(db: Database, acc: dict, ventana_inicio: datetime, top_n: int,
                 c["protocolo"], netflow.app_por_puerto(c["src_port"], c["dst_port"]),
                 c["bytes"], c["paquetes"],
             ))
+
+        # Totales de TODO el tráfico por (app, protocolo); 'port-*' -> 'otros'.
+        agg: dict[tuple, list[int]] = {}
+        for c in convs.values():
+            app = netflow.app_por_puerto(c["src_port"], c["dst_port"])
+            if app.startswith("port-"):
+                app = "otros"
+            a = agg.setdefault((app, c.get("protocolo")), [0, 0, 0])
+            a[0] += c.get("bytes", 0)
+            a[1] += c.get("paquetes", 0)
+            a[2] += 1
+        for (app, proto), (b, pk, cnt) in agg.items():
+            totales.append((exporter_ip, recurso_id, ventana_inicio, ahora, app, proto, b, pk, cnt))
+
     repo.guardar_flujos(db, filas)
+    repo.guardar_flujo_totales(db, totales)
     return len(filas)
 
 

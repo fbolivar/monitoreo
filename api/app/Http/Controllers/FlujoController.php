@@ -85,9 +85,15 @@ class FlujoController extends Controller
         $w = "ventana_fin >= $desde";
         $wPrev = "ventana_fin >= now() - (interval '$intervalo') * 2 AND ventana_fin < $desde";
 
+        // Totales REALES desde flujo_totales (todo el tráfico). Fallback a flujos
+        // (top-N) mientras flujo_totales acumula histórico.
+        $hayTot = DB::selectOne("SELECT count(*) c FROM flujo_totales WHERE $w")->c > 0;
+        $T = $hayTot ? 'flujo_totales' : 'flujos';
+        $flowExpr = $hayTot ? 'coalesce(sum(flujos),0)' : 'count(*)';
+
         // ── KPIs (periodo actual vs anterior) ────────────────────────────
-        $cur = DB::selectOne("SELECT coalesce(sum(bytes),0) tb, count(*) fl FROM flujos WHERE $w");
-        $prev = DB::selectOne("SELECT coalesce(sum(bytes),0) tb, count(*) fl FROM flujos WHERE $wPrev");
+        $cur = DB::selectOne("SELECT coalesce(sum(bytes),0) tb, $flowExpr fl FROM $T WHERE $w");
+        $prev = DB::selectOne("SELECT coalesce(sum(bytes),0) tb, $flowExpr fl FROM $T WHERE $wPrev");
         $hosts = DB::selectOne("SELECT count(*) h FROM (SELECT src_ip ip FROM flujos WHERE $w AND src_ip IS NOT NULL UNION SELECT dst_ip FROM flujos WHERE $w AND dst_ip IS NOT NULL) q")->h;
         $hostsPrev = DB::selectOne("SELECT count(*) h FROM (SELECT src_ip ip FROM flujos WHERE $wPrev AND src_ip IS NOT NULL UNION SELECT dst_ip FROM flujos WHERE $wPrev AND dst_ip IS NOT NULL) q")->h;
 
@@ -101,15 +107,23 @@ class FlujoController extends Controller
             'hosts' => (int) $hosts, 'hosts_delta' => $delta($hosts, $hostsPrev),
         ];
 
-        // ── Serie temporal por bucket (totales) ──────────────────────────
+        // ── Serie temporal por bucket ────────────────────────────────────
+        // Tráfico/flujos del total real ($T); hosts distintos solo de flujos (top-N).
         $porBucket = DB::select(
-            "SELECT floor(extract(epoch from ventana_fin)/$bucket)*$bucket AS tb,
-                    sum(bytes) b, count(*) c, count(distinct src_ip) h
-             FROM flujos WHERE $w GROUP BY tb ORDER BY tb"
+            "SELECT floor(extract(epoch from ventana_fin)/$bucket)*$bucket AS tb, sum(bytes) b, $flowExpr c
+             FROM $T WHERE $w GROUP BY tb ORDER BY tb"
         );
         $mapB = [];
         foreach ($porBucket as $r) {
             $mapB[(int) $r->tb] = $r;
+        }
+        $porBucketH = DB::select(
+            "SELECT floor(extract(epoch from ventana_fin)/$bucket)*$bucket AS tb, count(distinct src_ip) h
+             FROM flujos WHERE $w GROUP BY tb"
+        );
+        $mapH = [];
+        foreach ($porBucketH as $r) {
+            $mapH[(int) $r->tb] = (int) $r->h;
         }
 
         // Eje de buckets completo (rellena vacíos con 0).
@@ -122,15 +136,15 @@ class FlujoController extends Controller
             $labels[] = date($bucket >= 86400 ? 'M d' : 'H:i', $t);
             $traffic[] = (int) ($mapB[$t]->b ?? 0);
             $flows[] = (int) ($mapB[$t]->c ?? 0);
-            $hostsSpark[] = (int) ($mapB[$t]->h ?? 0);
+            $hostsSpark[] = $mapH[$t] ?? 0;
         }
 
         // ── Serie apilada por app (top 5 + otros) ────────────────────────
-        $topApps = $apps = DB::select("SELECT app, sum(bytes) b FROM flujos WHERE $w GROUP BY app ORDER BY b DESC LIMIT 6");
+        $topApps = DB::select("SELECT app, sum(bytes) b FROM $T WHERE $w GROUP BY app ORDER BY b DESC LIMIT 6");
         $appNames = array_map(fn ($r) => $r->app ?: 'otros', $topApps);
         $porBucketApp = DB::select(
             "SELECT floor(extract(epoch from ventana_fin)/$bucket)*$bucket AS tb, app, sum(bytes) b
-             FROM flujos WHERE $w GROUP BY tb, app"
+             FROM $T WHERE $w GROUP BY tb, app"
         );
         $mapBA = [];
         foreach ($porBucketApp as $r) {
@@ -146,8 +160,8 @@ class FlujoController extends Controller
         }
 
         // ── Donas ────────────────────────────────────────────────────────
-        $appsDona = DB::select("SELECT coalesce(app,'otros') app, sum(bytes) bytes FROM flujos WHERE $w GROUP BY app ORDER BY bytes DESC LIMIT 6");
-        $protoRaw = DB::select("SELECT protocolo, sum(bytes) bytes FROM flujos WHERE $w GROUP BY protocolo");
+        $appsDona = DB::select("SELECT coalesce(app,'otros') app, sum(bytes) bytes FROM $T WHERE $w GROUP BY app ORDER BY bytes DESC LIMIT 6");
+        $protoRaw = DB::select("SELECT protocolo, sum(bytes) bytes FROM $T WHERE $w GROUP BY protocolo");
         $protoMap = ['TCP' => 0, 'UDP' => 0, 'ICMP' => 0, 'Otros' => 0];
         foreach ($protoRaw as $r) {
             $k = [6 => 'TCP', 17 => 'UDP', 1 => 'ICMP'][$r->protocolo] ?? 'Otros';

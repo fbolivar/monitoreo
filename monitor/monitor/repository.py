@@ -990,6 +990,7 @@ def purgar_datos(db: Database) -> dict[str, Any]:
         cur.execute("DELETE FROM interfaces_historico WHERE ts < now() - interval '7 days'")
         # Flujos de tráfico (NetFlow): retención corta (7 días).
         cur.execute("DELETE FROM flujos WHERE ventana_fin < now() - interval '7 days'")
+        cur.execute("DELETE FROM flujo_totales WHERE ventana_fin < now() - interval '7 days'")
         # Calidad WAN: retención media (30 días).
         cur.execute("DELETE FROM wan_calidad WHERE ts < now() - interval '30 days'")
         return r
@@ -1009,6 +1010,23 @@ def guardar_flujos(db: Database, filas: list[tuple]) -> None:
             "INSERT INTO flujos (exporter_ip, recurso_id, ventana_inicio, ventana_fin, "
             "src_ip, dst_ip, src_port, dst_port, protocolo, app, bytes, paquetes) "
             "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+            filas,
+        )
+
+
+def guardar_flujo_totales(db: Database, filas: list[tuple]) -> None:
+    """Inserta los totales agregados de una ventana (TODO el tráfico, no solo el top-N).
+
+    Cada fila: (exporter_ip, recurso_id, ventana_inicio, ventana_fin, app,
+                protocolo, bytes, paquetes, flujos)
+    """
+    if not filas:
+        return
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.executemany(
+            "INSERT INTO flujo_totales (exporter_ip, recurso_id, ventana_inicio, ventana_fin, "
+            "app, protocolo, bytes, paquetes, flujos) "
+            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
             filas,
         )
 
