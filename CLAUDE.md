@@ -401,6 +401,67 @@ topología LLDP), todas en producción y **todas verificadas EN VIVO**: auto-des
 hardware Redfish (Dell R640 en id 24), sintéticos (transacción 2 pasos), backup SSH (SW-CORE-01 Dell OS9,
 33 KB) y topología LLDP (286 vecinos). Secuencia de 4 mejoras COMPLETA.
 
+- ✅ OLA DE VISIBILIDAD DE RED (2026-06-17) — EN PRODUCCIÓN, VERIFICADA EN VIVO:
+  - **NetFlow/IPFIX (#1)** [migr. 0024, tabla `flujos`]: servicio systemd `simon-netflow`
+    (`monitor/netflow_listener.py`, UDP/2055) con parser PURO v5/v9/IPFIX (templates) en
+    `monitor/netflow.py`; agrega el TOP-N de conversaciones por ventana (def 60s, top 50) y mapea el
+    exportador→recurso. API `FlujoController` (top hablantes/destinos/apps/conversaciones por rango);
+    pantalla **Flujos**. ufw 2055/udp. VERIFICADO: FortiGate exporta (config `system netflow` +
+    `config collectors` en FortiOS 7.x; sampler por interfaz `set netflow-sampler both` en la WAN);
+    100+ conversaciones reales, top app = syslog. El `recurso_id_por_host` ahora empareja **ignorando
+    el puerto** del hostname (`split_part(hostname,':',1)`) para vincular el exportador `192.168.50.1`
+    al recurso FortiGate cuyo hostname es `192.168.50.1:25443` (también arregla el enlace de traps).
+  - **Calidad WAN activa (#4)** [migr. 0024, tabla `wan_calidad`]: job `medir_calidad_wan` (opt-in
+    `parametros.wan_calidad`), mide latencia/jitter/pérdida (ICMP) + throughput (iperf3 si hay
+    `iperf_host`) y estima **MOS** por E-model (Ie-eff logarítmico, `monitor/wan_calidad.py`). Opción
+    `target` para sondear un destino concreto (p.ej. 1.1.1.1 = enlace de Internet del sitio) en vez del
+    hostname. Emite métricas `wan_*` + tabla; API `WanCalidadController`; panel "Calidad de enlace WAN"
+    en el detalle. VERIFICADO: FortiGate→1.1.1.1 MOS 4.40 "buena"; Starlink Old Providence (caído)
+    detectado "mala" (100% pérdida). iperf3 instalado.
+
+- ✅ OLAS 2–5 + GLPI (2026-06-17) [migr. 0025–0032] — EN PRODUCCIÓN, VERIFICADAS (190 tests worker
+  en verde + `ng build` OK; endpoints probados 200 con JWT acuñado del AUTH_JWT_SECRET):
+  - **Auto-remediación / runbooks (#5)** [0025, `runbooks`/`runbook_ejecuciones`]: al abrir una
+    incidencia, ejecuta acciones que coincidan con sus disparadores (tipo/severidad/match): **webhook**
+    a un orquestador o **comando SSH** al equipo. Lógica pura `monitor/remediacion.py` (coincidencia +
+    interpolación `{hostname}`…), hook en `_gestionar_incidencia`, cooldown por (runbook,recurso).
+    `RunbookController` (CRUD + secretos pgcrypto), pantalla **Runbooks**.
+  - **Cumplimiento de configuración (#7)** [0026, `cumplimiento_politicas`/`_resultados`]: valida la
+    última config respaldada (`config_respaldos`) contra políticas golden-config (contiene/no_contiene/
+    regex; `monitor/cumplimiento.py`); job `evaluar_cumplimiento` avisa al incumplir. `CumplimientoController`
+    (CRUD + GET resultados), pantalla **Cumplimiento**.
+  - **Agente ligero (#8)** [0027, `agentes`]: `agent/simon_agent.py` (psutil; Win/Linux) recolecta
+    CPU/mem/disco-por-volumen/top-procesos/servicios y hace `POST /api/ingest/agente` autenticado por
+    **token** (cabecera X-Agent-Token, sha256 en BD). `IngestController.agente` mete métricas en
+    `metricas` y el inventario en `agentes`; `AgenteController` (admin, token visible 1 vez). Pantalla
+    **Agentes**.
+  - **Virtualización (#9)** [0028, `vm_inventario`]: probe vCenter REST (`monitor/probes/vmware.py`,
+    parsers puros) inventaría VMs (power/cpu/mem/guest) de hosts opt-in (`parametros.virtualizacion`);
+    job `procesar_virtualizacion`. `VmController` GET `/recursos/{id}/vms`; panel "Máquinas virtuales"
+    en el detalle. (Hyper-V se cubre con el agente.)
+  - **PWA Web Push (#11)** [0029, `push_suscripciones`]: `public/sw.js` + `manifest.webmanifest`;
+    `PushService` (registra SW, suscribe con VAPID), botón 🔔 en la topbar; el motor de notificaciones
+    envía push por `pywebpush` al abrir/cerrar incidencias. VAPID generado en el despliegue (clave
+    privada en `monitor/vapid_private.pem` ref. por `VAPID_PRIVATE_KEY`; pública en api `.env` →
+    `config/push.php` → `/api/push/vapid`).
+  - **Status page pública (#12)** [sin migr.]: `GET /api/status` (sin JWT) agrega disponibilidad por
+    sede; ruta pública `/status` fuera del Shell (`StatusController` + componente `Status`).
+  - **APM RUM/OTel (#13)** [0030, `rum_eventos`/`spans`]: beacon JS en `index.html` reporta el tiempo
+    REAL de carga (`/api/ingest/rum`, público) + ingesta de trazas (`/api/ingest/span`, estilo OTel);
+    `RumController` (KPIs avg/p95, páginas lentas, errores, spans por servicio), pantalla **Experiencia
+    (RUM)**. Es el "Camino B" de observabilidad que estaba pendiente.
+  - **AIOps · correlación de alertas (#14)** [0031, `correlaciones` + `incidencias.correlacion_id`]:
+    job `correlacionar_incidencias` agrupa incidencias abiertas de la misma sede dentro de una ventana
+    (`monitor/correlacion.py`, puro) y marca la **causa raíz** probable (ancestro por dependencia, o la
+    más antigua). `CorrelacionController`, pantalla **Correlaciones**. Reduce el ruido del operador.
+  - **GLPI (mesa de ayuda, #3 — listo)** [0032, `incidencias.ticket_externo`]: canal de notificación
+    tipo `glpi` (`senders._glpi`: initSession→createTicket→killSession por REST) que crea ticket al
+    abrir incidencia y guarda su nº. Env-gated: funciona en cuanto se crea un canal `glpi` con
+    `url`+`app_token`+`user_token` (sin configurar aún).
+  Despliegue: `infra/deploy/40_flujos_wan.sh` (ola 1) y `41_olas2_5.sh` (olas 2–5; migraciones,
+  pywebpush, VAPID, servicio `simon-netflow`). NOTA: agente/vCenter/GLPI quedan "listos" pero sin
+  credenciales reales; su E/S de red no se validó contra esos servicios.
+
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.
 
