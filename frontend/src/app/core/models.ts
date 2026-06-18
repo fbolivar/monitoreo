@@ -353,6 +353,7 @@ export interface TopologiaNodo {
   nombre: string;
   estado: Estado | null;
   es_recurso: boolean;
+  hostname?: string | null;
   sitio_id?: number | null;
   sitio?: string | null;
   tipo?: string | null;

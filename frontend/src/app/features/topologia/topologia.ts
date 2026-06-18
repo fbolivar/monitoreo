@@ -5,16 +5,37 @@ import { TopologiaEnlace, TopologiaNodo } from '../../core/models';
 import { Mapa } from '../mapa/mapa';
 
 interface NodoPos extends TopologiaNodo { x: number; y: number; nivel: number; }
-interface EnlacePos { x1: number; y1: number; x2: number; y2: number; etiqueta: string; }
+interface EnlacePos {
+  origen: string; destino: string;
+  x1: number; y1: number; x2: number; y2: number;
+  pOrigen: string; pDestino: string;       // puertos en cada extremo
+  // posiciones de las etiquetas de puerto, cerca de cada nodo
+  lox: number; loy: number; ldx: number; ldy: number;
+}
+interface Banda { y: number; label: string; }
 interface SitioOpt { id: number | 'sin'; nombre: string; n: number; }
-interface GrafoSede { width: number; height: number; nodos: NodoPos[]; niveles: number; }
+interface GrafoSede { width: number; height: number; nodos: NodoPos[]; bandas: Banda[]; }
 
-// Geometría del grafo jerárquico.
-const NIVEL_H = 116;
-const TOP_PAD = 46;
-const MIN_W = 760;
-const COL_W = 150;
-const R = 15;
+// Geometría.
+const NIVEL_H = 132;
+const TOP_PAD = 58;
+const MIN_W = 820;
+const COL_W = 186;
+const CARD_W = 156;
+const CARD_H = 50;
+
+// Insignia y etiqueta por tipo de recurso.
+const TIPO_INFO: Record<string, { abbr: string; label: string }> = {
+  firewall:    { abbr: 'FW',  label: 'Firewall' },
+  switch_lan:  { abbr: 'SW',  label: 'Switch LAN' },
+  switch_san:  { abbr: 'SAN', label: 'Switch SAN' },
+  servidor:    { abbr: 'SRV', label: 'Servidor' },
+  nas:         { abbr: 'NAS', label: 'NAS' },
+  ups:         { abbr: 'UPS', label: 'UPS' },
+  starlink:    { abbr: 'STL', label: 'Starlink' },
+  enlace_wan:  { abbr: 'WAN', label: 'Enlace WAN' },
+  sitio_web:   { abbr: 'WEB', label: 'Sitio web' },
+};
 
 @Component({
   selector: 'app-topologia',
@@ -32,11 +53,14 @@ export class Topologia implements OnInit {
   enlaces = signal<TopologiaEnlace[]>([]);
   cargando = signal(true);
   seleccion = signal<string | null>(null);
-  mostrarExternos = signal(false);   // vecinos no gestionados (ruidosos) → ocultos por defecto.
+  hover = signal<string | null>(null);
+  mostrarExternos = signal(false);
 
   sitioSel = signal<number | 'sin' | null>(null);
 
-  // Sedes que tienen al menos un recurso (para el selector del Tab 2).
+  readonly CARD_W = CARD_W;
+  readonly CARD_H = CARD_H;
+
   sitios = computed<SitioOpt[]>(() => {
     const cuenta = new Map<number | 'sin', { nombre: string; n: number }>();
     for (const n of this.nodos()) {
@@ -54,17 +78,12 @@ export class Topologia implements OnInit {
   // ── Grafo jerárquico de la sede seleccionada ──────────────────────────
   grafo = computed<GrafoSede>(() => {
     const sel = this.sitioSel();
-    if (sel === null) return { width: MIN_W, height: 200, nodos: [], niveles: 0 };
+    if (sel === null) return { width: MIN_W, height: 200, nodos: [], bandas: [] };
 
     const ext = this.mostrarExternos();
-
-    // 1) Nodos candidatos: recursos de la sede + (opc.) externos conectados a ellos.
-    const recursosSede = this.nodos().filter(
-      (n) => n.es_recurso && (n.sitio_id ?? 'sin') === sel,
-    );
+    const recursosSede = this.nodos().filter((n) => n.es_recurso && (n.sitio_id ?? 'sin') === sel);
     const idsSede = new Set(recursosSede.map((n) => n.id));
 
-    // Adyacencia restringida a la sede (+ externos si toca).
     const ady = new Map<string, Set<string>>();
     const incluidos = new Map<string, TopologiaNodo>();
     recursosSede.forEach((n) => { incluidos.set(n.id, n); ady.set(n.id, new Set()); });
@@ -77,7 +96,7 @@ export class Topologia implements OnInit {
       if (aEnSede && bEnSede) {
         // enlace interno
       } else if (ext && aEnSede && porId.get(e.destino)?.es_recurso === false) {
-        // recurso de la sede ↔ externo
+        // recurso ↔ externo
       } else if (ext && bEnSede && porId.get(e.origen)?.es_recurso === false) {
         [a, b] = [e.destino, e.origen];
       } else {
@@ -94,11 +113,9 @@ export class Topologia implements OnInit {
     const todos = [...incluidos.values()];
     const grado = (id: string) => ady.get(id)?.size ?? 0;
 
-    // 2) Niveles por BFS desde las raíces de mayor grado (núcleo arriba).
+    // Niveles por BFS desde las raíces de mayor grado (núcleo arriba).
     const nivel = new Map<string, number>();
-    const raices = todos
-      .filter((n) => grado(n.id) > 0)
-      .sort((a, b) => grado(b.id) - grado(a.id));
+    const raices = todos.filter((n) => grado(n.id) > 0).sort((a, b) => grado(b.id) - grado(a.id));
     for (const raiz of raices) {
       if (nivel.has(raiz.id)) continue;
       const cola: string[] = [raiz.id];
@@ -111,13 +128,11 @@ export class Topologia implements OnInit {
         }
       }
     }
-    // Aislados (sin LLDP): a una banda al fondo para no perderlos de vista.
-    const maxNivel = nivel.size ? Math.max(...nivel.values()) : -1;
-    const bandaAislados = maxNivel + 1;
-    const aislados = todos.filter((n) => grado(n.id) === 0);
-    aislados.forEach((n) => nivel.set(n.id, bandaAislados));
+    const maxConectado = nivel.size ? Math.max(...nivel.values()) : -1;
+    const bandaAislados = maxConectado + 1;
+    todos.filter((n) => grado(n.id) === 0).forEach((n) => nivel.set(n.id, bandaAislados));
 
-    // 3) Posiciones por nivel.
+    // Posiciones por nivel.
     const porNivel = new Map<number, TopologiaNodo[]>();
     for (const n of todos) {
       const l = nivel.get(n.id)!;
@@ -127,18 +142,25 @@ export class Topologia implements OnInit {
     const width = Math.max(MIN_W, maxEnFila * COL_W);
 
     const nodosPos: NodoPos[] = [];
-    for (const [l, arr] of porNivel) {
+    const bandas: Banda[] = [];
+    for (const [l, arr] of [...porNivel.entries()].sort((a, b) => a[0] - b[0])) {
       arr.sort((a, b) => a.nombre.localeCompare(b.nombre));
       const k = arr.length;
-      arr.forEach((n, i) => {
-        nodosPos.push({ ...n, nivel: l, x: ((i + 1) * width) / (k + 1), y: TOP_PAD + l * NIVEL_H });
-      });
+      const y = TOP_PAD + l * NIVEL_H;
+      arr.forEach((n, i) => nodosPos.push({ ...n, nivel: l, x: ((i + 1) * width) / (k + 1), y }));
+      bandas.push({ y, label: this.etiquetaBanda(l, maxConectado, bandaAislados) });
     }
 
-    const niveles = porNivel.size;
-    const height = TOP_PAD + Math.max(0, niveles) * NIVEL_H + 30;
-    return { width, height, nodos: nodosPos, niveles };
+    const height = TOP_PAD + porNivel.size * NIVEL_H + 10;
+    return { width, height, nodos: nodosPos, bandas };
   });
+
+  private etiquetaBanda(l: number, maxConectado: number, aislados: number): string {
+    if (l === aislados) return 'Sin enlaces LLDP';
+    if (l === 0) return 'Núcleo';
+    if (l === maxConectado) return 'Acceso';
+    return 'Distribución';
+  }
 
   private posMap = computed<Map<string, NodoPos>>(
     () => new Map(this.grafo().nodos.map((n) => [n.id, n])),
@@ -151,22 +173,29 @@ export class Topologia implements OnInit {
       const a = pos.get(e.origen);
       const b = pos.get(e.destino);
       if (!a || !b) continue;
+      // Punto a ~26px del nodo, sobre la línea, para colocar el puerto.
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const len = Math.hypot(dx, dy) || 1;
+      const ux = dx / len, uy = dy / len;
+      const off = Math.min(30, len * 0.32);
       out.push({
+        origen: e.origen, destino: e.destino,
         x1: a.x, y1: a.y, x2: b.x, y2: b.y,
-        etiqueta: `${e.origen_port ?? ''} ↔ ${e.destino_port ?? ''}`,
+        pOrigen: e.origen_port ?? '', pDestino: e.destino_port ?? '',
+        lox: a.x + ux * off, loy: a.y + uy * off,
+        ldx: b.x - ux * off, ldy: b.y - uy * off,
       });
     }
     return out;
   });
 
-  // Banda de aislados (para etiquetar "sin enlaces").
-  bandaAislados = computed<number | null>(() => {
-    const niveles = this.grafo().nodos.map((n) => n.nivel);
-    const aislados = this.grafo().nodos.filter((n) => (n.grado ?? 0) === 0);
-    if (!aislados.length || !niveles.length) return null;
-    return Math.max(...niveles);
-  });
+  // Enlace "activo" si toca el nodo bajo el cursor o seleccionado.
+  activo(e: EnlacePos): boolean {
+    const k = this.hover() ?? this.seleccion();
+    return !!k && (e.origen === k || e.destino === k);
+  }
 
+  hayResaltado = computed(() => !!(this.hover() ?? this.seleccion()));
   hayEnlaces = computed(() => this.enlacesPos().length > 0);
 
   ngOnInit(): void {
@@ -175,7 +204,6 @@ export class Topologia implements OnInit {
         this.nodos.set(t.nodos);
         this.enlaces.set(t.enlaces);
         this.cargando.set(false);
-        // Selecciona por defecto la sede con más recursos.
         const s = this.sitios()[0];
         if (s) this.sitioSel.set(s.id);
       },
@@ -188,8 +216,22 @@ export class Topologia implements OnInit {
     return 'st-' + (n.estado ?? 'unknown');
   }
 
-  etiqueta(nombre: string): string {
-    return nombre.length > 18 ? nombre.slice(0, 17) + '…' : nombre;
+  tipoAbbr(n: TopologiaNodo): string {
+    if (!n.es_recurso) return 'EXT';
+    return (n.tipo && TIPO_INFO[n.tipo]?.abbr) || (n.tipo_nombre?.slice(0, 3).toUpperCase()) || '·';
+  }
+
+  tipoLabel(n: TopologiaNodo): string {
+    if (!n.es_recurso) return 'Externo (no gestionado)';
+    return (n.tipo && TIPO_INFO[n.tipo]?.label) || n.tipo_nombre || 'Recurso';
+  }
+
+  subtitulo(n: TopologiaNodo): string {
+    return n.hostname || this.tipoLabel(n);
+  }
+
+  recorta(s: string, max: number): string {
+    return s.length > max ? s.slice(0, max - 1) + '…' : s;
   }
 
   recursoId(id: string): number | null {
@@ -204,5 +246,6 @@ export class Topologia implements OnInit {
   cambiarSitio(v: string): void {
     this.sitioSel.set(v === 'sin' ? 'sin' : Number(v));
     this.seleccion.set(null);
+    this.hover.set(null);
   }
 }

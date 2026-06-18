@@ -9,6 +9,8 @@ h1 { font-size: 18px; margin: 0; }
 .tab:hover { background: #ffffff80; }
 .tab.activo { background: #fff; box-shadow: 0 1px 3px #0000001a; color: var(--brand, #1b6b3a); }
 
+.intro { font-size: 12.5px; max-width: 880px; margin: 0 0 12px; line-height: 1.5; }
+
 .barra { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
 .barra .campo { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; }
 .barra select {
@@ -38,22 +40,52 @@ h1 { font-size: 18px; margin: 0; }
   border: 1px solid var(--border); border-radius: var(--radius);
   overflow: auto; max-height: 76vh;
 }
-.grafo { display: block; width: 100%; height: auto; min-width: 700px; }
+.grafo { display: block; width: 100%; height: auto; min-width: 760px; }
 
-.edge { stroke: #4f8a72; stroke-width: 2; opacity: .8; }
+/* Bandas de jerarquía */
+.banda line { stroke: #dde6e1; stroke-width: 1; stroke-dasharray: 3 5; }
+.banda text { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; fill: #8aa097; }
 
-.nodo { cursor: pointer; }
-.nodo circle {
-  stroke: #fff; stroke-width: 2.5; transition: stroke-width .1s;
-  filter: drop-shadow(0 1px 2px #0003);
+/* Enlaces */
+.edge { stroke: #9fb8ad; stroke-width: 1.8; transition: stroke .12s, stroke-width .12s, opacity .12s; }
+.edge.hot { stroke: #1b8a5a; stroke-width: 3; }
+.edge.dim { opacity: .25; }
+
+.puerto {
+  font-size: 9.5px; font-weight: 700; fill: #15543a; text-anchor: middle;
+  paint-order: stroke; stroke: #fff; stroke-width: 3px; stroke-linejoin: round;
 }
-.nodo:hover circle, .nodo.sel circle { stroke: #222; stroke-width: 3.5; }
-.nodo circle.st-up { fill: var(--estado-up); }
-.nodo circle.st-degraded { fill: var(--estado-degraded); }
-.nodo circle.st-down { fill: var(--estado-down); }
-.nodo circle.st-unknown { fill: var(--estado-unknown); }
-.nodo circle.ext { fill: #9aa6a0; }
-.etq { font-size: 11px; fill: var(--text); font-weight: 600; pointer-events: none; }
+
+/* Tarjetas de nodo */
+.nodo { cursor: pointer; transition: opacity .12s; }
+.nodo.atenuado { opacity: .35; }
+.card {
+  fill: #fff; stroke: #d4ddd7; stroke-width: 1.4;
+  filter: drop-shadow(0 1px 2px #0000001f);
+}
+.nodo:hover .card, .nodo.sel .card { stroke: #1b8a5a; stroke-width: 2; }
+.card.st-up     { stroke: #bfe3cd; }
+.card.st-degraded { stroke: #f0dca0; }
+.card.st-down   { stroke: #f0b6b6; }
+.card.st-unknown { stroke: #d6dbe0; }
+.card.ext       { fill: #f4f6f5; stroke: #cbd4ce; stroke-dasharray: 4 3; }
+
+.stripe { stroke: none; }
+.stripe.st-up { fill: var(--estado-up); }
+.stripe.st-degraded { fill: var(--estado-degraded); }
+.stripe.st-down { fill: var(--estado-down); }
+.stripe.st-unknown { fill: var(--estado-unknown); }
+.stripe.ext { fill: #9aa6a0; }
+
+.badge { fill: #2f6b4a; }
+.badge.st-degraded { fill: #b8860b; }
+.badge.st-down { fill: #b02a2a; }
+.badge.st-unknown { fill: #6b7780; }
+.badge.ext { fill: #8a948e; }
+.badge-t { font-size: 9.5px; font-weight: 800; fill: #fff; letter-spacing: .02em; }
+
+.nombre { font-size: 12px; font-weight: 700; fill: var(--text); pointer-events: none; }
+.sub { font-size: 10px; fill: #7a877f; pointer-events: none; }
 
 .detalle {
   margin-top: 12px; padding: 10px 14px; background: #fff;

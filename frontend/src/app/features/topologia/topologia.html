@@ -18,6 +18,12 @@
   } @else if (sitios().length === 0) {
     <p class="text-dim">No hay recursos activos para mostrar.</p>
   } @else {
+    <p class="intro text-dim">
+      Conexiones físicas (capa 2) descubiertas por LLDP en la sede: qué equipo cuelga de cuál y por
+      qué puertos. El núcleo (más enlaces) va arriba y el acceso abajo.
+      <b>Pasa el cursor sobre un equipo</b> para resaltar sus enlaces y ver los puertos.
+    </p>
+
     <div class="barra">
       <label class="campo">
         Sede:
@@ -42,27 +48,55 @@
     </div>
 
     @if (!hayEnlaces() && grafo().nodos.length > 0) {
-      <p class="aviso">Esta sede no tiene enlaces LLDP descubiertos aún (el worker camina la LLDP-MIB
-        cada ~10 min y requiere LLDP activo en los switches). Se muestran los equipos sin conexiones.</p>
+      <p class="aviso">Esta sede aún no tiene enlaces LLDP descubiertos (el worker camina la LLDP-MIB
+        cada ~10 min; requiere LLDP activo en los switches). Se muestran los equipos sin conexiones.</p>
     }
 
     <div class="lienzo-wrap">
       <svg [attr.viewBox]="'0 0 ' + grafo().width + ' ' + grafo().height" class="grafo"
            [style.min-height.px]="grafo().height">
+
+        <!-- Bandas de jerarquía -->
+        @for (b of grafo().bandas; track b.y) {
+          <g class="banda">
+            <line [attr.x1]="0" [attr.y1]="b.y - 36" [attr.x2]="grafo().width" [attr.y2]="b.y - 36" />
+            <text [attr.x]="10" [attr.y]="b.y - 42">{{ b.label }}</text>
+          </g>
+        }
+
         <!-- Enlaces -->
         @for (e of enlacesPos(); track $index) {
-          <line [attr.x1]="e.x1" [attr.y1]="e.y1" [attr.x2]="e.x2" [attr.y2]="e.y2" class="edge">
-            <title>{{ e.etiqueta }}</title>
-          </line>
+          <line [attr.x1]="e.x1" [attr.y1]="e.y1" [attr.x2]="e.x2" [attr.y2]="e.y2"
+                class="edge" [class.hot]="activo(e)" [class.dim]="hayResaltado() && !activo(e)" />
         }
-        <!-- Nodos -->
+
+        <!-- Puertos (solo en enlaces resaltados) -->
+        @for (e of enlacesPos(); track $index) {
+          @if (activo(e)) {
+            @if (e.pOrigen) {
+              <text [attr.x]="e.lox" [attr.y]="e.loy" class="puerto">{{ e.pOrigen }}</text>
+            }
+            @if (e.pDestino) {
+              <text [attr.x]="e.ldx" [attr.y]="e.ldy" class="puerto">{{ e.pDestino }}</text>
+            }
+          }
+        }
+
+        <!-- Nodos como tarjetas -->
         @for (n of grafo().nodos; track n.id) {
-          <g class="nodo" [class.sel]="seleccion() === n.id"
+          <g class="nodo" [class.sel]="seleccion() === n.id" [class.atenuado]="hayResaltado() && hover() !== n.id && seleccion() !== n.id && !((nodoSel()?.id) === n.id)"
+             [attr.transform]="'translate(' + n.x + ',' + n.y + ')'"
+             (mouseenter)="hover.set(n.id)" (mouseleave)="hover.set(null)"
              (click)="seleccion.set(seleccion() === n.id ? null : n.id)">
-            <circle [attr.cx]="n.x" [attr.cy]="n.y" r="15" [class]="claseNodo(n)">
-              <title>{{ n.nombre }}{{ n.tipo_nombre ? ' · ' + n.tipo_nombre : '' }}{{ (n.grado ?? 0) > 0 ? ' · ' + n.grado + ' enlace(s)' : ' · sin enlaces' }}</title>
-            </circle>
-            <text [attr.x]="n.x" [attr.y]="n.y + 30" text-anchor="middle" class="etq">{{ etiqueta(n.nombre) }}</text>
+            <rect class="card" [class]="claseNodo(n)"
+                  [attr.x]="-CARD_W/2" [attr.y]="-CARD_H/2" [attr.width]="CARD_W" [attr.height]="CARD_H" rx="9" />
+            <rect class="stripe" [class]="claseNodo(n)"
+                  [attr.x]="-CARD_W/2" [attr.y]="-CARD_H/2" width="6" [attr.height]="CARD_H" />
+            <rect class="badge" [class]="claseNodo(n)" [attr.x]="-CARD_W/2 + 13" [attr.y]="-9" width="32" height="18" rx="4" />
+            <text class="badge-t" [attr.x]="-CARD_W/2 + 29" y="4" text-anchor="middle">{{ tipoAbbr(n) }}</text>
+            <text class="nombre" [attr.x]="-CARD_W/2 + 54" y="-3">{{ recorta(n.nombre, 15) }}</text>
+            <text class="sub" [attr.x]="-CARD_W/2 + 54" y="13">{{ recorta(subtitulo(n), 18) }}</text>
+            <title>{{ n.nombre }} · {{ tipoLabel(n) }}{{ n.hostname ? ' · ' + n.hostname : '' }}</title>
           </g>
         }
       </svg>
@@ -72,9 +106,8 @@
       <div class="detalle">
         <i class="dot" [class]="claseNodo(sel)"></i>
         <strong>{{ sel.nombre }}</strong>
-        @if (sel.tipo_nombre) { <span class="text-dim"> · {{ sel.tipo_nombre }}</span> }
-        @if (!sel.es_recurso) { <span class="text-dim"> · vecino externo (no gestionado)</span> }
-        <span class="text-dim"> · {{ (sel.grado ?? 0) }} enlace(s)</span>
+        <span class="text-dim"> · {{ tipoLabel(sel) }}</span>
+        @if (sel.hostname) { <span class="text-dim"> · {{ sel.hostname }}</span> }
         @if (recursoId(sel.id); as rid) {
           <a class="btn" [routerLink]="['/recursos', rid]">Ver recurso ↗</a>
         }

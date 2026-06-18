@@ -34,7 +34,7 @@ class TopologiaController extends Controller
             ->leftJoin('tipos_recurso as t', 't.id', '=', 'r.tipo_id')
             ->where('r.activo', true)
             ->select(
-                'r.id', 'r.nombre', 'r.estado_actual',
+                'r.id', 'r.nombre', 'r.estado_actual', 'r.hostname',
                 'r.sitio_id', 's.nombre as sitio_nombre',
                 't.codigo as tipo_codigo', 't.nombre as tipo_nombre'
             )
@@ -46,6 +46,7 @@ class TopologiaController extends Controller
                 'nombre' => $r->nombre,
                 'estado' => $r->estado_actual,
                 'es_recurso' => true,
+                'hostname' => $r->hostname,
                 'sitio_id' => $r->sitio_id,
                 'sitio' => $r->sitio_nombre,
                 'tipo' => $r->tipo_codigo,
@@ -71,14 +72,14 @@ class TopologiaController extends Controller
             // El recurso local ya debería existir (paso 1); por si está inactivo, lo añade.
             $addNodo($origen, [
                 'id' => $origen, 'nombre' => $f->local_nombre, 'estado' => $f->local_estado,
-                'es_recurso' => true, 'sitio_id' => null, 'sitio' => null, 'tipo' => null, 'tipo_nombre' => null,
+                'es_recurso' => true, 'hostname' => null, 'sitio_id' => null, 'sitio' => null, 'tipo' => null, 'tipo_nombre' => null,
             ]);
 
             if ($f->recurso_remoto_id) {
                 $destino = 'r:'.$f->recurso_remoto_id;
                 $addNodo($destino, [
                     'id' => $destino, 'nombre' => $f->remoto_nombre, 'estado' => $f->remoto_estado,
-                    'es_recurso' => true, 'sitio_id' => null, 'sitio' => null, 'tipo' => null, 'tipo_nombre' => null,
+                    'es_recurso' => true, 'hostname' => null, 'sitio_id' => null, 'sitio' => null, 'tipo' => null, 'tipo_nombre' => null,
                 ]);
             } else {
                 // Vecino que no es un recurso gestionado (AP, host, equipo externo).
@@ -87,7 +88,7 @@ class TopologiaController extends Controller
                 $addNodo($destino, [
                     'id' => $destino, 'nombre' => $f->remote_sysname ?: $f->remote_chassis ?: '(desconocido)',
                     'estado' => null, 'es_recurso' => false,
-                    'sitio_id' => null, 'sitio' => null, 'tipo' => null, 'tipo_nombre' => null,
+                    'hostname' => null, 'sitio_id' => null, 'sitio' => null, 'tipo' => null, 'tipo_nombre' => null,
                 ]);
             }
 
