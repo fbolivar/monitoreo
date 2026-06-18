@@ -66,6 +66,7 @@ def recolectar() -> dict:
 WATCH_DEFAULT = [
     "vmms", "vmcompute",                               # Hyper-V (rol del servidor)
     "FCTSvc", "FCT_SecSvr",                            # antivirus/endpoint: FortiClient
+    "FortiEDR Collector Service", "mfemms",            # antivirus/EDR alterno: FortiEDR / Trellix
     "WinDefend", "MpsSvc",                             # seguridad: Defender, Firewall
     "EventLog", "Schedule", "W32Time",                 # logging, tareas (de él vive el agente), hora
     "LanmanServer", "Dnscache", "RpcSs",               # red / infraestructura
