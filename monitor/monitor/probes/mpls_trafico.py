@@ -127,10 +127,13 @@ def obtener_sesiones(host: str, port: int, user: str, password: str,
             shell.send(linea + "\n")
             time.sleep(0.4)
             _drenar(shell)
-        # Un volcado por sentido. CLAVE: leer el volcado COMPLETO antes de enviar
-        # el siguiente comando; si no, el filtro se entremezcla y no aplica.
+        # Un volcado por sentido. OJO FortiOS: las claves de filtro por interfaz son
+        # 'dintf' (destino) y 'sintf' (origen) — NO 'dstintf'/'srcintf' (dan parse error
+        # y el list saldría SIN filtrar = toda la tabla, 36 MB). Con el filtro válido el
+        # volcado baja ~55× (solo tráfico de la MPLS). CLAVE: leer cada volcado COMPLETO
+        # antes del siguiente comando, si no el filtro se entremezcla.
         salida = ""
-        for direccion in ("dstintf", "srcintf"):
+        for direccion in ("dintf", "sintf"):
             shell.send("diagnose sys session filter clear\n")
             time.sleep(0.3)
             _drenar(shell)
