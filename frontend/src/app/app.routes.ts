@@ -1,5 +1,5 @@
 import { Routes } from '@angular/router';
-import { adminGuard, authGuard } from './core/guards';
+import { adminGuard, authGuard, editorGuard } from './core/guards';
 import { Shell } from './layout/shell';
 
 export const routes: Routes = [
@@ -45,6 +45,7 @@ export const routes: Routes = [
       },
       {
         path: 'descubrimiento',
+        canActivate: [editorGuard],
         loadComponent: () =>
           import('./features/descubrimiento/descubrimiento').then((m) => m.Descubrimiento),
       },
@@ -62,6 +63,7 @@ export const routes: Routes = [
       },
       {
         path: 'runbooks',
+        canActivate: [editorGuard],
         loadComponent: () => import('./features/runbooks/runbooks').then((m) => m.Runbooks),
       },
       {

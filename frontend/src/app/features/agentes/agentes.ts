@@ -69,10 +69,14 @@ export class Agentes implements OnInit {
   crear(): void {
     this.svc.crearAgente({ nombre: this.fNombre, recurso_id: this.fRecurso || null }).subscribe({
       next: (r) => { this.token.set(r.token); this.form.set(false); this.fNombre = ''; this.fRecurso = undefined; this.cargar(); },
+      error: (e) => alert('No se pudo crear el agente: ' + (e?.error?.message ?? 'error')),
     });
   }
   eliminar(a: Agente): void {
     if (!confirm(`¿Eliminar agente "${a.nombre}"?`)) return;
-    this.svc.eliminarAgente(a.id).subscribe({ next: () => this.cargar() });
+    this.svc.eliminarAgente(a.id).subscribe({
+      next: () => this.cargar(),
+      error: (e) => alert('No se pudo eliminar el agente: ' + (e?.error?.message ?? 'error')),
+    });
   }
 }

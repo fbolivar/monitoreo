@@ -222,6 +222,8 @@ export class RecursoDetalle {
     this.recursosSvc.interfazMonitorear(this.id, x.if_index, nuevo).subscribe({
       next: () => this.interfaces.update((xs) =>
         xs.map((i) => (i.if_index === x.if_index ? { ...i, monitorear: nuevo } : i))),
+      // Si falla, avisa y fuerza re-render para revertir el checkbox al estado real.
+      error: () => { alert('No se pudo cambiar el monitoreo del puerto.'); this.interfaces.update((xs) => [...xs]); },
     });
   }
 

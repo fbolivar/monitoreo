@@ -80,6 +80,20 @@ def snmp_get(host: str, port: int, cred: Credenciales, oids: dict[str, str],
     return asyncio.run(_snmp_get_async(host, port, cred, oids, timeout, retries))
 
 
+def _cerrar_engine(engine) -> None:
+    """Cierra el transport dispatcher del SnmpEngine: pysnmp mantiene un transporte
+    UDP por engine y no se libera solo → sin esto se fugan sockets/FDs a lo largo
+    de miles de walks/gets por ciclo."""
+    try:
+        td = getattr(engine, "transport_dispatcher", None) or getattr(engine, "transportDispatcher", None)
+        if td is not None:
+            cerrar = getattr(td, "close_dispatcher", None) or getattr(td, "closeDispatcher", None)
+            if cerrar:
+                cerrar()
+    except Exception:  # noqa: BLE001
+        pass
+
+
 async def _snmp_get_async(host, port, cred, oids, timeout, retries):
     from pysnmp.hlapi.asyncio import (
         ContextData, ObjectIdentity, ObjectType, SnmpEngine,
@@ -96,26 +110,30 @@ async def _snmp_get_async(host, port, cred, oids, timeout, retries):
     nombres = list(oids.keys())
     objetos = [ObjectType(ObjectIdentity(oids[n])) for n in nombres]
 
-    error_indication, error_status, error_index, var_binds = await _get_cmd(
-        SnmpEngine(), auth_data, target, ContextData(), *objetos
-    )
+    engine = SnmpEngine()
+    try:
+        error_indication, error_status, error_index, var_binds = await _get_cmd(
+            engine, auth_data, target, ContextData(), *objetos
+        )
 
-    _no_existe = (rfc1905.NoSuchObject, rfc1905.NoSuchInstance, rfc1905.EndOfMibView)
-    valores: dict[str, object] = {}
-    error: str | None = None
-    if error_indication:
-        error = str(error_indication)
-    elif error_status:
-        error = f"{error_status.prettyPrint()} (idx {error_index})"
-    else:
-        for nombre, vb in zip(nombres, var_binds):
-            # Saltar OIDs no soportados por el agente (no son valores reales).
-            if isinstance(vb[1], _no_existe):
-                continue
-            valores[nombre] = vb[1]
+        _no_existe = (rfc1905.NoSuchObject, rfc1905.NoSuchInstance, rfc1905.EndOfMibView)
+        valores: dict[str, object] = {}
+        error: str | None = None
+        if error_indication:
+            error = str(error_indication)
+        elif error_status:
+            error = f"{error_status.prettyPrint()} (idx {error_index})"
+        else:
+            for nombre, vb in zip(nombres, var_binds):
+                # Saltar OIDs no soportados por el agente (no son valores reales).
+                if isinstance(vb[1], _no_existe):
+                    continue
+                valores[nombre] = vb[1]
 
-    ok = error is None and bool(valores)
-    return ok, valores, error
+        ok = error is None and bool(valores)
+        return ok, valores, error
+    finally:
+        _cerrar_engine(engine)
 
 
 def _resolver_walk_cmd(version: str):
@@ -146,23 +164,25 @@ async def _snmp_walk_async(host, port, cred, base_oid, timeout, retries):
     target = await _construir_target(host, port, timeout, retries)
     objeto = ObjectType(ObjectIdentity(base_oid))
     engine = SnmpEngine()
+    try:
+        if es_bulk:
+            # GETBULK: nonRepeaters=0, maxRepetitions=_BULK_MAX_REP.
+            gen = walk_cmd(engine, auth_data, target, ContextData(),
+                           0, _BULK_MAX_REP, objeto, lexicographicMode=False)
+        else:
+            gen = walk_cmd(engine, auth_data, target, ContextData(),
+                           objeto, lexicographicMode=False)
 
-    if es_bulk:
-        # GETBULK: nonRepeaters=0, maxRepetitions=_BULK_MAX_REP.
-        gen = walk_cmd(engine, auth_data, target, ContextData(),
-                       0, _BULK_MAX_REP, objeto, lexicographicMode=False)
-    else:
-        gen = walk_cmd(engine, auth_data, target, ContextData(),
-                       objeto, lexicographicMode=False)
+        resultados: list[tuple[str, object]] = []
+        error: str | None = None
+        async for (err_ind, err_stat, err_idx, var_binds) in gen:
+            if err_ind:
+                error = str(err_ind); break
+            if err_stat:
+                error = f"{err_stat.prettyPrint()} (idx {err_idx})"; break
+            for vb in var_binds:
+                resultados.append((str(vb[0]), vb[1]))
 
-    resultados: list[tuple[str, object]] = []
-    error: str | None = None
-    async for (err_ind, err_stat, err_idx, var_binds) in gen:
-        if err_ind:
-            error = str(err_ind); break
-        if err_stat:
-            error = f"{err_stat.prettyPrint()} (idx {err_idx})"; break
-        for vb in var_binds:
-            resultados.append((str(vb[0]), vb[1]))
-
-    return resultados, error
+        return resultados, error
+    finally:
+        _cerrar_engine(engine)

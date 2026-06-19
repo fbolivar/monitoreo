@@ -119,7 +119,11 @@ export class Shell implements OnInit, OnDestroy {
   private idle = inject(IdleService);
 
   async activarPush(): Promise<void> {
-    alert(await this.push.activar());
+    try {
+      alert(await this.push.activar());
+    } catch (e: any) {
+      alert('No se pudo activar las notificaciones push: ' + (e?.message ?? 'error'));
+    }
   }
 
   ngOnInit(): void {
