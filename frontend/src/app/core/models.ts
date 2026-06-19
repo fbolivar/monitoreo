@@ -490,14 +490,6 @@ export interface Correlacion {
     inicio: string; recurso_nombre: string }[];
 }
 
-export interface StatusResp {
-  operativo: boolean;
-  estado_global: Estado;
-  actualizado: string;
-  sedes: { sitio: string; up: number; degraded: number; down: number; otros: number;
-    total: number; estado: Estado }[];
-}
-
 // ── Hardware físico (Redfish / IPMI) ───────────────────────────────────
 export interface HardwareInventario {
   recurso_id: number;

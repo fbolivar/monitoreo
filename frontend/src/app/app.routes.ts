@@ -14,11 +14,6 @@ export const routes: Routes = [
     loadComponent: () => import('./features/wallboard/wallboard').then((m) => m.Wallboard),
   },
   {
-    // Página de estado PÚBLICA (sin login, fuera del Shell).
-    path: 'status',
-    loadComponent: () => import('./features/status/status').then((m) => m.Status),
-  },
-  {
     path: '',
     component: Shell,
     canActivate: [authGuard],

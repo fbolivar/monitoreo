@@ -15,7 +15,6 @@ use App\Http\Controllers\IngestController;
 use App\Http\Controllers\PushController;
 use App\Http\Controllers\RumController;
 use App\Http\Controllers\RunbookController;
-use App\Http\Controllers\StatusController;
 use App\Http\Controllers\VmController;
 use App\Http\Controllers\IncidenciaController;
 use App\Http\Controllers\MantenimientoController;
@@ -54,8 +53,6 @@ use Illuminate\Support\Facades\Route;
 Route::post('auth/login', [AuthController::class, 'login']);
 
 // ── PÚBLICO (sin JWT) ────────────────────────────────────────────────
-// Página de estado público (#12).
-Route::get('status', [StatusController::class, 'index']);
 // Ingesta: agente ligero (#8, token propio) y APM/RUM (#13, beacon).
 Route::post('ingest/agente', [IngestController::class, 'agente']);
 Route::post('ingest/rum', [IngestController::class, 'rum']);
