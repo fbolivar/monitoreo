@@ -24,6 +24,10 @@ class Perfil extends Authenticatable
     protected $casts = [
         'activo'      => 'boolean',
         'totp_activo' => 'boolean',
+        // El secreto TOTP se cifra en reposo (AES-256, clave APP_KEY del .env) para
+        // que un dump de la BD no exponga los secretos 2FA. Transparente: el cast
+        // descifra al leer (login/verificación) y cifra al guardar.
+        'totp_secret' => 'encrypted',
     ];
 
     public const ROLES = ['admin', 'operador', 'viewer'];

@@ -75,6 +75,10 @@ class RunbookController extends Controller
             'trigger_match'     => ['nullable', 'string', 'max:255'],
             'accion'            => [$req, 'array'],
             'accion.tipo'       => [$req, Rule::in(['webhook', 'ssh'])],
+            // Defensa en profundidad: el worker EJECUTA esto (webhook saliente o
+            // comando SSH). Validar forma y esquema reduce el vector RCE/SSRF.
+            'accion.url'        => ['nullable', 'required_if:accion.tipo,webhook', 'url:http,https', 'max:2048'],
+            'accion.comando'    => ['nullable', 'required_if:accion.tipo,ssh', 'string', 'max:4096'],
             'cooldown_seg'      => ['nullable', 'integer', 'min:0'],
             'secretos'          => ['nullable', 'array'],
         ];

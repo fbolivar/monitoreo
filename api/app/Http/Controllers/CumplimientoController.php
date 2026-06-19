@@ -25,13 +25,13 @@ class CumplimientoController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        return response()->json(PoliticaCumplimiento::create($request->validate($this->rules())), 201);
+        return response()->json(PoliticaCumplimiento::create($request->validate($this->rules($request))), 201);
     }
 
     public function update(Request $request, int $id): JsonResponse
     {
         $p = PoliticaCumplimiento::findOrFail($id);
-        $p->update($request->validate($this->rules(true)));
+        $p->update($request->validate($this->rules($request, true)));
 
         return response()->json($p);
     }
@@ -59,7 +59,7 @@ class CumplimientoController extends Controller
         return response()->json($q->paginate($this->perPage($request, 100)));
     }
 
-    private function rules(bool $partial = false): array
+    private function rules(Request $request, bool $partial = false): array
     {
         $req = $partial ? 'sometimes' : 'required';
 
@@ -67,7 +67,13 @@ class CumplimientoController extends Controller
             'nombre'         => [$req, 'string', 'max:255'],
             'descripcion'    => ['nullable', 'string'],
             'tipo'           => [$req, Rule::in(['contiene', 'no_contiene', 'regex'])],
-            'patron'         => [$req, 'string'],
+            // Límite de longitud (acota ReDoS) y, si es regex, debe compilar.
+            'patron'         => [$req, 'string', 'max:500', function ($attr, $value, $fail) use ($request) {
+                if ($request->input('tipo') === 'regex' && is_string($value) && $value !== ''
+                    && @preg_match('~'.$value.'~', '') === false) {
+                    $fail('La expresión regular no es válida (no compila).');
+                }
+            }],
             'severidad'      => ['nullable', Rule::in(['info', 'warning', 'critical'])],
             'aplica_tipo_id' => ['nullable', 'integer'],
             'activo'         => ['boolean'],
