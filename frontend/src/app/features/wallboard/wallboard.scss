@@ -118,6 +118,9 @@ $up: #16d97e; $deg: #f5b301; $down: #ff3b51; $unk: #8a97ad; $mnt: #3aa0ff; $cy: 
 .mapa { height: 100%; max-height: 100%; width: 100%; }
 .pais path { fill: #143055; stroke: #294a72; stroke-width: .6; }
 .mk .dot { stroke: #0b1526; stroke-width: 1.4; opacity: .92; }
+/* Puntos rotativos: aparecen con un fundido suave para que el giro se vea coherente. */
+.mk.pto { animation: ptoIn .6s ease both; }
+@keyframes ptoIn { from { opacity: 0; } to { opacity: 1; } }
 .mk.prob .dot { stroke: #fff; stroke-width: 1.8; }
 .mk[data-estado=down].prob .dot { filter: drop-shadow(0 0 6px #ff3b51); }
 .mk[data-estado=degraded].prob .dot { filter: drop-shadow(0 0 5px #f5b301); }

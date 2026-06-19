@@ -22,6 +22,8 @@ export interface Alerta {
   titulo: string; desde: string | null; reconocida: boolean;
 }
 interface Marcador { nombre: string; x: number; y: number; estado: Estado; total: number; problemas: number; r: number; }
+// Punto individual del mapa (enlace o servidor), posición propia (no es una sede).
+interface Punto { id: number; nombre: string; x: number; y: number; estado: Estado; enlace: boolean; }
 
 @Component({
   selector: 'app-wallboard',
@@ -46,6 +48,14 @@ export class Wallboard implements OnInit, OnDestroy {
   // Mapa de Colombia (departamentos ya proyectados a 437×600).
   departamentos = COLOMBIA_DEPARTAMENTOS;
   readonly MW = 437; readonly MH = 600;
+
+  // Mapa: puntos individuales (enlaces + servidores) que ROTAN para no saturar.
+  readonly VENTANA = 28;   // cuántos puntos se ven a la vez
+  readonly PASO = 5;       // cuántos rotan en cada giro
+  readonly JITTER = 54;    // dispersión (px) alrededor de su sede -> puntos independientes
+  readonly ROT_MS = 3200;  // cada cuánto rota la ventana
+  rotacion = signal(0);
+  private rotSub?: Subscription;
 
   scrollHover = false;
   private listaRef = viewChild<ElementRef<HTMLElement>>('lista');
@@ -134,6 +144,44 @@ export class Wallboard implements OnInit, OnDestroy {
       .sort((a, b) => PESO[a.estado] - PESO[b.estado]);   // problemáticos al final = se dibujan encima
   });
 
+  // Todos los enlaces (WAN/Starlink) y servidores como puntos INDEPENDIENTES: se
+  // posicionan cerca de su sede con un desplazamiento determinista por id (estable),
+  // NO como un punto de sede. Orden barajado estable para que la ventana rote disperso.
+  puntosTodos = computed<Punto[]>(() => {
+    const coords = new Map<number, { lon: number; lat: number }>();
+    for (const s of this.sitios()) {
+      if (s.latitud != null && s.longitud != null) {
+        coords.set(s.id, { lon: Number(s.longitud), lat: Number(s.latitud) });
+      }
+    }
+    const TIPOS = new Set(['fibra_wan', 'starlink', 'servidor']);
+    const pts: Punto[] = [];
+    for (const r of this.recursos()) {
+      if (r.sitio_id == null) continue;
+      const c = coords.get(r.sitio_id);
+      if (!c) continue;
+      const cod = r.tipo?.codigo ?? '';
+      if (!TIPOS.has(cod)) continue;
+      const b = this.proj(c.lon, c.lat);
+      const dx = (this.rnd(r.id * 1.7) - 0.5) * this.JITTER;
+      const dy = (this.rnd(r.id * 3.3) - 0.5) * this.JITTER;
+      pts.push({ id: r.id, nombre: r.nombre, x: b.x + dx, y: b.y + dy, estado: r.estado_actual, enlace: cod !== 'servidor' });
+    }
+    return pts.sort((a, b) => this.rnd(a.id * 9.1) - this.rnd(b.id * 9.1));
+  });
+
+  // Ventana rotativa: muestra VENTANA puntos y avanza PASO en cada giro, recorriendo
+  // todos con el tiempo sin saturar. Dentro de la ventana, los problemáticos encima.
+  puntosVisibles = computed<Punto[]>(() => {
+    const todos = this.puntosTodos();
+    if (!todos.length) return [];
+    const n = Math.min(this.VENTANA, todos.length);
+    const start = (this.rotacion() * this.PASO) % todos.length;
+    const vent: Punto[] = [];
+    for (let i = 0; i < n; i++) vent.push(todos[(start + i) % todos.length]);
+    return vent.sort((a, b) => PESO[a.estado] - PESO[b.estado]);
+  });
+
   // NetFlow en vivo.
   trafSpark = computed<string>(() => {
     const v = this.flujo()?.spark.traffic ?? []; if (v.length < 2) return '';
@@ -151,8 +199,9 @@ export class Wallboard implements OnInit, OnDestroy {
     this.pollSub = interval(environment.refreshMs).subscribe(() => this.refrescar());
     this.relojSub = interval(1000).subscribe(() => { this.reloj.set(this.horaActual()); this.fecha.set(this.fechaActual()); });
     this.scrollSub = interval(35).subscribe(() => this.autoScroll());
+    this.rotSub = interval(this.ROT_MS).subscribe(() => this.rotacion.update((v) => v + 1));
   }
-  ngOnDestroy(): void { this.pollSub?.unsubscribe(); this.relojSub?.unsubscribe(); this.scrollSub?.unsubscribe(); }
+  ngOnDestroy(): void { this.pollSub?.unsubscribe(); this.relojSub?.unsubscribe(); this.scrollSub?.unsubscribe(); this.rotSub?.unsubscribe(); }
 
   private autoScroll(): void {
     if (this.scrollHover) return;
@@ -208,6 +257,12 @@ export class Wallboard implements OnInit, OnDestroy {
   private proj(lon: number, lat: number): { x: number; y: number } {
     const LON_MIN = -79.1, LON_MAX = -66.8, LAT_MIN = -4.3, LAT_MAX = 12.6;
     return { x: ((lon - LON_MIN) / (LON_MAX - LON_MIN)) * this.MW, y: ((LAT_MAX - lat) / (LAT_MAX - LAT_MIN)) * this.MH };
+  }
+
+  /** Pseudo-aleatorio determinista 0..1 desde un número: da una posición estable por id. */
+  private rnd(seed: number): number {
+    const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+    return x - Math.floor(x);
   }
   private sevPeso(s: Severidad | null | undefined): number { return s === 'critical' ? 3 : s === 'warning' ? 2 : s === 'info' ? 1 : 0; }
   private ms(iso: string | null): number { return iso ? new Date(iso).getTime() : Date.now(); }

@@ -30,15 +30,15 @@
           <g class="pais">
             @for (d of departamentos; track d.nombre) { <path [attr.d]="d.d" /> }
           </g>
-          @for (m of marcadores(); track m.nombre) {
-            <g class="mk" [attr.data-estado]="m.estado" [class.prob]="m.problemas > 0">
-              @if (m.problemas > 0) { <circle [attr.cx]="m.x" [attr.cy]="m.y" [attr.r]="m.r + 7" class="pulse" /> }
-              <circle [attr.cx]="m.x" [attr.cy]="m.y" [attr.r]="m.r" class="dot" />
-              <!-- Etiqueta solo en sedes con problema (evita saturar con 80+ sedes operativas) -->
-              @if (m.problemas > 0) {
-                <text [attr.x]="m.x" [attr.y]="m.y - m.r - 5" class="nm">{{ recortar(m.nombre) }}</text>
+          <!-- Enlaces y servidores como puntos independientes; rotan para no saturar. -->
+          @for (p of puntosVisibles(); track p.id) {
+            <g class="mk pto" [attr.data-estado]="p.estado" [class.prob]="p.estado !== 'up'">
+              @if (p.estado !== 'up') { <circle [attr.cx]="p.x" [attr.cy]="p.y" r="11" class="pulse" /> }
+              <circle [attr.cx]="p.x" [attr.cy]="p.y" [attr.r]="p.estado !== 'up' ? 6 : 3.2" class="dot" />
+              @if (p.estado !== 'up') {
+                <text [attr.x]="p.x" [attr.y]="p.y - 9" class="nm">{{ recortar(p.nombre, 18) }}</text>
               }
-              <title>{{ m.nombre }} — {{ m.total }} recurso(s){{ m.problemas ? ', ' + m.problemas + ' con problema' : ' · OK' }}</title>
+              <title>{{ p.enlace ? 'Enlace' : 'Servidor' }}: {{ p.nombre }} — {{ etiqueta(p.estado) }}</title>
             </g>
           }
         </svg>
