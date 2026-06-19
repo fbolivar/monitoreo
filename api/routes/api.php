@@ -39,7 +39,7 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 | API (prefijo /api)  — FASE 2: solo gestión
 |--------------------------------------------------------------------------
-| Autenticación: middleware 'supabase.jwt' valida el JWT de Supabase y
+| Autenticación: middleware 'auth.jwt' valida el JWT propio (HS256, local) y
 | resuelve el perfil/rol local. Autorización por rol con 'role:...'.
 |
 | Matriz de permisos:

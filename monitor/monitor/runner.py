@@ -263,8 +263,13 @@ def respaldar_configuraciones(db: Database, settings: Settings) -> None:
     una versión nueva solo si la config cambió (hash) y avisa del cambio."""
     from .probes import fortigate_client
 
+    # Pollers distribuidos: este worker solo respalda los equipos de sus sitios.
+    filtro = settings.sitios_filtro()
+
     # Firewalls FortiGate (API REST).
     for recurso in repo.recursos_por_tipo(db, "firewall"):
+        if filtro and recurso.sitio_id not in filtro:
+            continue
         if not recurso.hostname:
             continue
         secretos = (repo.descifrar_secretos(db, recurso.id, settings.app_crypto_key)
@@ -282,6 +287,8 @@ def respaldar_configuraciones(db: Database, settings: Settings) -> None:
 
     # Switches y demás equipos por SSH (opt-in parametros.backup.metodo='ssh').
     for recurso in repo.recursos_backup_ssh(db):
+        if filtro and recurso.sitio_id not in filtro:
+            continue
         contenido = _respaldo_ssh(db, settings, recurso)
         if contenido is not None:
             _guardar_respaldo_si_cambio(db, settings, recurso, contenido)
@@ -332,6 +339,14 @@ def _guardar_respaldo_si_cambio(db: Database, settings: Settings, recurso: Recur
         repo.guardar_respaldo(db, recurso.id, h, len(contenido), False, None, contenido)
         log.info("Respaldo inicial de %s (%d bytes).", recurso.nombre, len(contenido))
     elif prev["hash"] != h:
+        # Guard anti-truncado: si la config nueva es mucho más corta que la previa
+        # (p.ej. la sesión SSH se cortó a medias), probablemente está truncada → no
+        # la guardamos como "cambio" ni avisamos (evita falsas alertas de cambio).
+        prev_len = len(prev["contenido"] or "")
+        if prev_len > 500 and len(contenido) < prev_len * 0.5:
+            log.warning("Respaldo de %s sospechoso de truncado (%d vs %d bytes previos); se ignora.",
+                        recurso.nombre, len(contenido), prev_len)
+            return
         diff = "\n".join(difflib.unified_diff(
             (prev["contenido"] or "").splitlines(), contenido.splitlines(),
             fromfile="anterior", tofile="actual", lineterm=""))
@@ -478,6 +493,9 @@ def recolectar_topologia(db: Database, settings: Settings) -> None:
 
     timeout = settings.probe_timeout_ms / 1000
     switches = repo.recursos_switches(db)
+    filtro = settings.sitios_filtro()
+    if filtro:
+        switches = [s for s in switches if s.sitio_id in filtro]
 
     # 1ª pasada: chassis-id (MAC) propio de cada switch -> recurso, para enlazar
     # vecinos por MAC cuando el sysName/IP de gestión no coincide.
@@ -597,7 +615,10 @@ def procesar_hardware(db: Database, settings: Settings) -> None:
     from . import hardware
 
     ahora = datetime.now(timezone.utc)
+    filtro = settings.sitios_filtro()
     for recurso in repo.recursos_hardware(db):
+        if filtro and recurso.sitio_id not in filtro:
+            continue
         try:
             secretos = None
             if settings.app_crypto_key:

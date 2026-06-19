@@ -7,7 +7,7 @@ use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
 
 /**
- * Autorización por rol. Se usa DESPUÉS de supabase.jwt.
+ * Autorización por rol. Se usa DESPUÉS de auth.jwt (JWT propio local).
  * Uso en rutas:  ->middleware('role:admin,operador')
  *
  * Roles del sistema (perfiles.rol):

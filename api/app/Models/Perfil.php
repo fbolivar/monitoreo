@@ -5,8 +5,8 @@ namespace App\Models;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 
 /**
- * Perfil de usuario. `id` (uuid) coincide con auth.users.id de Supabase, pero
- * sin FK (portabilidad). El JWT de Supabase resuelve el perfil por su `sub`.
+ * Perfil de usuario. `id` es un uuid local; el JWT propio (auth.jwt) resuelve el
+ * perfil por su claim `sub`. Autenticación 100% local (sin Supabase).
  */
 class Perfil extends Authenticatable
 {
