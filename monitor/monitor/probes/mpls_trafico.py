@@ -122,19 +122,24 @@ def obtener_sesiones(host: str, port: int, user: str, password: str,
         shell.settimeout(timeout)
         time.sleep(0.6)
         _drenar(shell)
-        secuencia = [
-            "config system console", "set output standard", "end",
-            "diagnose sys session filter clear",
-            f"diagnose sys session filter dstintf {iface}",
-            "diagnose sys session list",
-            "diagnose sys session filter clear",
-            f"diagnose sys session filter srcintf {iface}",
-            "diagnose sys session list",
-        ]
-        for linea in secuencia:
+        # Paginador OFF (si no, el volcado sale por páginas con '--More--').
+        for linea in ("config system console", "set output standard", "end"):
             shell.send(linea + "\n")
+            time.sleep(0.4)
+            _drenar(shell)
+        # Un volcado por sentido. CLAVE: leer el volcado COMPLETO antes de enviar
+        # el siguiente comando; si no, el filtro se entremezcla y no aplica.
+        salida = ""
+        for direccion in ("dstintf", "srcintf"):
+            shell.send("diagnose sys session filter clear\n")
             time.sleep(0.3)
-        return _leer_hasta_inactividad(shell, timeout)
+            _drenar(shell)
+            shell.send(f"diagnose sys session filter {direccion} {iface}\n")
+            time.sleep(0.3)
+            _drenar(shell)
+            shell.send("diagnose sys session list\n")
+            salida += _leer_hasta_inactividad(shell, timeout)
+        return salida
     finally:
         client.close()
 
