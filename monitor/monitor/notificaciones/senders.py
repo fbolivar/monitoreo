@@ -8,6 +8,7 @@ Config (no sensible) y secretos (descifrados) viven en el objeto Canal:
 """
 from __future__ import annotations
 
+import logging
 import smtplib
 import ssl
 from email.mime.application import MIMEApplication
@@ -15,6 +16,8 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
 from ..models import Canal
+
+log = logging.getLogger(__name__)
 
 
 def _smtp_enviar(canal: Canal, remitente: str, destinatarios: list[str], mensaje) -> None:

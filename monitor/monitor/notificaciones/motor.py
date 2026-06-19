@@ -72,6 +72,13 @@ def notificar(db: Database, settings: Settings, *, incidencia_id: int, recurso: 
     if not settings.notif_enabled:
         return
 
+    # Silenciar notificaciones por recurso: la incidencia se crea igual (visible en
+    # el tablero), solo se omite el ENVÍO. Para enlaces ruidosos (p.ej. los MPLS de
+    # sede) que si no inundarían el correo. Flag: parametros.silenciar_notificaciones.
+    if (recurso.parametros or {}).get("silenciar_notificaciones"):
+        log.info("Notif suprimida (recurso silenciado) %s recurso %s", evento, recurso.id)
+        return
+
     from .. import repository as repo
     from . import senders
 
