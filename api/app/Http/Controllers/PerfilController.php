@@ -71,8 +71,15 @@ class PerfilController extends Controller
     {
         $perfil = Perfil::findOrFail($id);
 
+        // Los usuarios LDAP traen su identificador del AD (un usuario, p.ej.
+        // "emerson.cruz", NO un email): no exigir formato email para no bloquear
+        // ediciones legítimas como el cambio de rol. Los locales sí exigen email.
+        $reglaEmail = $perfil->origen === 'ldap'
+            ? ['sometimes', 'string', 'max:255', Rule::unique('perfiles', 'email')->ignore($perfil->id, 'id')]
+            : ['sometimes', 'email', Rule::unique('perfiles', 'email')->ignore($perfil->id, 'id')];
+
         $data = $request->validate([
-            'email'    => ['sometimes', 'email', Rule::unique('perfiles', 'email')->ignore($perfil->id, 'id')],
+            'email'    => $reglaEmail,
             'nombre'   => ['nullable', 'string', 'max:255'],
             'rol'      => ['sometimes', Rule::in(Perfil::ROLES)],
             'activo'   => ['boolean'],
