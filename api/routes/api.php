@@ -54,9 +54,12 @@ Route::post('auth/login', [AuthController::class, 'login']);
 
 // ── PÚBLICO (sin JWT) ────────────────────────────────────────────────
 // Ingesta: agente ligero (#8, token propio) y APM/RUM (#13, beacon).
-Route::post('ingest/agente', [IngestController::class, 'agente']);
-Route::post('ingest/rum', [IngestController::class, 'rum']);
-Route::post('ingest/span', [IngestController::class, 'span']);
+// Throttle anti-flood por IP (evita DoS por disco: INSERT por petición).
+Route::middleware('throttle:300,1')->group(function () {
+    Route::post('ingest/agente', [IngestController::class, 'agente']);
+    Route::post('ingest/rum', [IngestController::class, 'rum']);
+    Route::post('ingest/span', [IngestController::class, 'span']);
+});
 // Clave pública VAPID para Web Push (#11).
 Route::get('push/vapid', [PushController::class, 'vapid']);
 
@@ -150,11 +153,6 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
     Route::get('descubrimiento/tipos', [DescubrimientoController::class, 'tiposSugeridos']);
     Route::get('descubrimiento/{id}', [DescubrimientoController::class, 'show'])->whereNumber('id');
 
-    // Respaldos de configuración de un recurso (lectura).
-    Route::get('recursos/{id}/respaldos', [RecursoController::class, 'respaldos'])->whereNumber('id');
-    Route::get('recursos/{id}/respaldos/{respaldoId}', [RecursoController::class, 'respaldoContenido'])
-        ->whereNumber('id')->whereNumber('respaldoId');
-
     // Solo lectura (telemetría / eventos) con filtros.
     Route::get('chequeos', [ChequeoController::class, 'index']);
     Route::get('chequeos/{id}', [ChequeoController::class, 'show'])->whereNumber('id');
@@ -164,6 +162,13 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
 
     // ── ESCRITURA de configuración: admin + operador ─────────────────
     Route::middleware('role:admin,operador')->group(function () use ($crud) {
+        // Respaldos de configuración: el contenido es la running-config completa
+        // (claves, communities SNMP, PSK) → NO debe verlo un viewer. Lectura
+        // restringida a admin/operador.
+        Route::get('recursos/{id}/respaldos', [RecursoController::class, 'respaldos'])->whereNumber('id');
+        Route::get('recursos/{id}/respaldos/{respaldoId}', [RecursoController::class, 'respaldoContenido'])
+            ->whereNumber('id')->whereNumber('respaldoId');
+
         foreach ($crud as $uri => $controller) {
             Route::post($uri, [$controller, 'store']);
             Route::match(['put', 'patch'], $uri.'/{id}', [$controller, 'update'])->whereNumber('id');
