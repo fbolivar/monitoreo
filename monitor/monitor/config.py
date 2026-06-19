@@ -176,6 +176,19 @@ class Settings:
     # recursos de esos sitios. Permite desplegar un worker por sede/parque remoto.
     worker_sitios: str = os.getenv("WORKER_SITIOS", "")
 
+    # Tráfico MPLS (probe 'mpls'): un job muestrea las sesiones del FortiGate y marca
+    # qué subredes de sede tienen tráfico, para evaluar enlaces cuyo gateway no
+    # responde ICMP. Requiere acceso SSH (con permiso de 'diagnose') al FortiGate.
+    mpls_trafico_enabled: bool = _bool("MPLS_TRAFICO_ENABLED", False)
+    mpls_fgt_host: str = os.getenv("MPLS_FGT_HOST", "")
+    mpls_fgt_ssh_port: int = _int("MPLS_FGT_SSH_PORT", 22)
+    mpls_fgt_ssh_user: str = os.getenv("MPLS_FGT_SSH_USER", "")
+    mpls_fgt_ssh_password: str = os.getenv("MPLS_FGT_SSH_PASSWORD", "")
+    mpls_fgt_iface: str = os.getenv("MPLS_FGT_IFACE", "x2")          # interfaz MPLS en el FortiGate
+    mpls_sesion_seg: int = _int("MPLS_SESION_SEG", 120)             # cada cuánto muestrea las sesiones
+    mpls_actividad_seg: int = _int("MPLS_ACTIVIDAD_SEG", 1800)      # tráfico dentro de esta ventana = up
+    mpls_fgt_timeout: int = _int("MPLS_FGT_TIMEOUT", 90)
+
     # Logging
     log_level: str = os.getenv("LOG_LEVEL", "INFO")
 

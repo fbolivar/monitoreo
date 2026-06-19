@@ -402,6 +402,38 @@ def actualizar_estado_recurso(db: Database, recurso_id: int, estado: str, ts: da
             )
 
 
+def subredes_mpls(db: Database) -> list[tuple[str, int]]:
+    """[(subred, recurso_id)] de los recursos opt-in al probe MPLS (metodo='mpls')."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, parametros->>'subred' AS subred FROM recursos "
+            "WHERE activo AND parametros->>'metodo' = 'mpls' "
+            "AND parametros->>'subred' IS NOT NULL"
+        )
+        return [(r["subred"], r["id"]) for r in cur.fetchall()]
+
+
+def guardar_mpls_actividad(db: Database, activas: dict[str, int]) -> None:
+    """Upsert de la actividad por subred (ultimo_activo=now) para las que tienen tráfico."""
+    if not activas:
+        return
+    filas = [(subred, n) for subred, n in activas.items()]
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.executemany(
+            "INSERT INTO mpls_actividad (subred, ultimo_activo, ips_activas) "
+            "VALUES (%s, now(), %s) "
+            "ON CONFLICT (subred) DO UPDATE SET ultimo_activo = now(), ips_activas = EXCLUDED.ips_activas",
+            filas,
+        )
+
+
+def cargar_mpls_actividad(db: Database) -> list[tuple[str, float]]:
+    """[(subred, epoch)] para sembrar la caché del probe al arrancar el worker."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT subred, extract(epoch FROM ultimo_activo) AS e FROM mpls_actividad")
+        return [(r["subred"], float(r["e"])) for r in cur.fetchall()]
+
+
 def marcar_recursos_obsoletos(db: Database, factor: int, piso_seg: int,
                               sitios: list[int] | None = None) -> list[dict[str, Any]]:
     """Freshness/stale-data: marca 'unknown' (HARD) los recursos activos cuyo último

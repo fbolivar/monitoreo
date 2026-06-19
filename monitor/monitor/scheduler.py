@@ -28,6 +28,7 @@ from .runner import (
     pronosticar_capacidad,
     recolectar_topologia,
     recalcular_baselines,
+    refrescar_trafico_mpls,
     respaldar_configuraciones,
 )
 
@@ -180,6 +181,24 @@ def registrar_tareas_internas(scheduler: BackgroundScheduler, db: Database, sett
             replace_existing=True,
         )
         log.info("Auto-descubrimiento activo (cola cada %ss).", settings.descubrimiento_check_seg)
+
+    # Tráfico MPLS: muestrea las sesiones del FortiGate para evaluar enlaces de
+    # sede cuyo gateway no responde ICMP (probe 'mpls').
+    if settings.mpls_trafico_enabled:
+        from .probes import mpls_trafico
+        try:
+            mpls_trafico.sembrar_cache(repo.cargar_mpls_actividad(db))
+        except Exception:  # noqa: BLE001
+            log.exception("No se pudo sembrar la caché de tráfico MPLS")
+        scheduler.add_job(
+            refrescar_trafico_mpls,
+            trigger=IntervalTrigger(seconds=settings.mpls_sesion_seg),
+            args=[db, settings],
+            id="mpls-trafico",
+            replace_existing=True,
+        )
+        log.info("Tráfico MPLS activo (cada %ss, ventana %ss, iface %s).",
+                 settings.mpls_sesion_seg, settings.mpls_actividad_seg, settings.mpls_fgt_iface)
 
     # Dead-man's switch: latido a un servicio externo.
     if settings.deadman_url:

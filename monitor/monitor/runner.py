@@ -226,6 +226,38 @@ def recalcular_baselines(db: Database, settings: Settings) -> None:
     log.info("Líneas base recalculadas: %s franjas (recurso·métrica·hora).", n)
 
 
+def refrescar_trafico_mpls(db: Database, settings: Settings) -> None:
+    """Muestrea las sesiones del FortiGate y marca qué subredes de sede tienen
+    tráfico, para que el probe 'mpls' decida up/down sin ICMP. Tolerante a fallos:
+    si el FortiGate no responde, deja la caché como está (los enlaces envejecen y
+    pasan a 'down' tras la ventana, igual que un enlace realmente caído)."""
+    import time
+
+    from .probes import mpls_trafico
+
+    pares = repo.subredes_mpls(db)
+    if not pares:
+        return
+    if not (settings.mpls_fgt_host and settings.mpls_fgt_ssh_user):
+        log.warning("Tráfico MPLS habilitado pero falta MPLS_FGT_HOST / MPLS_FGT_SSH_USER.")
+        return
+    subredes = mpls_trafico.parsear_subredes(pares)
+    try:
+        texto = mpls_trafico.obtener_sesiones(
+            settings.mpls_fgt_host, settings.mpls_fgt_ssh_port,
+            settings.mpls_fgt_ssh_user, settings.mpls_fgt_ssh_password,
+            settings.mpls_fgt_iface, settings.mpls_fgt_timeout)
+    except Exception as e:  # noqa: BLE001
+        log.warning("No se pudo muestrear sesiones del FortiGate: %s", e)
+        return
+    ips = mpls_trafico.extraer_ips(texto)
+    activas = mpls_trafico.subredes_con_trafico(ips, subredes)
+    mpls_trafico.actualizar_cache(activas, time.time())
+    repo.guardar_mpls_actividad(db, activas)
+    log.info("Tráfico MPLS: %d/%d subredes con actividad (%d IPs en sesión).",
+             len(activas), len(subredes), len(ips))
+
+
 def respaldar_configuraciones(db: Database, settings: Settings) -> None:
     """Respalda la configuración de firewalls (API) y switches (SSH); guarda
     una versión nueva solo si la config cambió (hash) y avisa del cambio."""

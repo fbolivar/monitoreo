@@ -43,6 +43,12 @@ def seleccionar_probe(recurso: Recurso) -> Probe | None:
     if params.get("metodo") == "icmp":
         return IcmpProbe()
 
+    # Enlace MPLS cuyo gateway no responde ICMP: se evalúa por el tráfico visto
+    # en el FortiGate (un job global refresca la actividad por subred).
+    if params.get("metodo") == "mpls":
+        from .mpls_trafico import MplsTraficoProbe
+        return MplsTraficoProbe()
+
     # Transacción sintética multipaso (login->consulta, content/JSON-path, fases).
     if params.get("pasos"):
         return SinteticoProbe()
