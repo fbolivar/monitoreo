@@ -51,6 +51,10 @@ WorkingDirectory=${MON}
 ExecStart=${MON}/.venv/bin/python ${MON}/main.py
 Restart=on-failure
 RestartSec=5
+# Apagado limpio: main.py espera a los chequeos en vuelo (scheduler wait=True) antes
+# de cerrar el pool. 60s acota la espera si un job se cuelga (los walks SNMP terminan
+# mucho antes; solo el backup SSH de las 02:00 podría excederlo -> SIGKILL silencioso).
+TimeoutStopSec=60
 User=root
 
 [Install]

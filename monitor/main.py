@@ -76,7 +76,13 @@ def main() -> int:
 
     stop.wait()
 
-    scheduler.shutdown(wait=False)
+    # Apagado limpio: esperar a que los chequeos EN VUELO terminen ANTES de cerrar
+    # el pool de BD. Con wait=False, los jobs en curso (hasta scheduler_max_workers)
+    # seguían usando un pool ya cerrado -> ráfaga de ~100 tracebacks 'PoolClosed' en
+    # cada reinicio, que enmascaraba errores reales. Con wait=True terminan primero;
+    # si alguno se cuelga, systemd lo acota con TimeoutStopSec (SIGKILL silencioso).
+    log.info("Esperando a que terminen los chequeos en vuelo…")
+    scheduler.shutdown(wait=True)
     if health:
         health.shutdown()
     db.close()
