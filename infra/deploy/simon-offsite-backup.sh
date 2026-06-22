@@ -24,6 +24,14 @@ METODO="${OFFSITE_METODO:-none}"
 [ -n "${OFFSITE_DEST:-}" ] || { log "ERROR: falta OFFSITE_DEST."; exit 1; }
 [ -x "$VENV" ] || { log "ERROR: no encuentro el venv del worker: $VENV"; exit 1; }
 
+# Guarda anti-fallo-silencioso: si el destino es un montaje (SMB/NFS) y NO está
+# montado, abortar — si no, METODO=local escribiría en el disco LOCAL de SIMON
+# (no off-site) sin avisar. Configurar OFFSITE_REQUIRE_MOUNT con la ruta del montaje.
+if [ -n "${OFFSITE_REQUIRE_MOUNT:-}" ] && ! mountpoint -q "$OFFSITE_REQUIRE_MOUNT"; then
+    log "ERROR: $OFFSITE_REQUIRE_MOUNT no está montado; aborto (no escribo local)."
+    exit 1
+fi
+
 DUMP=$(ls -t "$DUMP_DIR"/*.dump 2>/dev/null | head -1 || true)
 [ -n "$DUMP" ] || { log "ERROR: no hay .dump local en $DUMP_DIR que exportar."; exit 1; }
 
