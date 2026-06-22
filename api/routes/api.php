@@ -7,6 +7,7 @@ use App\Http\Controllers\ChequeoController;
 use App\Http\Controllers\ConfigLdapController;
 use App\Http\Controllers\AgenteController;
 use App\Http\Controllers\BackupController;
+use App\Http\Controllers\HealthController;
 use App\Http\Controllers\CorrelacionController;
 use App\Http\Controllers\CumplimientoController;
 use App\Http\Controllers\DescubrimientoController;
@@ -63,6 +64,10 @@ Route::middleware('throttle:300,1')->group(function () {
 });
 // Clave pública VAPID para Web Push (#11).
 Route::get('push/vapid', [PushController::class, 'vapid']);
+
+// Salud del sistema (público, sin JWT): nginx + php-fpm + API + PostgreSQL.
+// Lo consume el chequeo sintético de SIMON sobre sí mismo (auto-monitoreo).
+Route::get('health', [HealthController::class, 'check']);
 
 // Recursos de configuración con CRUD completo.
 $crud = [
