@@ -69,18 +69,29 @@ def subredes_con_trafico(ips: set[str], subredes: dict[str, "ipaddress.IPv4Netwo
 
 def evaluar_actividad(subred: str | None, ultimo_activo: float | None,
                       ultima_actualizacion: float | None, ahora: float,
-                      ventana_seg: int) -> tuple[str, float | None, str]:
-    """(estado, edad_seg, motivo) a partir de la caché de actividad. Puro."""
+                      ventana_seg: int, estricto: bool = False) -> tuple[str, float | None, str]:
+    """(estado, edad_seg, motivo) a partir de la caché de actividad. Puro.
+
+    Este método solo puede CONFIRMAR 'up' (hay tráfico reciente en la subred). La
+    AUSENCIA de tráfico es ambigua desde el centro: la sede puede estar idle o
+    caída y no se distinguen. Por eso, por defecto, la ausencia se reporta como
+    'unknown' (no 'down') — así los enlaces remotos no confirmables no se pintan
+    de rojo ni inflan el SLA, y no abren incidencias falsas. Con `estricto=True`
+    la ausencia sí se trata como 'down' (para enlaces con tráfico esperado
+    constante, donde el silencio prolongado sí es señal de caída).
+    """
     if not subred:
         return "unknown", None, "recurso MPLS sin 'subred' en parámetros"
     if ultima_actualizacion is None:
         return "unknown", None, "esperando primer muestreo de sesiones del FortiGate"
+    sin_trafico = "down" if estricto else "unknown"
     if ultimo_activo is None:
-        return "down", None, "sin tráfico registrado en la subred"
+        return sin_trafico, None, "sin tráfico confirmable en la subred (idle o caído)"
     edad = ahora - ultimo_activo
     if edad <= ventana_seg:
         return "up", edad, f"tráfico activo hace {int(edad)}s"
-    return "down", edad, f"sin tráfico hace {int(edad)}s (> {ventana_seg}s)"
+    suf = "" if estricto else " — no confirmable (idle o caído)"
+    return sin_trafico, edad, f"sin tráfico hace {int(edad)}s (> {ventana_seg}s){suf}"
 
 
 # ============================ Estado de la caché =============================
@@ -182,7 +193,8 @@ class MplsTraficoProbe:
         ahora = time.time()
         ultimo, ultima_act = _leer_cache(subred) if subred else (None, None)
         estado, edad, motivo = evaluar_actividad(
-            subred, ultimo, ultima_act, ahora, settings.mpls_actividad_seg)
+            subred, ultimo, ultima_act, ahora, settings.mpls_actividad_seg,
+            bool(params.get("mpls_estricto", False)))
 
         detalle = {"subred": subred, "motivo": motivo, "via": "fortigate-trafico"}
         metricas: list[Muestra] = []

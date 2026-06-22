@@ -799,8 +799,16 @@ def _gestionar_incidencia(db: Database, settings: Settings, recurso: Recurso, ev
             )
         return
 
-    # 'unknown': no abrimos incidencia (evita ruido por problemas de sondeo).
+    # 'unknown': no abrimos incidencia (evita ruido por problemas de sondeo). Si
+    # había una abierta (p.ej. el enlace pasó de 'down' a no-confirmable), la
+    # cerramos: ya no podemos AFIRMAR que esté caído, y mantenerla abierta ensucia
+    # el tablero e infla el SLA. Cierre honesto y SIN notificar 'recuperado'
+    # (no sabemos que se recuperó; solo perdimos la señal).
     if ev.estado == "unknown":
+        if abierta:
+            repo.cerrar_incidencia(db, abierta["id"], ahora)
+            log.info("Incidencia %s cerrada: recurso %s pasó a 'desconocido' (no confirmable).",
+                     abierta["id"], recurso.id)
         return
 
     # Supresión por dependencia: si un ancestro está down, esta caída es

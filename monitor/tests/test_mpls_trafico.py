@@ -58,13 +58,26 @@ def test_evaluar_con_trafico_reciente_up():
     assert edad == 100.0
 
 
-def test_evaluar_trafico_viejo_down():
+def test_evaluar_trafico_viejo_unknown_por_defecto():
+    # La ausencia de tráfico es ambigua desde el centro -> 'unknown' (no 'down')
+    # para no pintar de rojo enlaces no confirmables ni inflar el SLA.
     estado, edad, _ = evaluar_actividad("192.168.3.0/25", 1000.0, 5000.0, 5000.0, 1800)
+    assert estado == "unknown"
+    assert edad == 4000.0
+
+
+def test_evaluar_trafico_viejo_down_si_estricto():
+    estado, edad, _ = evaluar_actividad("192.168.3.0/25", 1000.0, 5000.0, 5000.0, 1800, estricto=True)
     assert estado == "down"
     assert edad == 4000.0
 
 
-def test_evaluar_subred_sin_trafico_down():
+def test_evaluar_subred_sin_trafico_unknown_por_defecto():
     # Muestreo hecho (ultima_actualizacion no None) pero la subred nunca tuvo tráfico.
     estado, _, _ = evaluar_actividad("192.168.231.0/27", None, 5000.0, 5000.0, 1800)
+    assert estado == "unknown"
+
+
+def test_evaluar_subred_sin_trafico_down_si_estricto():
+    estado, _, _ = evaluar_actividad("192.168.231.0/27", None, 5000.0, 5000.0, 1800, estricto=True)
     assert estado == "down"
