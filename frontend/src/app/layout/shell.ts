@@ -44,6 +44,7 @@ import { PushService } from '../core/push.service';
             <a routerLink="/agentes" routerLinkActive="active">Agentes</a>
             <a routerLink="/usuarios" routerLinkActive="active">Usuarios</a>
             <a routerLink="/auditoria" routerLinkActive="active">Auditoría</a>
+            <a routerLink="/respaldos" routerLinkActive="active">Respaldos</a>
           }
         </nav>
         <div class="pie text-dim">Parques Nacionales Naturales<br />de Colombia</div>

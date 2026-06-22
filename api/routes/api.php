@@ -6,6 +6,7 @@ use App\Http\Controllers\CanalNotificacionController;
 use App\Http\Controllers\ChequeoController;
 use App\Http\Controllers\ConfigLdapController;
 use App\Http\Controllers\AgenteController;
+use App\Http\Controllers\BackupController;
 use App\Http\Controllers\CorrelacionController;
 use App\Http\Controllers\CumplimientoController;
 use App\Http\Controllers\DescubrimientoController;
@@ -195,6 +196,12 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
     // ── USUARIOS (perfiles) y AUDITORÍA: solo admin ──────────────────
     Route::middleware('role:admin')->group(function () {
         Route::get('auditoria', [AuditoriaController::class, 'index']);
+
+        // Respaldos .pnnc (formato propio PNNC): generar y EXPORTAR backups de la BD.
+        Route::get('backups', [BackupController::class, 'index']);
+        Route::post('backups/generar', [BackupController::class, 'generar']);
+        Route::get('backups/{id}/descargar', [BackupController::class, 'descargar']);
+        Route::delete('backups/{id}', [BackupController::class, 'eliminar']);
 
         // Agentes ligeros (#8): el token se muestra una sola vez al crear.
         Route::get('agentes', [AgenteController::class, 'index']);

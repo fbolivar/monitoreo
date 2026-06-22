@@ -565,3 +565,16 @@ export const ESTADO_LABEL: Record<Estado, string> = {
   unknown: 'Desconocido',
   maintenance: 'Mantenimiento',
 };
+
+/** Respaldo .pnnc (módulo de backup, formato propio PNNC). */
+export interface Backup {
+  id: string;
+  tam: number;
+  creado_en: string | null;
+  cifrado: string | null;
+  sha256: string | null;
+  base_datos: string | null;
+  servidor: string | null;
+  nota: string | null;
+  app_version: string | null;
+}

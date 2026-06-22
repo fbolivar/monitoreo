@@ -1,8 +1,9 @@
+import { HttpResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
 import {
-  Agente, Correlacion, Paginated, PoliticaCumplimiento, ResultadoCumplimiento,
+  Agente, Backup, Correlacion, Paginated, PoliticaCumplimiento, ResultadoCumplimiento,
   Runbook, RumResp, VmResp,
 } from './models';
 
@@ -38,4 +39,10 @@ export class OperacionService {
 
   // Correlaciones (#14)
   correlaciones(): Observable<Paginated<Correlacion>> { return this.api.get('/correlaciones', { per_page: 30 }); }
+
+  // Respaldos .pnnc (formato propio PNNC) — solo admin
+  backups(): Observable<{ data: Backup[]; dir: string; formato: string }> { return this.api.get('/backups'); }
+  generarBackup(b: { passphrase?: string; nota?: string }): Observable<{ data: Backup }> { return this.api.post('/backups/generar', b); }
+  descargarBackup(id: string): Observable<HttpResponse<Blob>> { return this.api.descargar(`/backups/${id}/descargar`); }
+  eliminarBackup(id: string): Observable<void> { return this.api.delete(`/backups/${encodeURIComponent(id)}`); }
 }

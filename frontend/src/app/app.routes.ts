@@ -84,6 +84,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/agentes/agentes').then((m) => m.Agentes),
       },
       {
+        path: 'respaldos',
+        canActivate: [adminGuard],
+        loadComponent: () => import('./features/respaldos/respaldos').then((m) => m.Respaldos),
+      },
+      {
         // El mapa de sedes ahora vive como tab dentro de Topología; se conserva
         // la ruta como redirección para no romper enlaces guardados.
         path: 'mapa',
