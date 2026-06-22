@@ -212,6 +212,34 @@ def construir_muestras_discos(
     return muestras
 
 
+def estado_sin_snmp(ping_vivo: bool) -> tuple[str, bool, str]:
+    """Veredicto cuando SNMP no responde (función pura).
+
+    Si el host sigue vivo por ICMP es 'degradado' (alcanzable, pero sin métricas):
+    un hipo de SNMP no es un apagón. Si tampoco pinguea, 'down' (caído de verdad).
+    Devuelve (estado_base, alcanzable, motivo).
+    """
+    if ping_vivo:
+        return ("degraded", True, "responde ICMP pero no SNMP (sin métricas)")
+    return ("down", False, "sin respuesta SNMP")
+
+
+def _ping_vivo(host: str, settings) -> tuple[bool, float | None]:
+    """Liveness por ICMP, usada SOLO como respaldo cuando SNMP no responde.
+
+    Devuelve (vivo, rtt_ms_promedio). Cualquier fallo de E/S -> (False, None)
+    para no romper el chequeo (degrada con elegancia a 'down').
+    """
+    try:
+        from icmplib import ping  # import diferido: dependencia opcional
+        h = ping(host, count=2, interval=0.2,
+                 timeout=settings.probe_timeout_ms / 1000,
+                 privileged=settings.icmp_privileged)
+        return (h.is_alive, round(h.avg_rtt, 2) if h.is_alive else None)
+    except Exception:  # noqa: BLE001
+        return (False, None)
+
+
 class SnmpProbe:
     nombre = "snmp"
     requiere_secretos = True
@@ -236,8 +264,8 @@ class SnmpProbe:
             recurso.id, settings.interfaces_intervalo_seg)
 
         if params.get("perfil") == "hostresources":
-            res = self._run_hostresources(host, port, cred, timeout, retries)
-            if res.alcanzable and recolectar_if:
+            res = self._run_hostresources(host, port, cred, timeout, retries, settings)
+            if res.estado_base == "up" and recolectar_if:
                 res.interfaces = self._interfaces(recurso.id, cred, host, port, timeout, retries)
             return res
 
@@ -266,8 +294,9 @@ class SnmpProbe:
             muestras = construir_muestras_generico(valores, params.get("oids", {}))
             muestras += construir_muestras_pct(valores, pct_map)
 
-        alcanzable = valores.get("sysUpTime") is not None
-        estado_base = "up" if alcanzable else "down"
+        snmp_ok = valores.get("sysUpTime") is not None
+        estado_base = "up" if snmp_ok else "down"
+        alcanzable = snmp_ok
         detalle = {
             "snmp_version": cred.version,
             "nivel_seguridad": cred.nivel_seguridad(),
@@ -276,11 +305,18 @@ class SnmpProbe:
         }
         if error:
             detalle["error"] = error
-        if not alcanzable and "error" not in detalle:
-            detalle["motivo"] = "sin respuesta SNMP"
+        if not snmp_ok:
+            # SNMP no respondió: si el host sigue vivo por ICMP es 'degradado'
+            # (alcanzable, sin métricas) en vez de 'caído'. Sólo se pinguea aquí.
+            vivo, rtt = _ping_vivo(host, settings)
+            estado_base, alcanzable, motivo = estado_sin_snmp(vivo)
+            detalle["motivo"] = motivo
+            detalle["icmp_fallback"] = "vivo" if vivo else "sin respuesta"
+            if vivo and rtt is not None:
+                latencia = rtt
 
         ifaces = None
-        if alcanzable and recolectar_if:
+        if snmp_ok and recolectar_if:
             ifaces = self._interfaces(recurso.id, cred, host, port, timeout, retries)
 
         return ResultadoProbe(alcanzable, estado_base, latencia, muestras, detalle, interfaces=ifaces)
@@ -292,7 +328,7 @@ class SnmpProbe:
         except Exception:  # noqa: BLE001
             return None
 
-    def _run_hostresources(self, host, port, cred, timeout, retries) -> ResultadoProbe:
+    def _run_hostresources(self, host, port, cred, timeout, retries, settings) -> ResultadoProbe:
         """CPU (promedio de núcleos) y memoria (% físico) vía HOST-RESOURCES-MIB."""
         t0 = time.perf_counter()
         try:
@@ -341,4 +377,12 @@ class SnmpProbe:
         estado_base = "up" if alcanzable else "down"
         if error and not alcanzable:
             detalle["error"] = error
+        if not alcanzable:
+            # SNMP no respondió: 'degradado' si el host sigue vivo por ICMP.
+            vivo, rtt = _ping_vivo(host, settings)
+            estado_base, alcanzable, motivo = estado_sin_snmp(vivo)
+            detalle["motivo"] = motivo
+            detalle["icmp_fallback"] = "vivo" if vivo else "sin respuesta"
+            if vivo and rtt is not None:
+                latencia = rtt
         return ResultadoProbe(alcanzable, estado_base, latencia, muestras, detalle)

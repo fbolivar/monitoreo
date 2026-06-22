@@ -4,6 +4,7 @@ from monitor.probes.snmp import (
     construir_credenciales,
     construir_muestras_generico,
     construir_muestras_ups,
+    estado_sin_snmp,
     indice_memoria_fisica,
     porcentaje_memoria,
     promedio_cpu,
@@ -106,3 +107,20 @@ def test_porcentaje_memoria():
     assert porcentaje_memoria(1309992, 862898) == 65.9
     assert porcentaje_memoria(0, 5) is None
     assert porcentaje_memoria(None, 5) is None
+
+
+# ── Respaldo ICMP cuando SNMP no responde ─────────────────────────────
+def test_estado_sin_snmp_vivo_es_degradado():
+    # SNMP no responde pero el host pinguea -> degradado (alcanzable, sin métricas)
+    estado, alcanzable, motivo = estado_sin_snmp(True)
+    assert estado == "degraded"
+    assert alcanzable is True
+    assert "ICMP" in motivo and "SNMP" in motivo
+
+
+def test_estado_sin_snmp_sin_ping_es_down():
+    # SNMP no responde y tampoco pinguea -> caído de verdad
+    estado, alcanzable, motivo = estado_sin_snmp(False)
+    assert estado == "down"
+    assert alcanzable is False
+    assert motivo == "sin respuesta SNMP"
