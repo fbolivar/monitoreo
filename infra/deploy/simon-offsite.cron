@@ -1,0 +1,4 @@
+# Auto-export off-site del respaldo de SIMON (03:00, tras el backup local de 02:30).
+# Instalar en /etc/cron.d/simon-offsite. No-op si /etc/simon/offsite.env no existe
+# o tiene OFFSITE_METODO=none.
+0 3 * * * root /usr/local/bin/simon-offsite-backup.sh >> /var/log/simon-offsite.log 2>&1
