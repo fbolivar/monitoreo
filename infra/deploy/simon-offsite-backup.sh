@@ -69,22 +69,46 @@ PY
 SIZE=$(stat -c%s "$OUT")
 log "Generado simon_${TS}.pnnc ($SIZE bytes, cifrado=$CIFRADO) desde $(basename "$DUMP"). Enviando por $METODO…"
 
-# 3) Empujar al destino.
+# 3) Empujar al destino (función reutilizada para la BD y la config).
 SSH_OPTS="-o StrictHostKeyChecking=accept-new -o ConnectTimeout=20"
 KEY="${OFFSITE_SSH_KEY:-/etc/simon/offsite_key}"
-case "$METODO" in
-    rsync)
-        rsync -az -e "ssh -i $KEY $SSH_OPTS" "$OUT" "$OFFSITE_DEST" ;;
-    scp)
-        scp -q -i "$KEY" $SSH_OPTS "$OUT" "$OFFSITE_DEST" ;;
-    local)  # OFFSITE_DEST = ruta local (montaje NFS/SMB ya montado, o prueba)
-        mkdir -p "$OFFSITE_DEST" && cp "$OUT" "$OFFSITE_DEST/"
-        # Retención local opcional (conserva los N más recientes).
-        if [ "${OFFSITE_RETENER:-0}" -gt 0 ]; then
-            ls -1t "$OFFSITE_DEST"/simon_*.pnnc 2>/dev/null | tail -n +"$((OFFSITE_RETENER + 1))" | xargs -r rm -f
-        fi ;;
-    *)
-        log "ERROR: OFFSITE_METODO desconocido: $METODO (use rsync|scp|local|none)"; exit 1 ;;
-esac
+enviar() {  # $1 = archivo a enviar, $2 = patrón glob para la rotación local
+    local f="$1" glob="$2"
+    case "$METODO" in
+        rsync) rsync -az -e "ssh -i $KEY $SSH_OPTS" "$f" "$OFFSITE_DEST" ;;
+        scp)   scp -q -i "$KEY" $SSH_OPTS "$f" "$OFFSITE_DEST" ;;
+        local)
+            mkdir -p "$OFFSITE_DEST" && cp "$f" "$OFFSITE_DEST/"
+            if [ "${OFFSITE_RETENER:-0}" -gt 0 ]; then
+                # shellcheck disable=SC2086
+                ls -1t "$OFFSITE_DEST"/$glob 2>/dev/null | tail -n +"$((OFFSITE_RETENER + 1))" | xargs -r rm -f
+            fi ;;
+        *) log "ERROR: OFFSITE_METODO desconocido: $METODO (use rsync|scp|local|none)"; exit 1 ;;
+    esac
+}
 
-log "OK: respaldo off-site enviado a $OFFSITE_DEST (simon_${TS}.pnnc, cifrado=$CIFRADO)."
+enviar "$OUT" 'simon_*.pnnc'
+log "OK: respaldo de BD off-site enviado (simon_${TS}.pnnc, cifrado=$CIFRADO)."
+
+# 4) Respaldo de la CONFIG crítica del servidor (no está en git ni en la BD).
+#    CLAVE: /opt/monitoreo/api/.env tiene APP_CRYPTO_KEY — sin ella, los secretos de
+#    un dump restaurado son INDESCIFRABLES. Sin esto, el backup de la BD es a medias.
+if [ "${OFFSITE_CONFIG:-1}" != "0" ]; then
+    PATHS_DEF="/opt/monitoreo/api/.env /opt/monitoreo/monitor/.env /root/monitoreo-secrets.env \
+/etc/snmp/snmpd.conf /etc/simon /etc/fstab /etc/cron.d/simon-offsite /etc/cron.d/monitoreo-backup \
+/etc/systemd/system/monitoreo-worker.service.d /usr/local/bin/monitoreo-backup.sh \
+/usr/local/bin/simon-offsite-backup.sh /etc/nginx/sites-available/monitoreo"
+    CTAR="$WORK/simon-config_${TS}.tar.gz"
+    # shellcheck disable=SC2086
+    tar czf "$CTAR" --ignore-failed-read ${OFFSITE_CONFIG_PATHS:-$PATHS_DEF} 2>/dev/null || true
+    COUT="$WORK/simon-config_${TS}.tar.gz.enc"
+    if [ -n "${OFFSITE_PASSPHRASE:-}" ]; then
+        PNNC_PASS="$OFFSITE_PASSPHRASE" openssl enc -aes-256-cbc -pbkdf2 -salt \
+            -in "$CTAR" -out "$COUT" -pass env:PNNC_PASS
+    else
+        cp "$CTAR" "$COUT"  # sin cifrar (NO recomendado: contiene secretos)
+        log "AVISO: config sin cifrar (define OFFSITE_PASSPHRASE)."
+    fi
+    enviar "$COUT" 'simon-config_*.tar.gz.enc'
+    log "OK: config off-site enviada (simon-config_${TS}.tar.gz.enc, $(stat -c%s "$COUT") bytes)."
+fi
