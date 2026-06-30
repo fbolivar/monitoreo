@@ -59,10 +59,33 @@
 @if (cargando()) {
   <p class="text-dim">Calculando disponibilidad…</p>
 } @else {
+  <!-- ════════ FILTRO DE LA VISTA (tipo de recurso + sitio) ════════ -->
+  <div class="card filtros">
+    <div class="filtro-row">
+      <label>Tipo de recurso
+        <select [ngModel]="filtroTipo()" (ngModelChange)="filtroTipo.set($any($event))" [ngModelOptions]="{ standalone: true }">
+          <option [ngValue]="''">Todos</option>
+          @for (t of tiposEnDatos(); track t.id) { <option [ngValue]="t.id">{{ t.nombre }}</option> }
+        </select>
+      </label>
+      <label>Sitio
+        <select [ngModel]="filtroSitio()" (ngModelChange)="filtroSitio.set($any($event))" [ngModelOptions]="{ standalone: true }">
+          <option [ngValue]="''">Todos</option>
+          @for (s of sitiosEnDatos(); track s.id) { <option [ngValue]="s.id">{{ s.nombre }}</option> }
+        </select>
+      </label>
+      @if (filtroTipo() !== '' || filtroSitio() !== '') {
+        <button class="btn" (click)="limpiarFiltros()">Limpiar</button>
+      }
+      <span class="text-dim cuenta">{{ filtradas().length }} de {{ filas().length }} recursos · periodo {{ rango() }}</span>
+    </div>
+    <p class="text-dim hint">El filtro aplica a la tabla, los indicadores y al <b>Ver / Guardar PDF</b> y <b>Exportar CSV</b> de arriba.</p>
+  </div>
+
   <div class="tarjetas">
     <div class="card kpi">
       <span class="text-dim">Recursos</span>
-      <b>{{ filas().length }}</b>
+      <b>{{ filtradas().length }}</b>
     </div>
     <div class="card kpi">
       <span class="text-dim">Disponibilidad promedio</span>
@@ -104,6 +127,9 @@
           <td class="num text-dim">{{ f.mantenimiento }}</td>
           <td class="num" [class.malo]="f.incidencias > 0">{{ f.incidencias }}</td>
         </tr>
+      }
+      @if (ordenadas().length === 0) {
+        <tr><td colspan="10" class="text-dim">Sin recursos para el filtro seleccionado.</td></tr>
       }
     </tbody>
   </table>

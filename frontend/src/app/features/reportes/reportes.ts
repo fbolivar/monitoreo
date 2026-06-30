@@ -75,23 +75,72 @@ export class Reportes implements OnInit {
   desde = signal<string | null>(null);
   cargando = signal(true);
 
+  // Filtros de la vista y del ver/guardar (tipo de recurso + sitio). El periodo es `rango`.
+  filtroTipo = signal<number | ''>('');
+  filtroSitio = signal<number | ''>('');
+
+  // Opciones de filtro derivadas de los datos cargados (solo lo que existe).
+  tiposEnDatos = computed(() => {
+    const m = new Map<number, string>();
+    for (const f of this.filas()) m.set(f.tipo_id, f.tipo_nombre);
+    return [...m.entries()].map(([id, nombre]) => ({ id, nombre }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  });
+  sitiosEnDatos = computed(() => {
+    const m = new Map<number, string>();
+    for (const f of this.filas()) { if (f.sitio_id != null) m.set(f.sitio_id, f.sitio_nombre ?? '—'); }
+    return [...m.entries()].map(([id, nombre]) => ({ id, nombre }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+  });
+
+  // Filas tras aplicar los filtros: es lo que se ve, se cuenta y se exporta.
+  filtradas = computed(() => {
+    const t = this.filtroTipo();
+    const s = this.filtroSitio();
+    return this.filas().filter((f) =>
+      (t === '' || f.tipo_id === t) && (s === '' || f.sitio_id === s));
+  });
+
+  limpiarFiltros(): void { this.filtroTipo.set(''); this.filtroSitio.set(''); }
+
+  /** Texto legible del filtro activo (para encabezado del PDF/CSV). */
+  filtroTexto(): string {
+    const t = this.filtroTipo();
+    const s = this.filtroSitio();
+    const partes: string[] = [];
+    if (t !== '') { partes.push('Tipo: ' + (this.tiposEnDatos().find((x) => x.id === t)?.nombre ?? '')); }
+    if (s !== '') { partes.push('Sitio: ' + (this.sitiosEnDatos().find((x) => x.id === s)?.nombre ?? '')); }
+    return partes.length ? partes.join(' · ') : 'Todos los recursos';
+  }
+
+  /** Sufijo de nombre de archivo según rango + filtros. */
+  private sufijoArchivo(): string {
+    const slug = (v: string) => v.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    let suf = this.rango();
+    const t = this.filtroTipo();
+    const s = this.filtroSitio();
+    if (t !== '') { suf += '_' + slug(this.tiposEnDatos().find((x) => x.id === t)?.nombre ?? ''); }
+    if (s !== '') { suf += '_' + slug(this.sitiosEnDatos().find((x) => x.id === s)?.nombre ?? ''); }
+    return suf;
+  }
+
   // Pronósticos de capacidad (calculados por el worker). Urgentes primero.
   pronosticos = signal<Pronostico[]>([]);
   pronosticosAlerta = computed(() => this.pronosticos().filter((p) => p.dias_restantes != null));
 
   rangos: Rango[] = ['24h', '7d', '30d'];
 
-  // Peor disponibilidad primero (los recursos con problemas arriba).
+  // Peor disponibilidad primero (los recursos con problemas arriba). Sobre lo filtrado.
   ordenadas = computed(() =>
-    [...this.filas()].sort((a, b) => (a.disponibilidad ?? 101) - (b.disponibilidad ?? 101)),
+    [...this.filtradas()].sort((a, b) => (a.disponibilidad ?? 101) - (b.disponibilidad ?? 101)),
   );
 
   promedio = computed(() => {
-    const v = this.filas().map((f) => f.disponibilidad).filter((x): x is number => x != null);
+    const v = this.filtradas().map((f) => f.disponibilidad).filter((x): x is number => x != null);
     return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null;
   });
 
-  totalIncidencias = computed(() => this.filas().reduce((s, f) => s + f.incidencias, 0));
+  totalIncidencias = computed(() => this.filtradas().reduce((s, f) => s + f.incidencias, 0));
 
   // Reportes programados (CRUD)
   programados = signal<ReporteProgramado[]>([]);
@@ -189,7 +238,7 @@ export class Reportes implements OnInit {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `disponibilidad_${this.rango()}.csv`;
+    a.download = `disponibilidad_${this.sufijoArchivo()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -219,9 +268,9 @@ export class Reportes implements OnInit {
       th{background:#e8f0e9} .num{text-align:right} .pie{margin-top:16px;color:#888;font-size:10px}
       @media print{body{margin:10mm}}</style></head><body>
       <h1>SIMON · Reporte de disponibilidad</h1>
-      <div class="meta">Periodo: ${rangoTxt} · Generado: ${esc(generado)}</div>
+      <div class="meta">Periodo: ${rangoTxt} · ${esc(this.filtroTexto())} · Generado: ${esc(generado)}</div>
       <div class="kpis">
-        <div class="kpi"><b>${this.filas().length}</b><span>Recursos</span></div>
+        <div class="kpi"><b>${this.filtradas().length}</b><span>Recursos</span></div>
         <div class="kpi"><b>${prom != null ? prom.toFixed(2) + '%' : '—'}</b><span>Disponibilidad promedio</span></div>
         <div class="kpi"><b>${this.totalIncidencias()}</b><span>Incidencias</span></div>
       </div>

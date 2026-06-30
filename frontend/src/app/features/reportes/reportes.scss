@@ -12,6 +12,14 @@ h1 { font-size: 18px; margin: 0; }
 .nota { font-size: 12px; margin: 12px 0 6px; }
 .sub { font-size: 15px; margin: 26px 0 4px; }
 
+/* Barra de filtro de la vista (tipo de recurso + sitio) */
+.filtros { padding: 12px 14px; margin-bottom: 14px; }
+.filtro-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.filtro-row label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--text-dim); }
+.filtro-row select { min-width: 170px; }
+.filtros .cuenta { margin-left: auto; font-size: 12px; }
+.filtros .hint { font-size: 12px; margin: 8px 0 0; }
+
 /* Generador / exportador de reportes */
 .generador { margin-bottom: 18px; }
 .generador .sub { margin: 0 0 10px; }
