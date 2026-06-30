@@ -62,6 +62,13 @@
   <!-- ════════ FILTRO DE LA VISTA (tipo de recurso + sitio) ════════ -->
   <div class="card filtros">
     <div class="filtro-row">
+      <label>Periodo
+        <select [ngModel]="rango()" (ngModelChange)="cambiarRango($any($event))" [ngModelOptions]="{ standalone: true }">
+          <option value="24h">24 horas</option>
+          <option value="7d">7 días</option>
+          <option value="30d">30 días</option>
+        </select>
+      </label>
       <label>Tipo de recurso
         <select [ngModel]="filtroTipo()" (ngModelChange)="filtroTipo.set($any($event))" [ngModelOptions]="{ standalone: true }">
           <option [ngValue]="''">Todos</option>
@@ -77,7 +84,7 @@
       @if (filtroTipo() !== '' || filtroSitio() !== '') {
         <button class="btn" (click)="limpiarFiltros()">Limpiar</button>
       }
-      <span class="text-dim cuenta">{{ filtradas().length }} de {{ filas().length }} recursos · periodo {{ rango() }}</span>
+      <span class="text-dim cuenta">{{ filtradas().length }} de {{ filas().length }} recursos</span>
     </div>
     <p class="text-dim hint">El filtro aplica a la tabla, los indicadores y al <b>Ver / Guardar PDF</b> y <b>Exportar CSV</b> de arriba.</p>
   </div>
