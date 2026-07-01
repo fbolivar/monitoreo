@@ -59,11 +59,10 @@ def recolectar() -> dict:
     }
 
 
-# Lista vigilada por defecto (Windows / Hyper-V). Se puede sobreescribir por
-# entorno con SIMON_SERVICIOS="svc1,svc2,..." (p. ej. en servidores Linux).
-# Su ESTADO explícito (running/stopped/absent) habilita políticas de cumplimiento
-# en ambos sentidos: "debe estar activo" y "no debe estar corriendo".
-WATCH_DEFAULT = [
+# Lista vigilada por defecto SEGÚN EL SO. Se EXTIENDE con SIMON_SERVICIOS="a,b,...".
+# Su ESTADO explícito (running/stopped/absent) habilita políticas de cumplimiento en
+# ambos sentidos: "debe estar activo" y "no debe estar corriendo".
+WATCH_DEFAULT_WIN = [
     "vmms", "vmcompute",                               # Hyper-V (rol del servidor)
     "FCTSvc", "FCT_SecSvr",                            # antivirus/endpoint: FortiClient
     "FortiEDR Collector Service", "mfemms",            # antivirus/EDR alterno: FortiEDR / Trellix
@@ -72,13 +71,18 @@ WATCH_DEFAULT = [
     "LanmanServer", "Dnscache", "RpcSs",               # red / infraestructura
     "TlntSvr", "FTPSVC", "RemoteRegistry", "SSDPSRV",  # inseguros: deberían estar apagados
 ]
+# En Linux no hay una lista universal (los nombres varían: ssh/sshd, cron/crond),
+# así que el default va vacío y el operador la define con SIMON_SERVICIOS (vista limpia,
+# sin arrastrar servicios de Windows como 'absent'/'inactive').
+WATCH_DEFAULT_LINUX: list[str] = []
 
 
 def _servicios_vigilados() -> list[dict]:
     """Estado explícito (running/stopped/absent) de una lista vigilada de servicios."""
     env = os.getenv("SIMON_SERVICIOS", "").strip()
     extra = [n.strip() for n in env.split(",") if n.strip()]
-    nombres = list(dict.fromkeys(WATCH_DEFAULT + extra))  # default + extra (env), sin duplicados
+    base = WATCH_DEFAULT_WIN if sys.platform.startswith("win") else WATCH_DEFAULT_LINUX
+    nombres = list(dict.fromkeys(base + extra))  # default del SO + extra (env), sin duplicados
     out: list[dict] = []
     try:
         if sys.platform.startswith("win"):
