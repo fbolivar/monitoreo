@@ -275,6 +275,8 @@ export interface Perfil {
   /** El usuario está acotado a unas territoriales (la API filtra lo que ve). */
   acotado?: boolean;
   sitios?: number[] | null;
+  /** Territoriales asignadas (solo en el listado de admin). Vacío = ve toda la entidad. */
+  alcance_sitios?: { id: number; nombre: string }[];
 }
 
 export interface Umbral {

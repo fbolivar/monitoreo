@@ -52,7 +52,18 @@
           <td>{{ u.activo ? 'Sí' : 'No' }}</td>
           <td>
             @if (u.rol === 'admin') { <span class="text-dim" title="Un admin siempre ve toda la entidad">toda la entidad</span> }
-            @else { <button class="lnk" (click)="verAlcance(u)">{{ alcanceDe() === u.id ? 'Ocultar' : 'Territoriales' }}</button> }
+            @else {
+              <div class="alcance-col">
+                @if (u.alcance_sitios?.length) {
+                  @for (s of u.alcance_sitios; track s.id) { <span class="chip">{{ s.nombre }}</span> }
+                } @else {
+                  <span class="sin-acotar" title="Sin territoriales asignadas: este usuario ve TODA la entidad">
+                    ⚠ toda la entidad
+                  </span>
+                }
+                <button class="lnk" (click)="verAlcance(u)">{{ alcanceDe() === u.id ? 'Ocultar' : 'Cambiar' }}</button>
+              </div>
+            }
           </td>
           <td class="acc">
             <button class="btn" (click)="editar(u)">Editar</button>

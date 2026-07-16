@@ -43,7 +43,26 @@ class PerfilController extends Controller
             $q->where('activo', $request->boolean('activo'));
         }
 
-        return response()->json($q->orderBy('email')->paginate($this->perPage($request)));
+        $pag = $q->orderBy('email')->paginate($this->perPage($request));
+
+        // Alcance de cada perfil, para que la lista MUESTRE a qué territoriales está
+        // acotado (sin esto el admin no tiene forma de comprobarlo de un vistazo, y
+        // "sin sitios = ve todo" pasa desapercibido). Una sola consulta, no una por fila.
+        $ids = collect($pag->items())->pluck('id');
+        $porPerfil = DB::table('perfil_sitios as ps')
+            ->join('sitios as s', 's.id', '=', 'ps.sitio_id')
+            ->whereIn('ps.perfil_id', $ids)
+            ->get(['ps.perfil_id', 's.id', 's.nombre'])
+            ->groupBy('perfil_id');
+
+        $pag->getCollection()->transform(function ($p) use ($porPerfil) {
+            $sitios = $porPerfil->get($p->id, collect());
+            $p->alcance_sitios = $sitios->map(fn ($s) => ['id' => (int) $s->id, 'nombre' => $s->nombre])->values();
+
+            return $p;
+        });
+
+        return response()->json($pag);
     }
 
     public function show(string $id): JsonResponse

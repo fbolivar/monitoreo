@@ -139,6 +139,7 @@ export class Usuarios implements OnInit {
         this.ok.set(this.alcanceSel().length
           ? `Alcance guardado: ${this.alcanceSel().length} sitio(s).`
           : 'Alcance quitado: vera toda la entidad.');
+        this.cargar();   // refresca la columna "Alcance" para que muestre lo recien guardado
       },
       error: (e) => {
         this.guardandoAlcance.set(false);
