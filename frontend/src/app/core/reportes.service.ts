@@ -8,7 +8,7 @@ import { Paginated, Pronostico, ReporteDisponibilidad, ReporteProgramado } from 
 export class ReportesService {
   private api = inject(ApiService);
 
-  disponibilidad(rango: '24h' | '7d' | '30d'): Observable<ReporteDisponibilidad> {
+  disponibilidad(rango: string): Observable<ReporteDisponibilidad> {
     return this.api.get<ReporteDisponibilidad>('/reportes/disponibilidad', { rango });
   }
 

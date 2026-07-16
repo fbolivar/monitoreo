@@ -9,7 +9,9 @@ import { ReportesService } from '../../core/reportes.service';
 import { EstadoBadge } from '../../shared/estado-badge';
 import { fecha } from '../../shared/tiempo';
 
-type Rango = '24h' | '7d' | '30d';
+// 24h/7d/30d se calculan en vivo; 90d/6m/12m salen del histórico consolidado
+// (chequeos solo guarda 30 días).
+type Rango = '24h' | '7d' | '30d' | '90d' | '6m' | '12m';
 type TipoReporte = 'ejecutivo' | 'sitio' | 'recurso' | 'servicios';
 
 @Component({
@@ -128,7 +130,8 @@ export class Reportes implements OnInit {
   pronosticos = signal<Pronostico[]>([]);
   pronosticosAlerta = computed(() => this.pronosticos().filter((p) => p.dias_restantes != null));
 
-  rangos: Rango[] = ['24h', '7d', '30d'];
+  rangos: Rango[] = ['24h', '7d', '30d', '90d', '6m', '12m'];
+  fuente = signal<string | null>(null);
 
   // Peor disponibilidad primero (los recursos con problemas arriba). Sobre lo filtrado.
   ordenadas = computed(() =>
@@ -232,7 +235,7 @@ export class Reportes implements OnInit {
   private cargar(): void {
     this.cargando.set(true);
     this.svc.disponibilidad(this.rango()).subscribe({
-      next: (r) => { this.filas.set(r.recursos); this.desde.set(r.desde); this.cargando.set(false); },
+      next: (r) => { this.filas.set(r.recursos); this.desde.set(r.desde); this.fuente.set(r.fuente ?? null); this.cargando.set(false); },
       error: () => this.cargando.set(false),
     });
   }

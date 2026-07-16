@@ -153,6 +153,8 @@ export interface FilaDisponibilidad {
 export interface ReporteDisponibilidad {
   rango: string;
   desde: string;
+  /** 'historico' cuando el rango supera los 30 días (viene de disponibilidad_diaria). */
+  fuente?: string;
   recursos: FilaDisponibilidad[];
 }
 

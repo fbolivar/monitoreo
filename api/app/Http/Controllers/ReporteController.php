@@ -9,15 +9,29 @@ use Illuminate\Support\Facades\DB;
 class ReporteController extends Controller
 {
     /**
-     * Disponibilidad por recurso en un periodo (24h / 7d / 30d).
+     * Rangos LARGOS (en días). Se responden desde `disponibilidad_diaria` porque
+     * `chequeos` solo guarda 30 días: sin el histórico consolidado, cualquier
+     * pregunta de más de un mes no tendría datos.
+     */
+    private const RANGOS_LARGOS = ['90d' => 90, '6m' => 180, '12m' => 365];
+
+    /**
+     * Disponibilidad por recurso en un periodo.
      *
      * disponibilidad = (up + degraded) / (up + degraded + down) — sobre los
      * chequeos evaluables (excluye 'maintenance' y 'unknown'). Aproximación por
      * conteo de chequeos (intervalo casi uniforme por recurso).
+     *
+     * 24h/7d/30d se calculan en vivo desde `chequeos`; 90d/6m/12m desde el
+     * histórico diario consolidado (misma fórmula, sumando los días).
      */
     public function disponibilidad(Request $request): JsonResponse
     {
         $rango = $request->query('rango', '7d');
+        if (isset(self::RANGOS_LARGOS[$rango])) {
+            return $this->desdeHistorico($rango, self::RANGOS_LARGOS[$rango]);
+        }
+
         $segundos = ['24h' => 86400, '7d' => 604800, '30d' => 2592000][$rango] ?? 604800;
         $desde = now()->subSeconds($segundos);
         $desdeStr = $desde->toDateTimeString();
@@ -45,7 +59,63 @@ class ReporteController extends Controller
             [$desdeStr, $desdeStr]
         );
 
+        return response()->json([
+            'rango'    => $rango,
+            'desde'    => $desde->toIso8601String(),
+            'recursos' => $this->calcular($filas),
+        ]);
+    }
+
+    /**
+     * Rangos de más de 30 días: se suman los días del histórico consolidado
+     * (`disponibilidad_diaria`), que sobrevive a la purga de `chequeos`.
+     * Es la misma fórmula: solo cambia de dónde salen los conteos.
+     */
+    private function desdeHistorico(string $rango, int $dias): JsonResponse
+    {
+        $desde = now()->subDays($dias)->startOfDay();
+
+        $filas = DB::select(
+            "SELECT r.id, r.nombre, r.tipo_id, r.sitio_id,
+                    t.nombre AS tipo_nombre, s.nombre AS sitio_nombre,
+                    r.estado_actual,
+                    COALESCE(r.sla_objetivo, t.sla_objetivo) AS sla_objetivo,
+                    COALESCE(sum(d.up), 0)            AS up,
+                    COALESCE(sum(d.degraded), 0)      AS degraded,
+                    COALESCE(sum(d.down), 0)          AS down,
+                    COALESCE(sum(d.unknown), 0)       AS unknown,
+                    COALESCE(sum(d.mantenimiento), 0) AS mantenimiento,
+                    COALESCE(sum(d.incidencias), 0)   AS incidencias,
+                    COALESCE(sum(d.up + d.degraded + d.down + d.unknown), 0) AS evaluables_total,
+                    count(d.dia) AS dias_con_datos
+             FROM recursos r
+             JOIN tipos_recurso t ON t.id = r.tipo_id
+             LEFT JOIN sitios s ON s.id = r.sitio_id
+             LEFT JOIN disponibilidad_diaria d ON d.recurso_id = r.id AND d.dia >= ?
+             WHERE r.activo = true
+             GROUP BY r.id, t.nombre, s.nombre, r.sla_objetivo, t.sla_objetivo
+             ORDER BY r.nombre",
+            [$desde->toDateString()]
+        );
+
         $datos = array_map(function ($f) {
+            $f->dias_con_datos = (int) $f->dias_con_datos;
+
+            return $f;
+        }, $this->calcular($filas));
+
+        return response()->json([
+            'rango'    => $rango,
+            'desde'    => $desde->toIso8601String(),
+            'fuente'   => 'historico',   // el cliente puede advertir que son días consolidados
+            'recursos' => $datos,
+        ]);
+    }
+
+    /** Disponibilidad y cumplimiento de SLA a partir de los conteos (común a ambas fuentes). */
+    private function calcular(array $filas): array
+    {
+        return array_map(function ($f) {
             foreach (['evaluables_total', 'up', 'degraded', 'down', 'unknown', 'mantenimiento', 'incidencias'] as $k) {
                 $f->$k = (int) $f->$k;
             }
@@ -61,11 +131,5 @@ class ReporteController extends Controller
 
             return $f;
         }, $filas);
-
-        return response()->json([
-            'rango'    => $rango,
-            'desde'    => $desde->toIso8601String(),
-            'recursos' => $datos,
-        ]);
     }
 }

@@ -67,6 +67,9 @@
           <option value="24h">24 horas</option>
           <option value="7d">7 días</option>
           <option value="30d">30 días</option>
+          <option value="90d">90 días (histórico)</option>
+          <option value="6m">6 meses (histórico)</option>
+          <option value="12m">12 meses (histórico)</option>
         </select>
       </label>
       <label>Tipo de recurso
@@ -86,7 +89,11 @@
       }
       <span class="text-dim cuenta">{{ filtradas().length }} de {{ filas().length }} recursos</span>
     </div>
-    <p class="text-dim hint">El filtro aplica a la tabla, los indicadores y al <b>Ver / Guardar PDF</b> y <b>Exportar CSV</b> de arriba.</p>
+    <p class="text-dim hint">El filtro aplica a la tabla, los indicadores y al <b>Ver / Guardar PDF</b> y <b>Exportar CSV</b> de arriba.
+      @if (fuente() === 'historico') {
+        <br><b>Periodo largo:</b> los datos vienen del <b>histórico diario consolidado</b> (los chequeos crudos solo se guardan 30 días).
+      }
+    </p>
   </div>
 
   <div class="tarjetas">
