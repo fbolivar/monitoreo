@@ -70,6 +70,14 @@ class ReporteData
         if ($recursoId) { $cond .= ' AND r.id = ?'; $bind[] = $recursoId; }
         elseif ($sitioId) { $cond .= ' AND r.sitio_id = ?'; $bind[] = $sitioId; }
 
+        // Alcance del usuario: el EXPORT no puede saltarse el acotamiento del informe.
+        // (Sin esto, un usuario acotado se descargaba en PDF/CSV toda la entidad.)
+        $alc = Alcance::sitios();
+        if ($alc !== null) {
+            $cond .= ' AND r.sitio_id = ANY(?::int[])';
+            $bind[] = '{'.implode(',', array_map('intval', $alc)).'}';
+        }
+
         $rows = DB::select(
             "SELECT r.id, r.nombre, r.estado_actual, t.nombre AS tipo_nombre,
                     COALESCE(s.nombre,'—') AS sitio_nombre,
@@ -104,7 +112,7 @@ class ReporteData
     private static function conteoEstados(): array
     {
         $c = ['up' => 0, 'degraded' => 0, 'down' => 0, 'unknown' => 0, 'maintenance' => 0];
-        foreach (DB::table('recursos')->where('activo', true)
+        foreach (Alcance::filtrarPorSitio(DB::table('recursos')->where('activo', true))
             ->select('estado_actual', DB::raw('count(*) as n'))->groupBy('estado_actual')->get() as $r) {
             $c[$r->estado_actual] = (int) $r->n;
         }
@@ -115,7 +123,13 @@ class ReporteData
     // ── Análisis de servicios (mismo criterio que ServicioController) ──
     private static function serviciosAnalisis(): array
     {
-        $servicios = DB::table('servicios')->orderBy('nombre')->get();
+        // Alcance: si el usuario esta acotado, solo los servicios que tocan SUS recursos.
+        $ids = Alcance::recursos();
+        $servicios = DB::table('servicios')
+            ->when($ids !== null, fn ($q) => $q->whereExists(fn ($e) => $e->from('servicio_componentes as sc')
+                ->whereColumn('sc.servicio_id', 'servicios.id')
+                ->whereIn('sc.recurso_id', $ids ?: [-1])))
+            ->orderBy('nombre')->get();
         $out = [];
         foreach ($servicios as $s) {
             $comps = DB::table('servicio_componentes as c')
@@ -162,7 +176,9 @@ class ReporteData
         $dispVals = array_values(array_filter(array_map(fn ($r) => $r->disponibilidad, $disp), fn ($x) => $x !== null));
         $prom = $dispVals ? round(array_sum($dispVals) / count($dispVals), 2) : null;
         $incPeriodo = array_sum(array_map(fn ($r) => (int) $r->incidencias, $disp));
-        $incAbiertas = DB::table('incidencias')->where('estado', '<>', 'resuelta')->count();
+        $incAbiertas = Alcance::filtrarPorRecurso(
+            DB::table('incidencias')->where('estado', '<>', 'resuelta')
+        )->count();
         $servicios = self::serviciosAnalisis();
         $svcAfectados = count(array_filter($servicios, fn ($s) => $s['alto_impacto']));
 
