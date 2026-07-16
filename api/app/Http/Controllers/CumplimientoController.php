@@ -7,6 +7,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use App\Support\Alcance;
 
 /** Cumplimiento de configuración (#7): CRUD de políticas + lectura de resultados. */
 class CumplimientoController extends Controller
@@ -49,6 +50,7 @@ class CumplimientoController extends Controller
         $q = DB::table('cumplimiento_resultados as cr')
             ->join('cumplimiento_politicas as p', 'p.id', '=', 'cr.politica_id')
             ->join('recursos as r', 'r.id', '=', 'cr.recurso_id')
+            ->tap(fn ($q) => Alcance::filtrarPorRecurso($q, 'cr.recurso_id'))
             ->select('cr.*', 'p.nombre as politica', 'p.severidad', 'r.nombre as recurso_nombre')
             ->orderBy('cr.cumple')->orderByDesc('cr.ts');
 

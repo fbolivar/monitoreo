@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Support\Alcance;
 
 /**
  * Solo lectura: pronósticos de capacidad calculados por el worker (regresión
@@ -16,6 +17,7 @@ class PronosticoController extends Controller
     {
         $q = DB::table('pronosticos as p')
             ->join('recursos as r', 'r.id', '=', 'p.recurso_id')
+            ->tap(fn ($q) => Alcance::filtrarPorRecurso($q, 'p.recurso_id'))
             ->select('p.recurso_id', 'r.nombre as recurso_nombre', 'p.metrica', 'p.ts',
                 'p.valor_actual', 'p.pendiente_dia', 'p.dias_restantes', 'p.techo',
                 'p.r2', 'p.muestras');

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Support\Alcance;
 
 class ReporteController extends Controller
 {
@@ -35,6 +36,7 @@ class ReporteController extends Controller
         $segundos = ['24h' => 86400, '7d' => 604800, '30d' => 2592000][$rango] ?? 604800;
         $desde = now()->subSeconds($segundos);
         $desdeStr = $desde->toDateTimeString();
+        $alc = $this->alcanceSql();
 
         $filas = DB::select(
             "SELECT r.id, r.nombre, r.tipo_id, r.sitio_id,
@@ -54,9 +56,10 @@ class ReporteController extends Controller
              JOIN tipos_recurso t ON t.id = r.tipo_id
              LEFT JOIN sitios s ON s.id = r.sitio_id
              LEFT JOIN chequeos c ON c.recurso_id = r.id AND c.ts >= ?
+             WHERE (?::int[] IS NULL OR r.sitio_id = ANY(?::int[]))
              GROUP BY r.id, t.nombre, s.nombre, r.sla_objetivo, t.sla_objetivo
              ORDER BY r.nombre",
-            [$desdeStr, $desdeStr]
+            [$desdeStr, $desdeStr, $alc, $alc]
         );
 
         return response()->json([
@@ -74,6 +77,7 @@ class ReporteController extends Controller
     private function desdeHistorico(string $rango, int $dias): JsonResponse
     {
         $desde = now()->subDays($dias)->startOfDay();
+        $alc = $this->alcanceSql();
 
         $filas = DB::select(
             "SELECT r.id, r.nombre, r.tipo_id, r.sitio_id,
@@ -93,9 +97,10 @@ class ReporteController extends Controller
              LEFT JOIN sitios s ON s.id = r.sitio_id
              LEFT JOIN disponibilidad_diaria d ON d.recurso_id = r.id AND d.dia >= ?
              WHERE r.activo = true
+               AND (?::int[] IS NULL OR r.sitio_id = ANY(?::int[]))
              GROUP BY r.id, t.nombre, s.nombre, r.sla_objetivo, t.sla_objetivo
              ORDER BY r.nombre",
-            [$desde->toDateString()]
+            [$desde->toDateString(), $alc, $alc]
         );
 
         $datos = array_map(function ($f) {
@@ -131,5 +136,16 @@ class ReporteController extends Controller
 
             return $f;
         }, $filas);
+    }
+
+    /**
+     * Alcance del usuario como array literal de Postgres (o null si no esta acotado),
+     * para filtrar con `r.sitio_id = ANY(?)` sin interpolar nada en el SQL.
+     */
+    private function alcanceSql(): ?string
+    {
+        $sitios = Alcance::sitios();
+
+        return $sitios === null ? null : '{'.implode(',', array_map('intval', $sitios)).'}';
     }
 }

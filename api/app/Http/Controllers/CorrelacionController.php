@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Support\Alcance;
 
 /** AIOps (#14): grupos de incidencias correlacionadas (lectura). */
 class CorrelacionController extends Controller
@@ -21,6 +22,7 @@ class CorrelacionController extends Controller
         $ids = collect($corr->items())->pluck('id');
         $incs = DB::table('incidencias as i')
             ->leftJoin('recursos as r', 'r.id', '=', 'i.recurso_id')
+            ->tap(fn ($q) => Alcance::filtrarPorRecurso($q, 'i.recurso_id'))
             ->whereIn('i.correlacion_id', $ids)
             ->select('i.id', 'i.correlacion_id', 'i.titulo', 'i.severidad', 'i.estado',
                 'i.abierta_at as inicio', 'r.nombre as recurso_nombre')

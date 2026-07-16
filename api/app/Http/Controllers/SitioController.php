@@ -6,12 +6,14 @@ use App\Models\Sitio;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use App\Support\Alcance;
 
 class SitioController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $q = Sitio::query();
+        // Alcance: un perfil acotado solo ve sus propios sitios.
+        $q = Alcance::filtrarPorSitio(Sitio::query(), 'id');
 
         if ($request->filled('activo')) {
             $q->where('activo', $request->boolean('activo'));
@@ -25,6 +27,10 @@ class SitioController extends Controller
 
     public function show(int $id): JsonResponse
     {
+        if (! Alcance::permiteSitio($id)) {
+            abort(404);
+        }
+
         return response()->json(Sitio::findOrFail($id));
     }
 

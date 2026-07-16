@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Support\Alcance;
 
 /**
  * Calidad activa de enlaces WAN/Starlink de un recurso (lectura). Las mediciones
@@ -17,6 +18,9 @@ class WanCalidadController extends Controller
 
     public function index(Request $request, int $id): JsonResponse
     {
+        if (! Alcance::permiteRecurso($id)) {
+            abort(404);
+        }
         $request->validate(['rango' => ['nullable', 'in:1h,24h,7d,30d']]);
         $intervalo = self::RANGOS[$request->query('rango', '24h')];
 

@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Perfil;
+use App\Support\Auditoria;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Gestión de usuarios (perfiles). Solo accesible por rol admin (ver rutas).
@@ -153,5 +155,51 @@ class PerfilController extends Controller
             ->where('rol', 'admin')
             ->where('activo', true)
             ->count();
+    }
+
+    /** Sitios asignados a un perfil (su alcance). Vacio = ve toda la entidad. */
+    public function sitios(string $id): JsonResponse
+    {
+        $perfil = Perfil::findOrFail($id);
+        $ids = DB::table('perfil_sitios')->where('perfil_id', $perfil->id)
+            ->pluck('sitio_id')->map(fn ($x) => (int) $x)->all();
+
+        return response()->json(['data' => $ids]);
+    }
+
+    /**
+     * Fija el alcance de un perfil (solo admin). Lista vacia = sin restriccion.
+     * OJO: a un 'admin' el alcance no le aplica (ver App\Support\Alcance), asi que
+     * asignarselo no haria nada; se avisa en vez de crear una falsa sensacion.
+     */
+    public function asignarSitios(Request $request, string $id): JsonResponse
+    {
+        $perfil = Perfil::findOrFail($id);
+        $data = $request->validate([
+            'sitios'   => ['present', 'array'],
+            'sitios.*' => ['integer', 'exists:sitios,id'],
+        ]);
+
+        if ($perfil->rol === 'admin' && ! empty($data['sitios'])) {
+            return response()->json([
+                'message' => 'El alcance no aplica a un admin: siempre ve toda la entidad. Cambia su rol a operador o viewer si quieres acotarlo.',
+            ], 422);
+        }
+
+        $ids = array_values(array_unique(array_map('intval', $data['sitios'])));
+        DB::transaction(function () use ($perfil, $ids) {
+            DB::table('perfil_sitios')->where('perfil_id', $perfil->id)->delete();
+            if ($ids) {
+                DB::table('perfil_sitios')->insert(array_map(
+                    fn ($sid) => ['perfil_id' => $perfil->id, 'sitio_id' => $sid],
+                    $ids
+                ));
+            }
+        });
+
+        Auditoria::registrar('actualizar', 'perfil_alcance', $perfil->id,
+            $perfil->email.' -> '.($ids ? 'sitios '.implode(',', $ids) : 'sin restriccion'));
+
+        return response()->json(['data' => $ids]);
     }
 }

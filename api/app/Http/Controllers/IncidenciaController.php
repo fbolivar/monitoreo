@@ -7,6 +7,7 @@ use App\Support\Auditoria;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Support\Alcance;
 
 /**
  * Lectura (filtros: recurso_id, estado, severidad, desde, hasta sobre `abierta_at`),
@@ -24,7 +25,10 @@ class IncidenciaController extends Controller
             'hasta'      => ['nullable', 'date'],
         ]);
 
-        $q = Incidencia::query()->with(['recurso:id,nombre', 'reconocidaPor:id,nombre,email']);
+        // Alcance: solo incidencias de recursos de los sitios del usuario.
+        $q = Alcance::filtrarPorRecurso(
+            Incidencia::query()->with(['recurso:id,nombre', 'reconocidaPor:id,nombre,email'])
+        );
 
         if ($request->filled('recurso_id')) {
             $q->where('recurso_id', $request->integer('recurso_id'));
@@ -47,9 +51,10 @@ class IncidenciaController extends Controller
 
     public function show(int $id): JsonResponse
     {
-        return response()->json(
-            Incidencia::with(['recurso', 'reconocidaPor:id,nombre,email'])->findOrFail($id)
-        );
+        $inc = Incidencia::with(['recurso', 'reconocidaPor:id,nombre,email'])->findOrFail($id);
+        $this->exigirAlcance($inc);
+
+        return response()->json($inc);
     }
 
     /** Reconocer una incidencia (admin/operador). El worker la sigue considerando
@@ -57,6 +62,7 @@ class IncidenciaController extends Controller
     public function reconocer(Request $request, int $id): JsonResponse
     {
         $inc = Incidencia::findOrFail($id);
+        $this->exigirAlcance($inc);
         if ($inc->estado === 'resuelta') {
             return response()->json(['message' => 'La incidencia ya está resuelta.'], 422);
         }
@@ -75,6 +81,7 @@ class IncidenciaController extends Controller
     public function resolver(int $id): JsonResponse
     {
         $inc = Incidencia::findOrFail($id);
+        $this->exigirAlcance($inc);
         if ($inc->estado === 'resuelta') {
             return response()->json(['message' => 'La incidencia ya está resuelta.'], 422);
         }
@@ -87,7 +94,7 @@ class IncidenciaController extends Controller
     /** Bitácora de la incidencia: notas del operador, en orden cronológico (lectura). */
     public function notas(int $id): JsonResponse
     {
-        Incidencia::findOrFail($id);   // 404 si la incidencia no existe
+        $this->exigirAlcance(Incidencia::findOrFail($id));   // 404 si no existe o es ajena
 
         $notas = DB::table('incidencia_notas')
             ->where('incidencia_id', $id)
@@ -104,6 +111,7 @@ class IncidenciaController extends Controller
     public function agregarNota(Request $request, int $id): JsonResponse
     {
         $inc = Incidencia::findOrFail($id);
+        $this->exigirAlcance($inc);
         $data = $request->validate([
             'nota' => ['required', 'string', 'min:1', 'max:4000'],
         ]);
@@ -124,5 +132,17 @@ class IncidenciaController extends Controller
                 ->first(['id', 'autor_email', 'nota', 'created_at']),
             201
         );
+    }
+
+    /**
+     * Corta el acceso a una incidencia de un recurso fuera del alcance. 404 (no 403)
+     * para no confirmar que existe. Aplica tambien a reconocer/resolver/notas: un
+     * usuario acotado no debe ACTUAR sobre lo ajeno, no solo no verlo.
+     */
+    private function exigirAlcance(Incidencia $inc): void
+    {
+        if (! Alcance::permiteRecurso($inc->recurso_id)) {
+            abort(404);
+        }
     }
 }

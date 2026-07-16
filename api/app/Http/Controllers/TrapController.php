@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Support\Alcance;
 
 /** Lectura de los SNMP traps recibidos (eventos en tiempo real). */
 class TrapController extends Controller
@@ -19,6 +20,7 @@ class TrapController extends Controller
 
         $q = DB::table('traps as t')
             ->leftJoin('recursos as r', 'r.id', '=', 't.recurso_id')
+            ->tap(fn ($q) => Alcance::filtrarPorRecurso($q, 't.recurso_id'))
             ->select('t.*', 'r.nombre as recurso_nombre');
 
         if ($request->filled('recurso_id')) {

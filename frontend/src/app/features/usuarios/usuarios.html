@@ -41,7 +41,7 @@
 } @else {
   <table>
     <thead>
-      <tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Activo</th><th></th></tr>
+      <tr><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Activo</th><th>Alcance</th><th></th></tr>
     </thead>
     <tbody>
       @for (u of usuarios(); track u.id) {
@@ -50,11 +50,38 @@
           <td>{{ u.nombre ?? '—' }}</td>
           <td><span class="rol">{{ u.rol }}</span></td>
           <td>{{ u.activo ? 'Sí' : 'No' }}</td>
+          <td>
+            @if (u.rol === 'admin') { <span class="text-dim" title="Un admin siempre ve toda la entidad">toda la entidad</span> }
+            @else { <button class="lnk" (click)="verAlcance(u)">{{ alcanceDe() === u.id ? 'Ocultar' : 'Territoriales' }}</button> }
+          </td>
           <td class="acc">
             <button class="btn" (click)="editar(u)">Editar</button>
             <button class="btn" (click)="eliminar(u)">Eliminar</button>
           </td>
         </tr>
+        @if (alcanceDe() === u.id) {
+          <tr class="alcance-fila">
+            <td colspan="6">
+              <div class="alcance">
+                <p class="text-dim">
+                  Marca las territoriales que <b>{{ u.email }}</b> podrá ver. <b>Ninguna marcada = ve toda la entidad.</b>
+                  La restricción la aplica la API: no podrá acceder a lo ajeno ni llamando al endpoint directamente.
+                </p>
+                <div class="sitios">
+                  @for (s of sitios(); track s.id) {
+                    <label class="chk">
+                      <input type="checkbox" [checked]="alcanceSel().includes(s.id)" (change)="toggleSitio(s.id)" />
+                      {{ s.nombre }}
+                    </label>
+                  }
+                </div>
+                <button class="btn btn-primary" [disabled]="guardandoAlcance()" (click)="guardarAlcance(u)">
+                  {{ guardandoAlcance() ? 'Guardando…' : 'Guardar alcance' }}
+                </button>
+              </div>
+            </td>
+          </tr>
+        }
       }
     </tbody>
   </table>

@@ -20,4 +20,13 @@ export class UsuariosService {
   eliminar(id: string): Observable<void> {
     return this.api.delete<void>(`/usuarios/${id}`);
   }
+
+  /** Alcance del usuario: sitios a los que puede acceder ([] = toda la entidad). */
+  sitiosDe(id: string): Observable<{ data: number[] }> {
+    return this.api.get<{ data: number[] }>(`/usuarios/${id}/sitios`);
+  }
+
+  asignarSitios(id: string, sitios: number[]): Observable<{ data: number[] }> {
+    return this.api.put<{ data: number[] }>(`/usuarios/${id}/sitios`, { sitios });
+  }
 }

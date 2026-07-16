@@ -222,6 +222,9 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
         Route::post('config/ldap/probar', [ConfigLdapController::class, 'probar']);
 
         Route::get('usuarios', [PerfilController::class, 'index']);
+        // Alcance por usuario: a que sitios (territoriales) puede acceder.
+        Route::get('usuarios/{id}/sitios', [PerfilController::class, 'sitios']);
+        Route::put('usuarios/{id}/sitios', [PerfilController::class, 'asignarSitios']);
         Route::get('usuarios/{id}', [PerfilController::class, 'show']);
         Route::post('usuarios', [PerfilController::class, 'store']);
         Route::match(['put', 'patch'], 'usuarios/{id}', [PerfilController::class, 'update']);

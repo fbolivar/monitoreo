@@ -1,6 +1,7 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Perfil, ROLES, Rol } from '../../core/models';
+import { Perfil, ROLES, Rol, Sitio } from '../../core/models';
+import { RecursosService } from '../../core/recursos.service';
 import { UsuariosService } from '../../core/usuarios.service';
 
 interface FormUsuario {
@@ -105,5 +106,44 @@ export class Usuarios implements OnInit {
       return Object.values(err.error.errors).flat().join(' ');
     }
     return err?.error?.message ?? 'Error al guardar.';
+  }
+
+  // ── Alcance por usuario (territoriales que puede ver) ──
+  // Es una barrera REAL: la aplica la API. Aqui solo se asigna.
+  private recSvc = inject(RecursosService);
+  sitios = signal<Sitio[]>([]);
+  alcanceDe = signal<string | null>(null);     // usuario con el panel abierto
+  alcanceSel = signal<number[]>([]);
+  guardandoAlcance = signal(false);
+
+  verAlcance(u: Perfil): void {
+    if (this.alcanceDe() === u.id) { this.alcanceDe.set(null); return; }
+    this.alcanceDe.set(u.id);
+    this.alcanceSel.set([]);
+    if (this.sitios().length === 0) {
+      this.recSvc.sitios().subscribe((p) => this.sitios.set(p.data));
+    }
+    this.svc.sitiosDe(u.id).subscribe({ next: (r) => this.alcanceSel.set(r.data) });
+  }
+
+  toggleSitio(id: number): void {
+    this.alcanceSel.update((s) => s.includes(id) ? s.filter((x) => x !== id) : [...s, id]);
+  }
+
+  guardarAlcance(u: Perfil): void {
+    this.error.set(null); this.ok.set(null);
+    this.guardandoAlcance.set(true);
+    this.svc.asignarSitios(u.id, this.alcanceSel()).subscribe({
+      next: () => {
+        this.guardandoAlcance.set(false);
+        this.ok.set(this.alcanceSel().length
+          ? `Alcance guardado: ${this.alcanceSel().length} sitio(s).`
+          : 'Alcance quitado: vera toda la entidad.');
+      },
+      error: (e) => {
+        this.guardandoAlcance.set(false);
+        this.error.set((e as { error?: { message?: string } })?.error?.message ?? 'No se pudo guardar el alcance.');
+      },
+    });
   }
 }

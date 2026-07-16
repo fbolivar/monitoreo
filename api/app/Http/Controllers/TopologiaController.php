@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
+use App\Support\Alcance;
 
 /**
  * Topología L2 (LLDP): grafo de nodos y enlaces.
@@ -57,6 +58,7 @@ class TopologiaController extends Controller
         // 2) Enlaces LLDP + vecinos externos.
         $filas = DB::table('lldp_vecinos as v')
             ->join('recursos as r', 'r.id', '=', 'v.recurso_id')
+            ->tap(fn ($q) => Alcance::filtrarPorRecurso($q, 'v.recurso_id'))
             ->leftJoin('recursos as rr', 'rr.id', '=', 'v.recurso_remoto_id')
             ->where('r.activo', true)
             ->select(

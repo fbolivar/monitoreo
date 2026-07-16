@@ -7,12 +7,14 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
+use App\Support\Alcance;
 
 class RecursoController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $q = Recurso::query()->with([
+        // Alcance: un perfil acotado solo ve los recursos de SUS sitios.
+        $q = Alcance::filtrarPorSitio(Recurso::query())->with([
             'tipo:id,codigo,nombre', 'sitio:id,codigo,nombre', 'dependeDe:id,nombre',
         ]);
 
@@ -38,6 +40,7 @@ class RecursoController extends Controller
 
     public function show(int $id): JsonResponse
     {
+        $this->exigirAlcance($id);
         $recurso = Recurso::with(['tipo', 'sitio', 'dependeDe:id,nombre'])->findOrFail($id);
 
         // Informa SI hay secretos, sin exponerlos nunca.
@@ -50,6 +53,7 @@ class RecursoController extends Controller
     /** Snapshot de interfaces de red (IF-MIB) del recurso, si las monitorea. */
     public function interfaces(int $id): JsonResponse
     {
+        $this->exigirAlcance($id);
         Recurso::findOrFail($id);
 
         $rows = DB::table('interfaces')
@@ -63,6 +67,7 @@ class RecursoController extends Controller
     /** Marca/desmarca una interfaz para alertar si cae (admin/operador). */
     public function actualizarInterfaz(Request $request, int $id, int $ifIndex): JsonResponse
     {
+        $this->exigirAlcance($id);
         $data = $request->validate(['monitorear' => ['required', 'boolean']]);
         Recurso::findOrFail($id);
 
@@ -80,6 +85,7 @@ class RecursoController extends Controller
     /** Versiones de configuración respaldadas del recurso (sin contenido). */
     public function respaldos(int $id): JsonResponse
     {
+        $this->exigirAlcance($id);
         Recurso::findOrFail($id);
         $rows = DB::table('config_respaldos')
             ->where('recurso_id', $id)
@@ -92,6 +98,7 @@ class RecursoController extends Controller
     /** Contenido (y diff) de una versión de configuración. */
     public function respaldoContenido(int $id, int $respaldoId): JsonResponse
     {
+        $this->exigirAlcance($id);
         $row = DB::table('config_respaldos')
             ->where('recurso_id', $id)->where('id', $respaldoId)
             ->first(['id', 'ts', 'bytes', 'cambio', 'diff', 'contenido']);
@@ -103,6 +110,7 @@ class RecursoController extends Controller
     /** Hardware físico (Redfish/IPMI): inventario + componentes, sondeado por el worker. */
     public function hardware(int $id): JsonResponse
     {
+        $this->exigirAlcance($id);
         Recurso::findOrFail($id);
 
         $inventario = DB::table('hardware_inventario')->where('recurso_id', $id)->first();
@@ -127,6 +135,7 @@ class RecursoController extends Controller
     /** Vecinos LLDP del switch (topología L2), recolectados por el worker. */
     public function vecinos(int $id): JsonResponse
     {
+        $this->exigirAlcance($id);
         Recurso::findOrFail($id);
 
         $rows = DB::table('lldp_vecinos as v')
@@ -145,6 +154,7 @@ class RecursoController extends Controller
     /** Línea base estacional (media/σ por métrica y hora) calculada por el worker. */
     public function baselines(int $id): JsonResponse
     {
+        $this->exigirAlcance($id);
         Recurso::findOrFail($id);
 
         $rows = DB::table('baselines')
@@ -158,6 +168,7 @@ class RecursoController extends Controller
     /** Histórico de throughput (Mbps in/out) de una interfaz para graficar. */
     public function interfazHistorico(Request $request, int $id, int $ifIndex): JsonResponse
     {
+        $this->exigirAlcance($id);
         $rango = $request->query('rango', '24h');
         $segundos = ['1h' => 3600, '24h' => 86400, '7d' => 604800][$rango] ?? 86400;
         $desde = now()->subSeconds($segundos)->toDateTimeString();
@@ -174,6 +185,10 @@ class RecursoController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate($this->rules());
+        // Un perfil acotado no puede crear recursos en sitios ajenos.
+        if (! Alcance::permiteSitio(isset($data['sitio_id']) ? (int) $data['sitio_id'] : null)) {
+            abort(403, 'Fuera de su alcance.');
+        }
         $this->validarDependencia(null, $data['depende_de_id'] ?? null);
         $secretos = $data['secretos'] ?? null;
         unset($data['secretos']);
@@ -189,6 +204,7 @@ class RecursoController extends Controller
 
     public function update(Request $request, int $id): JsonResponse
     {
+        $this->exigirAlcance($id);
         $recurso = Recurso::findOrFail($id);
         $data = $request->validate($this->rules(true));
 
@@ -209,6 +225,7 @@ class RecursoController extends Controller
 
     public function destroy(int $id): JsonResponse
     {
+        $this->exigirAlcance($id);
         Recurso::findOrFail($id)->delete();
 
         return response()->json(null, 204);
@@ -262,6 +279,17 @@ class RecursoController extends Controller
             }
             $vistos[] = $actual;
             $actual = (int) (DB::table('recursos')->where('id', $actual)->value('depende_de_id') ?? 0);
+        }
+    }
+
+    /**
+     * Corta el acceso a un recurso fuera del alcance del usuario. Se responde 404
+     * (no 403) para no confirmar siquiera que el recurso existe.
+     */
+    private function exigirAlcance(int $id): void
+    {
+        if (! Alcance::permiteRecurso($id)) {
+            abort(404);
         }
     }
 }

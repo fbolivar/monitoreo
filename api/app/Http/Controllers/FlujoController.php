@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Support\Alcance;
 
 /**
  * Análisis de flujos de tráfico (NetFlow/IPFIX). Lectura para cualquier rol.
@@ -30,7 +31,8 @@ class FlujoController extends Controller
 
         $base = fn () => DB::table('flujos')
             ->where('ventana_fin', '>=', DB::raw("now() - interval '$intervalo'"))
-            ->when($recursoId, fn ($q) => $q->where('recurso_id', $recursoId));
+            ->when($recursoId, fn ($q) => $q->where('recurso_id', $recursoId))
+            ->tap(fn ($q) => Alcance::filtrarPorRecurso($q, 'recurso_id'));
 
         // Top hablantes (origen), destinos y aplicaciones por bytes.
         $talkers = $base()
@@ -82,8 +84,12 @@ class FlujoController extends Controller
         ][$rango];
 
         $desde = "now() - interval '$intervalo'";
-        $w = "ventana_fin >= $desde";
-        $wPrev = "ventana_fin >= now() - (interval '$intervalo') * 2 AND ventana_fin < $desde";
+        // Alcance: acota TODAS las consultas del tablero a los recursos permitidos.
+        // Los ids se castean a int, por eso es seguro interpolarlos aqui.
+        $ids = Alcance::idsParaSql();
+        $fAlc = $ids === null ? '' : ' AND recurso_id IN ('.implode(',', array_map('intval', $ids)).')';
+        $w = "ventana_fin >= $desde".$fAlc;
+        $wPrev = "ventana_fin >= now() - (interval '$intervalo') * 2 AND ventana_fin < $desde".$fAlc;
 
         // Totales REALES desde flujo_totales (todo el tráfico). Fallback a flujos
         // (top-N) mientras flujo_totales acumula histórico.

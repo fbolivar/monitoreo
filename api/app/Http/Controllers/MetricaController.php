@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Metrica;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Support\Alcance;
 
 /**
  * Solo lectura (serie temporal). Filtros: recurso_id, metrica, desde, hasta.
@@ -21,7 +22,8 @@ class MetricaController extends Controller
             'hasta'      => ['nullable', 'date'],
         ]);
 
-        $q = Metrica::query();
+        // Alcance: las metricas se filtran por los recursos permitidos.
+        $q = Alcance::filtrarPorRecurso(Metrica::query());
 
         if ($request->filled('recurso_id')) {
             $q->where('recurso_id', $request->integer('recurso_id'));

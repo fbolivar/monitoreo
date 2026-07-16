@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Chequeo;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use App\Support\Alcance;
 
 /**
  * Solo lectura. Filtros: recurso_id, estado, desde, hasta (sobre `ts`).
@@ -20,7 +21,8 @@ class ChequeoController extends Controller
             'hasta'      => ['nullable', 'date'],
         ]);
 
-        $q = Chequeo::query();
+        // Alcance: la telemetria se filtra por los recursos permitidos.
+        $q = Alcance::filtrarPorRecurso(Chequeo::query());
 
         if ($request->filled('recurso_id')) {
             $q->where('recurso_id', $request->integer('recurso_id'));
@@ -40,6 +42,11 @@ class ChequeoController extends Controller
 
     public function show(int $id): JsonResponse
     {
-        return response()->json(Chequeo::with('recurso:id,nombre')->findOrFail($id));
+        $chequeo = Chequeo::with('recurso:id,nombre')->findOrFail($id);
+        if (! Alcance::permiteRecurso($chequeo->recurso_id)) {
+            abort(404);
+        }
+
+        return response()->json($chequeo);
     }
 }
