@@ -1,0 +1,5 @@
+# Prueba mensual de restauración del respaldo off-site (día 20, 04:30).
+# Se ejecuta DESPUÉS del backup (02:30) y del off-site (03:00), y en día 20 para
+# no coincidir con el cierre de mes. Restaura a una BD temporal, valida y la borra;
+# si falla, avisa por el canal de notificaciones. Instalar en /etc/cron.d/.
+30 4 20 * * root /usr/local/bin/verificar-restauracion.sh >> /var/log/simon-restore-test.log 2>&1
