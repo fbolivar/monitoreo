@@ -951,7 +951,9 @@ def rollup_disponibilidad_diaria(db: Database, dias: int = 2) -> int:
                 (recurso_id, dia, up, degraded, down, unknown, mantenimiento,
                  disponibilidad, incidencias)
             SELECT c.recurso_id, c.dia, c.up, c.degraded, c.down, c.unknown, c.mantenimiento,
-                   -- Sin evaluables -> NULL (sin datos), nunca 0%.
+                   -- Sin evaluables -> NULL (sin datos), nunca cero por ciento.
+                   -- (ojo: no usar el simbolo de porcentaje aqui; psycopg parsea
+                   --  los comentarios y lo tomaria por un placeholder invalido)
                    CASE WHEN (c.up + c.degraded + c.down) > 0
                         THEN round((c.up + c.degraded)::numeric
                                    / (c.up + c.degraded + c.down) * 100, 3)
