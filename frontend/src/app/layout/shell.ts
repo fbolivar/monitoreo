@@ -32,7 +32,9 @@ import { PushService } from '../core/push.service';
           <a routerLink="/incidencias" routerLinkActive="active">Incidencias</a>
           <a routerLink="/correlaciones" routerLinkActive="active">Correlaciones</a>
           <a routerLink="/traps" routerLinkActive="active">Traps</a>
-          <a routerLink="/rum" routerLinkActive="active">Experiencia (RUM)</a>
+          @if (!auth.acotado()) {
+            <a routerLink="/rum" routerLinkActive="active">Experiencia (RUM)</a>
+          }
           <a routerLink="/reportes" routerLinkActive="active">Reportes</a>
           <a routerLink="/cumplimiento" routerLinkActive="active">Cumplimiento</a>
           @if (auth.puedeEditar()) {

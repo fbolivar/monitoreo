@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Perfil;
+use App\Support\Alcance;
 use App\Support\Auditoria;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -21,7 +22,14 @@ class PerfilController extends Controller
     /** Perfil del usuario autenticado (cualquier rol). */
     public function me(Request $request): JsonResponse
     {
-        return response()->json($request->attributes->get('perfil'));
+        $perfil = $request->attributes->get('perfil');
+
+        // `acotado` es solo para que la UI no ofrezca lo que la API va a negar.
+        // NO es la barrera: la barrera está en cada endpoint (App\Support\Alcance).
+        return response()->json(array_merge(
+            $perfil ? $perfil->toArray() : [],
+            ['acotado' => Alcance::restringido(), 'sitios' => Alcance::sitios()]
+        ));
     }
 
     public function index(Request $request): JsonResponse

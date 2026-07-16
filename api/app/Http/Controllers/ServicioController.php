@@ -8,6 +8,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use App\Support\Alcance;
 
 /**
  * Observabilidad de servicios: correlaciona la latencia/salud de cada salto de
@@ -24,7 +25,10 @@ class ServicioController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $servicios = Servicio::with('componentes')->orderBy('nombre')->get();
+        $servicios = Servicio::with('componentes')->orderBy('nombre')
+            ->get()
+            ->filter(fn ($s) => $this->permitido($s))
+            ->values();
         // Resumen ligero (estado, experiencia, cuello) para la lista.
         $datos = $servicios->map(fn ($s) => $this->analizar($s, false));
 
@@ -34,6 +38,7 @@ class ServicioController extends Controller
     public function show(int $id): JsonResponse
     {
         $servicio = Servicio::with('componentes')->findOrFail($id);
+        $this->exigirAlcance($servicio);
 
         return response()->json($servicio);
     }
@@ -42,6 +47,7 @@ class ServicioController extends Controller
     public function analisis(int $id): JsonResponse
     {
         $servicio = Servicio::with('componentes')->findOrFail($id);
+        $this->exigirAlcance($servicio);
 
         return response()->json($this->analizar($servicio, true));
     }
@@ -49,6 +55,7 @@ class ServicioController extends Controller
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate($this->rules());
+        $this->exigirComponentesEnAlcance($data['componentes'] ?? []);
         $servicio = DB::transaction(function () use ($data) {
             $s = Servicio::create($this->soloServicio($data));
             $this->sincronizarComponentes($s, $data['componentes'] ?? []);
@@ -61,8 +68,11 @@ class ServicioController extends Controller
 
     public function update(Request $request, int $id): JsonResponse
     {
-        $servicio = Servicio::findOrFail($id);
+        $servicio = Servicio::with('componentes')->findOrFail($id);
+        $this->exigirAlcance($servicio);
         $data = $request->validate($this->rules(true));
+        // La cadena resultante tampoco puede tocar recursos ajenos.
+        $this->exigirComponentesEnAlcance($data['componentes'] ?? []);
         DB::transaction(function () use ($servicio, $data) {
             $servicio->update($this->soloServicio($data));
             if (array_key_exists('componentes', $data)) {
@@ -75,9 +85,47 @@ class ServicioController extends Controller
 
     public function destroy(int $id): JsonResponse
     {
-        Servicio::findOrFail($id)->delete();
+        $servicio = Servicio::with('componentes')->findOrFail($id);
+        $this->exigirAlcance($servicio);
+        $servicio->delete();
 
         return response()->json(null, 204);
+    }
+
+    // ── Alcance ───────────────────────────────────────────────────────
+    /**
+     * Un servicio es visible para un usuario acotado solo si TODA su cadena está
+     * dentro de su alcance. Criterio deliberadamente conservador: si la cadena
+     * cruza territoriales (p.ej. Web central -> BD de la sede), mostrarla filtraría
+     * el nombre, el estado y la latencia de los saltos ajenos, que es justo lo que
+     * se quiere evitar. Los componentes sin recurso enlazado no aportan alcance.
+     */
+    private function permitido(Servicio $s): bool
+    {
+        $rec = Alcance::recursos();
+        if ($rec === null) {
+            return true;   // usuario sin restricción
+        }
+        $ids = $s->componentes->pluck('recurso_id')->filter()->unique();
+
+        return $ids->every(fn ($id) => in_array((int) $id, $rec, true));
+    }
+
+    private function exigirAlcance(Servicio $s): void
+    {
+        if (! $this->permitido($s)) {
+            abort(404);
+        }
+    }
+
+    /** Ningún componente del payload puede apuntar a un recurso fuera del alcance. */
+    private function exigirComponentesEnAlcance(array $componentes): void
+    {
+        foreach ($componentes as $c) {
+            if (! empty($c['recurso_id'])) {
+                Alcance::exigirRecurso((int) $c['recurso_id']);
+            }
+        }
     }
 
     // ── Análisis ──────────────────────────────────────────────────────

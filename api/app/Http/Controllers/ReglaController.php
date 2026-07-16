@@ -7,6 +7,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use App\Support\Alcance;
 
 /**
  * Triggers compuestos (multi-condición). La `expresion` es un AST JSON:
@@ -20,7 +21,8 @@ class ReglaController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $q = Regla::query();
+        // Alcance: reglas de sus recursos + las globales por tipo (política de la entidad).
+        $q = Alcance::filtrarConfigRecurso(Regla::query());
 
         if ($request->filled('recurso_id')) {
             $q->where('recurso_id', $request->integer('recurso_id'));
@@ -34,7 +36,10 @@ class ReglaController extends Controller
 
     public function show(int $id): JsonResponse
     {
-        return response()->json(Regla::findOrFail($id));
+        $regla = Regla::findOrFail($id);
+        Alcance::exigirLecturaConfig($regla->recurso_id);
+
+        return response()->json($regla);
     }
 
     public function store(Request $request): JsonResponse
@@ -42,6 +47,7 @@ class ReglaController extends Controller
         $data = $request->validate($this->rules());
         $this->validarScope($data);
         $this->validarExpresion($data['expresion']);
+        Alcance::exigirEscrituraConfig($data['recurso_id'] ?? null);
 
         return response()->json(Regla::create($data), 201);
     }
@@ -55,6 +61,12 @@ class ReglaController extends Controller
             $this->validarExpresion($data['expresion']);
         }
 
+        // Ambos extremos: la fila actual y a dónde la quiere mover.
+        Alcance::exigirEscrituraConfig($regla->recurso_id);
+        if (array_key_exists('recurso_id', $data)) {
+            Alcance::exigirEscrituraConfig($data['recurso_id']);
+        }
+
         $regla->update($data);
 
         return response()->json($regla);
@@ -62,7 +74,9 @@ class ReglaController extends Controller
 
     public function destroy(int $id): JsonResponse
     {
-        Regla::findOrFail($id)->delete();
+        $regla = Regla::findOrFail($id);
+        Alcance::exigirEscrituraConfig($regla->recurso_id);
+        $regla->delete();
 
         return response()->json(null, 204);
     }

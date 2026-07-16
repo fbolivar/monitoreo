@@ -7,12 +7,14 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
+use App\Support\Alcance;
 
 class UmbralController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $q = Umbral::query();
+        // Alcance: umbrales de sus recursos + los globales por tipo (política de la entidad).
+        $q = Alcance::filtrarConfigRecurso(Umbral::query());
 
         if ($request->filled('recurso_id')) {
             $q->where('recurso_id', $request->integer('recurso_id'));
@@ -29,13 +31,17 @@ class UmbralController extends Controller
 
     public function show(int $id): JsonResponse
     {
-        return response()->json(Umbral::findOrFail($id));
+        $umbral = Umbral::findOrFail($id);
+        Alcance::exigirLecturaConfig($umbral->recurso_id);
+
+        return response()->json($umbral);
     }
 
     public function store(Request $request): JsonResponse
     {
         $data = $request->validate($this->rules());
         $this->validarScopeYValores($data);
+        Alcance::exigirEscrituraConfig($data['recurso_id'] ?? null);
 
         return response()->json(Umbral::create($data), 201);
     }
@@ -46,6 +52,14 @@ class UmbralController extends Controller
         $data = $request->validate($this->rules(true));
         $this->validarScopeYValores(array_merge($umbral->toArray(), $data));
 
+        // Se comprueban AMBOS extremos: la fila actual y a dónde la quiere mover
+        // (si no, un acotado convertiría su umbral en uno global, o lo ataría a un
+        // recurso ajeno).
+        Alcance::exigirEscrituraConfig($umbral->recurso_id);
+        if (array_key_exists('recurso_id', $data)) {
+            Alcance::exigirEscrituraConfig($data['recurso_id']);
+        }
+
         $umbral->update($data);
 
         return response()->json($umbral);
@@ -53,7 +67,9 @@ class UmbralController extends Controller
 
     public function destroy(int $id): JsonResponse
     {
-        Umbral::findOrFail($id)->delete();
+        $umbral = Umbral::findOrFail($id);
+        Alcance::exigirEscrituraConfig($umbral->recurso_id);
+        $umbral->delete();
 
         return response()->json(null, 204);
     }

@@ -272,6 +272,9 @@ export interface Perfil {
   activo: boolean;
   origen?: string;
   totp_activo?: boolean;
+  /** El usuario está acotado a unas territoriales (la API filtra lo que ve). */
+  acotado?: boolean;
+  sitios?: number[] | null;
 }
 
 export interface Umbral {

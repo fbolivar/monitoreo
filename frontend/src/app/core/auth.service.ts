@@ -20,6 +20,11 @@ export class AuthService {
   /** viewer = solo lectura; admin/operador pueden editar. */
   readonly puedeEditar = computed(() => this.rol() === 'admin' || this.rol() === 'operador');
   readonly esAdmin = computed(() => this.rol() === 'admin');
+  /**
+   * Acotado a unas territoriales. Sirve para no ofrecer en el menú lo que la API
+   * le va a negar; el aislamiento real lo aplica la API, no esta señal.
+   */
+  readonly acotado = computed(() => this.perfil()?.acotado === true);
 
   /** Llamado una vez al arrancar: si hay token, valida cargando el perfil. */
   async init(): Promise<void> {

@@ -10,18 +10,24 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use App\Support\Alcance;
 
 /**
  * Auto-descubrimiento de red. La API encola escaneos (estado 'pendiente') que el
  * worker ejecuta (ping sweep + SNMP); luego lista los candidatos y permite darlos
  * de alta como recurso con un clic o descartarlos.
+ *
+ * ALCANCE: un escaneo no pertenece a ningún sitio (es un barrido de subred), así
+ * que no se puede filtrar por territorial. La regla es por AUTORÍA: el usuario
+ * acotado solo ve LOS SUYOS. Sus resultados incluyen IPs y sysNames de la red, que
+ * es justo lo que no debe ver de otra territorial.
  */
 class DescubrimientoController extends Controller
 {
     /** Lista de escaneos (más recientes primero) con conteo de candidatos. */
     public function index(Request $request): JsonResponse
     {
-        $escaneos = DescubrimientoEscaneo::query()
+        $escaneos = $this->acotar(DescubrimientoEscaneo::query())
             ->withCount([
                 'candidatos',
                 'candidatos as candidatos_nuevos' => fn ($q) => $q->where('estado', 'nuevo'),
@@ -35,7 +41,7 @@ class DescubrimientoController extends Controller
     /** Detalle de un escaneo con sus candidatos. */
     public function show(int $id): JsonResponse
     {
-        $escaneo = DescubrimientoEscaneo::findOrFail($id);
+        $escaneo = $this->acotar(DescubrimientoEscaneo::query())->findOrFail($id);   // 404 si es ajeno
         $candidatos = $escaneo->candidatos()
             ->orderByRaw("CASE estado WHEN 'nuevo' THEN 0 WHEN 'existente' THEN 1 WHEN 'agregado' THEN 2 ELSE 3 END")
             ->orderBy('ip')
@@ -75,7 +81,7 @@ class DescubrimientoController extends Controller
     /** Elimina un escaneo (y sus candidatos por cascada). */
     public function destroy(int $id): JsonResponse
     {
-        DescubrimientoEscaneo::findOrFail($id)->delete();
+        $this->acotar(DescubrimientoEscaneo::query())->findOrFail($id)->delete();
 
         return response()->json(null, 204);
     }
@@ -83,7 +89,7 @@ class DescubrimientoController extends Controller
     /** Da de alta un candidato como recurso (alta con un clic, editable). */
     public function agregar(Request $request, int $candidatoId): JsonResponse
     {
-        $cand = DescubrimientoCandidato::findOrFail($candidatoId);
+        $cand = $this->candidatoEnAlcance($candidatoId);
 
         if ($cand->estado === 'agregado') {
             return response()->json(['message' => 'El candidato ya fue agregado.'], 409);
@@ -100,6 +106,14 @@ class DescubrimientoController extends Controller
             'parametros'         => ['nullable', 'array'],
             'secretos'           => ['nullable', 'array'],
         ]);
+
+        // El alta crea un RECURSO: no puede quedar fuera del alcance de quien lo crea
+        // (un recurso sin sitio es invisible para un acotado, y no pertenece a ninguna
+        // territorial), ni colocarse en un sitio ajeno.
+        if (Alcance::restringido() && empty($data['sitio_id'])) {
+            abort(422, 'Debe indicar el sitio (territorial) al que pertenece el recurso.');
+        }
+        Alcance::exigirSitio($data['sitio_id'] ?? null);
 
         $recurso = DB::transaction(function () use ($cand, $data) {
             $recurso = new Recurso([
@@ -127,7 +141,7 @@ class DescubrimientoController extends Controller
     /** Marca un candidato como descartado (no interesa monitorearlo). */
     public function descartar(int $candidatoId): JsonResponse
     {
-        $cand = DescubrimientoCandidato::findOrFail($candidatoId);
+        $cand = $this->candidatoEnAlcance($candidatoId);
 
         if ($cand->estado === 'agregado') {
             return response()->json(['message' => 'No se puede descartar un candidato ya agregado.'], 409);
@@ -143,6 +157,28 @@ class DescubrimientoController extends Controller
         return response()->json(
             TipoRecurso::orderBy('nombre')->get(['id', 'codigo', 'nombre'])
         );
+    }
+
+    /** Un usuario acotado solo alcanza los escaneos que él mismo lanzó. */
+    private function acotar($q)
+    {
+        if (Alcance::restringido()) {
+            $perfil = request()?->attributes->get('perfil');
+            $q->where('perfil_id', optional($perfil)->id ?? '-');
+        }
+
+        return $q;
+    }
+
+    /** Candidato de un escaneo propio, o 404 (no confirma que exista). */
+    private function candidatoEnAlcance(int $candidatoId): DescubrimientoCandidato
+    {
+        $cand = DescubrimientoCandidato::findOrFail($candidatoId);
+        if (Alcance::restringido()) {
+            $this->acotar(DescubrimientoEscaneo::query())->findOrFail($cand->escaneo_id);
+        }
+
+        return $cand;
     }
 
     private function validarSubred(string $subred): void
