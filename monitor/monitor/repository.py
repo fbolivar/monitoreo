@@ -1014,6 +1014,12 @@ def rollup_diario(db: Database) -> None:
         cur.execute("SELECT fn_rollup_metricas_diario()")
 
 
+# Retención de métricas crudas (días). Debe coincidir con el default de
+# fn_purgar_datos(p_ret_metricas_dias): con ella se decide qué particiones ya
+# quedaron completamente fuera de la ventana y se pueden dropear.
+RET_METRICAS_DIAS = 15
+
+
 def purgar_datos(db: Database) -> dict[str, Any]:
     with db.connection() as conn, conn.cursor() as cur:
         cur.execute("SELECT fn_purgar_datos() AS r")
@@ -1025,6 +1031,24 @@ def purgar_datos(db: Database) -> dict[str, Any]:
         cur.execute("DELETE FROM flujo_totales WHERE ventana_fin < now() - interval '7 days'")
         # Calidad WAN: retención media (30 días).
         cur.execute("DELETE FROM wan_calidad WHERE ts < now() - interval '30 days'")
+
+        # Particiones de métricas ya fuera de retención: DROP.
+        # Ojo: borrar filas NO devuelve el espacio al disco (quedan páginas muertas);
+        # en una tabla particionada solo el DROP de la partición lo libera. Sin esto,
+        # cada mes dejaba un cascarón vacío de GB (medido: metricas_2026_06 con 0 filas
+        # ocupaba 1.4 GB). Se pasa `hoy - retención`: la función solo dropea el mes
+        # cuyo rango COMPLETO ya expiró, así que el mes en curso (y el anterior si aún
+        # tiene datos vigentes) nunca se tocan.
+        cur.execute(
+            "SELECT fn_drop_particiones_metricas("
+            "(current_date - make_interval(days => %s))::date) AS n",
+            (RET_METRICAS_DIAS,),
+        )
+        dropeadas = cur.fetchone()["n"] or 0
+        if dropeadas:
+            log.info("Purga: %s partición(es) de métricas dropeadas (espacio liberado).", dropeadas)
+        if isinstance(r, dict):
+            r["particiones_dropeadas"] = dropeadas
         return r
 
 
