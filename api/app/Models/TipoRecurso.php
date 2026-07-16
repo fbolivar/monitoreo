@@ -12,7 +12,9 @@ class TipoRecurso extends Model
     // La tabla solo tiene created_at.
     const UPDATED_AT = null;
 
-    protected $fillable = ['codigo', 'nombre', 'descripcion', 'protocolo_default', 'icono'];
+    protected $fillable = ['codigo', 'nombre', 'descripcion', 'protocolo_default', 'icono',
+        // Objetivo de disponibilidad % por defecto del tipo (NULL = sin objetivo).
+        'sla_objetivo'];
 
     public function recursos(): HasMany
     {

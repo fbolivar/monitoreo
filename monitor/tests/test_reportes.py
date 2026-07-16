@@ -2,7 +2,8 @@
 from datetime import datetime, timezone
 
 from monitor.reportes import (
-    alcance_texto, generar_csv, generar_pdf, kpis, rango_segundos, reporte_due,
+    alcance_texto, evaluar_sla, generar_csv, generar_pdf, kpis, rango_segundos,
+    reporte_due,
 )
 
 
@@ -93,3 +94,34 @@ def test_alcance_por_tipo_y_sitio():
 def test_alcance_con_filtro_y_sin_filas_no_revienta():
     # El filtro no devolvió nada: debe describirse sin fallar (no se enviará igual).
     assert alcance_texto([], 5, None) == "tipo filtrado"
+
+
+# ── Cumplimiento de SLA ───────────────────────────────────────────────
+def test_sla_cumple_e_incumple():
+    assert evaluar_sla(99.5, 99.0) is True
+    assert evaluar_sla(99.0, 99.0) is True    # el limite exacto cumple
+    assert evaluar_sla(86.27, 99.0) is False
+
+
+def test_sla_sin_datos_no_es_incumplimiento():
+    # CLAVE: un recurso que no se pudo medir NO puede declararse incumplidor.
+    assert evaluar_sla(None, 99.0) is None
+
+
+def test_sla_sin_objetivo_no_se_evalua():
+    assert evaluar_sla(86.27, None) is None
+    assert evaluar_sla(None, None) is None
+
+
+def test_kpis_cuenta_incumplimientos_y_sin_datos():
+    filas = [
+        {"disponibilidad": 99.9, "sla_objetivo": 99.0, "cumple_sla": True,  "incidencias": 0},
+        {"disponibilidad": 86.2, "sla_objetivo": 99.0, "cumple_sla": False, "incidencias": 3},
+        {"disponibilidad": None, "sla_objetivo": 99.0, "cumple_sla": None,  "incidencias": 0},
+        {"disponibilidad": 95.0, "sla_objetivo": None, "cumple_sla": None,  "incidencias": 1},
+    ]
+    k = kpis(filas)
+    assert k["recursos"] == 4
+    assert k["incumplen"] == 1        # solo el medido que queda por debajo
+    assert k["con_objetivo"] == 3
+    assert k["sin_datos"] == 1

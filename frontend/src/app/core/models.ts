@@ -36,6 +36,7 @@ export interface Recurso {
   parametros?: Record<string, unknown>;
   depende_de_id?: number | null;
   max_check_attempts?: number | null;
+  sla_objetivo?: number | null;
   tipo?: TipoRecurso;
   sitio?: Sitio;
   depende_de?: { id: number; nombre: string } | null;
@@ -143,6 +144,10 @@ export interface FilaDisponibilidad {
   mantenimiento: number;
   incidencias: number;
   disponibilidad: number | null;
+  /** Objetivo de SLA efectivo (recurso o, si no, el del tipo). null = sin objetivo. */
+  sla_objetivo: number | null;
+  /** true/false; null = sin objetivo o sin datos (nunca se marca incumplimiento sin medir). */
+  cumple_sla: boolean | null;
 }
 
 export interface ReporteDisponibilidad {

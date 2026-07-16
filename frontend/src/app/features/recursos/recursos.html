@@ -52,6 +52,10 @@
         <input type="number" name="mca" [(ngModel)]="form.max_check_attempts" min="1" max="10"
                placeholder="global" />
       </label>
+      <label>Objetivo SLA (%)
+        <input type="number" name="sla" [(ngModel)]="form.sla_objetivo" min="0" max="100" step="0.01"
+               placeholder="hereda del tipo" />
+      </label>
       <label>Depende de
         <select name="depende_de_id" [(ngModel)]="form.depende_de_id">
           <option [ngValue]="null">— Ninguno —</option>

@@ -19,6 +19,8 @@ class Recurso extends Model
         'tipo_id', 'sitio_id', 'nombre', 'hostname', 'descripcion',
         'parametros', 'intervalo_segundos', 'activo', 'depende_de_id',
         'max_check_attempts',
+        // Objetivo de disponibilidad % (pisa al del tipo; NULL = hereda).
+        'sla_objetivo',
     ];
 
     // La columna binaria cifrada nunca se serializa.

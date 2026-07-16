@@ -142,6 +142,12 @@ export class Reportes implements OnInit {
 
   totalIncidencias = computed(() => this.filtradas().reduce((s, f) => s + f.incidencias, 0));
 
+  // Cumplimiento de SLA: solo cuenta lo MEDIDO y con objetivo. Lo no medible se
+  // reporta aparte (`sinDatos`) para no disfrazarlo de incumplimiento.
+  incumplen = computed(() => this.filtradas().filter((f) => f.cumple_sla === false).length);
+  conObjetivo = computed(() => this.filtradas().filter((f) => f.sla_objetivo != null).length);
+  sinDatos = computed(() => this.filtradas().filter((f) => f.disponibilidad == null).length);
+
   // Reportes programados (CRUD)
   programados = signal<ReporteProgramado[]>([]);
   editId = signal<number | null>(null);

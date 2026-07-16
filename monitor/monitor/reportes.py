@@ -31,6 +31,19 @@ def reporte_due(periodo: str, ultimo_envio: datetime | None, ahora: datetime) ->
     return (ahora.year, ahora.month) != (ultimo_envio.year, ultimo_envio.month)
 
 
+def evaluar_sla(disponibilidad: float | None, objetivo: float | None) -> bool | None:
+    """¿La disponibilidad cumple el objetivo? (función pura)
+
+    Devuelve None —ni cumple ni incumple— si falta el objetivo o NO HAY DATOS.
+    Esto último es deliberado: **"sin datos" no es "incumple"**. Un enlace que no
+    se puede medir no puede declararse incumplidor; marcarlo sería acusar en falso
+    (ya pasó: el 0% de los enlaces MPLS era un artefacto de medición, no una caída).
+    """
+    if disponibilidad is None or objetivo is None:
+        return None
+    return disponibilidad >= objetivo
+
+
 def alcance_texto(filas: list[dict], tipo_id: int | None, sitio_id: int | None) -> str:
     """Describe el ALCANCE del informe para su encabezado (función pura).
 
@@ -51,11 +64,23 @@ def alcance_texto(filas: list[dict], tipo_id: int | None, sitio_id: int | None) 
 
 
 def kpis(filas: list[dict]) -> dict:
-    """Resumen: nº de recursos, disponibilidad promedio y total de incidencias."""
+    """Resumen: nº de recursos, disponibilidad promedio, incidencias y SLA.
+
+    `incumplen` cuenta solo los que TIENEN objetivo y datos y quedan por debajo;
+    `sin_datos` se reporta aparte para no disfrazar de incumplimiento lo que
+    simplemente no se pudo medir.
+    """
     disp = [f["disponibilidad"] for f in filas if f.get("disponibilidad") is not None]
     promedio = round(sum(disp) / len(disp), 3) if disp else None
     incidencias = sum(int(f.get("incidencias") or 0) for f in filas)
-    return {"recursos": len(filas), "disponibilidad_promedio": promedio, "incidencias": incidencias}
+    incumplen = sum(1 for f in filas if f.get("cumple_sla") is False)
+    con_objetivo = sum(1 for f in filas if f.get("sla_objetivo") is not None)
+    sin_datos = sum(1 for f in filas if f.get("disponibilidad") is None)
+    return {
+        "recursos": len(filas), "disponibilidad_promedio": promedio,
+        "incidencias": incidencias, "incumplen": incumplen,
+        "con_objetivo": con_objetivo, "sin_datos": sin_datos,
+    }
 
 
 def _orden(filas: list[dict]) -> list[dict]:
@@ -83,13 +108,18 @@ def _latin1(texto: str) -> str:
 def generar_csv(filas: list[dict]) -> bytes:
     """CSV (UTF-8 con BOM) con la tabla de disponibilidad. Mismo orden que la UI."""
     cab = ["Recurso", "Tipo", "Sitio", "Estado", "Disponibilidad %",
+           "Objetivo SLA %", "Cumple SLA",
            "Up", "Degradado", "Caido", "Desconocido", "Incidencias"]
     lineas = [cab]
     for f in _orden(filas):
+        cumple = f.get("cumple_sla")
         lineas.append([
             f.get("nombre", ""), f.get("tipo_nombre", ""), f.get("sitio_nombre") or "",
             f.get("estado_actual", ""),
             "" if f.get("disponibilidad") is None else f"{f['disponibilidad']:.3f}",
+            "" if f.get("sla_objetivo") is None else f"{f['sla_objetivo']:.2f}",
+            # Sin objetivo o sin datos -> vacío, NO "NO" (no se acusa sin medir).
+            "" if cumple is None else ("SI" if cumple else "NO"),
             f.get("up", 0), f.get("degraded", 0), f.get("down", 0),
             f.get("unknown", 0), f.get("incidencias", 0),
         ])
@@ -122,10 +152,22 @@ def generar_pdf(filas: list[dict], titulo: str, periodo_txt: str,
                            f"Disponibilidad promedio: {_fmt_disp(prom)}  -  "
                            f"Incidencias en el periodo: {resumen['incidencias']}"),
              new_x="LMARGIN", new_y="NEXT")
+    # Línea de cumplimiento: el dato que convierte el informe en exigible. Se
+    # declara también cuántos no se pudieron medir, para no inflar el reclamo.
+    if resumen.get("con_objetivo"):
+        incumplen = resumen.get("incumplen", 0)
+        pdf.set_text_color(200, 30, 30) if incumplen else pdf.set_text_color(20, 120, 50)
+        texto = (f"INCUMPLEN el objetivo de SLA: {incumplen} de {resumen['con_objetivo']} "
+                 f"con objetivo definido")
+        if resumen.get("sin_datos"):
+            texto += f"  -  Sin datos (no evaluables): {resumen['sin_datos']}"
+        pdf.cell(0, 5, _latin1(texto), new_x="LMARGIN", new_y="NEXT")
+        pdf.set_text_color(90, 90, 90)
     pdf.ln(3)
 
-    cols = [("Recurso", 70), ("Tipo", 38), ("Sitio", 45), ("Estado", 26),
-            ("Disponib.", 28), ("Up", 16), ("Degr.", 16), ("Caido", 16), ("Incid.", 16)]
+    cols = [("Recurso", 62), ("Tipo", 34), ("Sitio", 40), ("Estado", 24),
+            ("Disponib.", 24), ("Objetivo", 22), ("Cumple", 18),
+            ("Up", 14), ("Degr.", 14), ("Caido", 14), ("Incid.", 14)]
     pdf.set_font("Helvetica", "B", 8)
     pdf.set_fill_color(232, 240, 233)
     pdf.set_text_color(20, 20, 20)
@@ -136,31 +178,37 @@ def generar_pdf(filas: list[dict], titulo: str, periodo_txt: str,
     pdf.set_font("Helvetica", "", 8)
     for f in _orden(filas):
         d = f.get("disponibilidad")
-        # Color de la celda de disponibilidad según semáforo.
-        if d is None:
-            pdf.set_text_color(120, 120, 120)
-        elif d >= 99.0:
-            pdf.set_text_color(20, 120, 50)
-        elif d >= 95.0:
-            pdf.set_text_color(200, 140, 0)
+        cumple = f.get("cumple_sla")
+        obj = f.get("sla_objetivo")
+        # Resaltar la fila que INCUMPLE: es lo que se va a reclamar.
+        if cumple is False:
+            pdf.set_fill_color(253, 235, 235)
+            relleno = True
         else:
-            pdf.set_text_color(200, 30, 30)
-        disp_txt = _fmt_disp(d)
-        pdf.set_text_color(20, 20, 20)
+            relleno = False
         valores = [
-            (str(f.get("nombre", ""))[:40], "L"),
-            (str(f.get("tipo_nombre", ""))[:22], "L"),
-            (str(f.get("sitio_nombre") or "—")[:26], "L"),
+            (str(f.get("nombre", ""))[:36], "L"),
+            (str(f.get("tipo_nombre", ""))[:20], "L"),
+            (str(f.get("sitio_nombre") or "-")[:24], "L"),
             (str(f.get("estado_actual", "")), "C"),
-            (disp_txt, "R"),
+            (_fmt_disp(d), "R"),
+            ("-" if obj is None else f"{obj:.2f}%", "R"),
+            # Sin objetivo o sin datos -> "-", nunca "NO": no se acusa sin medir.
+            ("-" if cumple is None else ("SI" if cumple else "NO"), "C"),
             (str(f.get("up", 0)), "R"),
             (str(f.get("degraded", 0)), "R"),
             (str(f.get("down", 0)), "R"),
             (str(f.get("incidencias", 0)), "R"),
         ]
-        for (texto, align), (_n, w) in zip(valores, cols):
-            pdf.cell(w, 6, _latin1(texto), border=1, align=align)
+        for i, ((texto, align), (_n, w)) in enumerate(zip(valores, cols)):
+            # Columna 'Cumple': verde/rojo; el resto en negro.
+            if i == 6 and cumple is not None:
+                pdf.set_text_color(*((200, 30, 30) if cumple is False else (20, 120, 50)))
+            else:
+                pdf.set_text_color(20, 20, 20)
+            pdf.cell(w, 6, _latin1(texto), border=1, align=align, fill=relleno)
         pdf.ln()
+    pdf.set_text_color(20, 20, 20)
 
     salida = pdf.output()  # fpdf2 devuelve bytearray
     return bytes(salida)

@@ -230,6 +230,8 @@ class RecursoController extends Controller
             'depende_de_id'      => ['nullable', 'integer', 'exists:recursos,id'],
             // Confirmaciones SOFT/HARD antes de consolidar un estado malo (NULL = default global).
             'max_check_attempts' => ['nullable', 'integer', 'between:1,10'],
+            // Objetivo de disponibilidad % (NULL = hereda el del tipo).
+            'sla_objetivo'       => ['nullable', 'numeric', 'between:0,100'],
             // Secretos en claro (jsonb). Se cifran de forma transparente. Nunca se devuelven.
             'secretos'           => ['nullable', 'array'],
         ];

@@ -102,6 +102,13 @@
       <span class="text-dim">Incidencias en el periodo</span>
       <b>{{ totalIncidencias() }}</b>
     </div>
+    @if (conObjetivo() > 0) {
+      <div class="card kpi">
+        <span class="text-dim">Incumplen SLA</span>
+        <b [class]="incumplen() > 0 ? 'mal' : 'ok'">{{ incumplen() }}</b>
+        <span class="text-dim sub">de {{ conObjetivo() }} con objetivo@if (sinDatos() > 0) { · {{ sinDatos() }} sin datos }</span>
+      </div>
+    }
   </div>
 
   <p class="text-dim nota">
@@ -113,14 +120,14 @@
     <thead>
       <tr>
         <th>Recurso</th><th>Tipo</th><th>Sitio</th><th>Estado</th>
-        <th class="num">Disponibilidad</th>
+        <th class="num">Disponibilidad</th><th class="num">Objetivo</th><th>SLA</th>
         <th class="num">Up</th><th class="num">Degr.</th><th class="num">Caído</th>
         <th class="num">Mant.</th><th class="num">Incid.</th>
       </tr>
     </thead>
     <tbody>
       @for (f of ordenadas(); track f.id) {
-        <tr>
+        <tr [class.incumple]="f.cumple_sla === false">
           <td><b>{{ f.nombre }}</b></td>
           <td class="text-dim">{{ f.tipo_nombre }}</td>
           <td class="text-dim">{{ f.sitio_nombre ?? '—' }}</td>
@@ -128,6 +135,12 @@
           <td class="num"><b [class]="clase(f.disponibilidad)">
             {{ f.disponibilidad != null ? (f.disponibilidad | number: '1.2-3') + '%' : 'sin datos' }}
           </b></td>
+          <td class="num text-dim">{{ f.sla_objetivo != null ? (f.sla_objetivo | number: '1.0-2') + '%' : '—' }}</td>
+          <td>
+            @if (f.cumple_sla === true) { <span class="sla ok">Cumple</span> }
+            @else if (f.cumple_sla === false) { <span class="sla mal">Incumple</span> }
+            @else { <span class="text-dim" title="Sin objetivo definido o sin datos para evaluar">—</span> }
+          </td>
           <td class="num">{{ f.up }}</td>
           <td class="num">{{ f.degraded }}</td>
           <td class="num" [class.malo]="f.down > 0">{{ f.down }}</td>
@@ -136,7 +149,7 @@
         </tr>
       }
       @if (ordenadas().length === 0) {
-        <tr><td colspan="10" class="text-dim">Sin recursos para el filtro seleccionado.</td></tr>
+        <tr><td colspan="12" class="text-dim">Sin recursos para el filtro seleccionado.</td></tr>
       }
     </tbody>
   </table>

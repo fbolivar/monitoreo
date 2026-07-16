@@ -28,6 +28,7 @@ class TipoRecursoController extends Controller
             'nombre'            => ['required', 'string', 'max:255'],
             'descripcion'       => ['nullable', 'string'],
             'protocolo_default' => ['required', Rule::in(['icmp', 'snmp', 'http', 'https', 'tcp', 'starlink'])],
+            'sla_objetivo'      => ['nullable', 'numeric', 'between:0,100'],
             'icono'             => ['nullable', 'string', 'max:50'],
         ]);
 
@@ -43,6 +44,7 @@ class TipoRecursoController extends Controller
             'nombre'            => ['sometimes', 'string', 'max:255'],
             'descripcion'       => ['nullable', 'string'],
             'protocolo_default' => ['sometimes', Rule::in(['icmp', 'snmp', 'http', 'https', 'tcp', 'starlink'])],
+            'sla_objetivo'      => ['nullable', 'numeric', 'between:0,100'],
             'icono'             => ['nullable', 'string', 'max:50'],
         ]);
 

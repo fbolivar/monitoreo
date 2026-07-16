@@ -26,6 +26,8 @@ class ReporteController extends Controller
             "SELECT r.id, r.nombre, r.tipo_id, r.sitio_id,
                     t.nombre AS tipo_nombre, s.nombre AS sitio_nombre,
                     r.estado_actual,
+                    -- Objetivo efectivo de SLA: el del recurso pisa al del tipo.
+                    COALESCE(r.sla_objetivo, t.sla_objetivo) AS sla_objetivo,
                     count(c.id) FILTER (WHERE c.estado <> 'maintenance') AS evaluables_total,
                     count(c.id) FILTER (WHERE c.estado = 'up')          AS up,
                     count(c.id) FILTER (WHERE c.estado = 'degraded')    AS degraded,
@@ -38,7 +40,7 @@ class ReporteController extends Controller
              JOIN tipos_recurso t ON t.id = r.tipo_id
              LEFT JOIN sitios s ON s.id = r.sitio_id
              LEFT JOIN chequeos c ON c.recurso_id = r.id AND c.ts >= ?
-             GROUP BY r.id, t.nombre, s.nombre
+             GROUP BY r.id, t.nombre, s.nombre, r.sla_objetivo, t.sla_objetivo
              ORDER BY r.nombre",
             [$desdeStr, $desdeStr]
         );
@@ -49,6 +51,13 @@ class ReporteController extends Controller
             }
             $base = $f->up + $f->degraded + $f->down;
             $f->disponibilidad = $base > 0 ? round(($f->up + $f->degraded) / $base * 100, 3) : null;
+
+            $f->sla_objetivo = $f->sla_objetivo !== null ? (float) $f->sla_objetivo : null;
+            // Sin objetivo o sin datos -> null (ni cumple ni incumple). "Sin datos"
+            // NO es incumplimiento: no se puede acusar a lo que no se pudo medir.
+            $f->cumple_sla = ($f->disponibilidad !== null && $f->sla_objetivo !== null)
+                ? $f->disponibilidad >= $f->sla_objetivo
+                : null;
 
             return $f;
         }, $filas);

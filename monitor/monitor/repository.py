@@ -931,6 +931,8 @@ def disponibilidad(db: Database, rango_seg: int, tipo_id: int | None = None,
             """
             SELECT r.id, r.nombre, t.nombre AS tipo_nombre, s.nombre AS sitio_nombre,
                    r.estado_actual,
+                   -- Objetivo efectivo: el del recurso pisa al del tipo.
+                   COALESCE(r.sla_objetivo, t.sla_objetivo) AS sla_objetivo,
                    count(c.id) FILTER (WHERE c.estado = 'up')       AS up,
                    count(c.id) FILTER (WHERE c.estado = 'degraded') AS degraded,
                    count(c.id) FILTER (WHERE c.estado = 'down')     AS down,
@@ -946,16 +948,20 @@ def disponibilidad(db: Database, rango_seg: int, tipo_id: int | None = None,
             WHERE r.activo = true
               AND (%s::smallint IS NULL OR r.tipo_id  = %s::smallint)
               AND (%s::integer  IS NULL OR r.sitio_id = %s::integer)
-            GROUP BY r.id, t.nombre, s.nombre
+            GROUP BY r.id, t.nombre, s.nombre, r.sla_objetivo, t.sla_objetivo
             ORDER BY r.nombre
             """,
             (rango_seg, rango_seg, tipo_id, tipo_id, sitio_id, sitio_id),
         )
+        from .reportes import evaluar_sla
+
         filas = []
         for r in cur.fetchall():
             d = dict(r)
             base = (d["up"] or 0) + (d["degraded"] or 0) + (d["down"] or 0)
             d["disponibilidad"] = round((d["up"] + d["degraded"]) / base * 100, 3) if base > 0 else None
+            d["sla_objetivo"] = float(d["sla_objetivo"]) if d["sla_objetivo"] is not None else None
+            d["cumple_sla"] = evaluar_sla(d["disponibilidad"], d["sla_objetivo"])
             filas.append(d)
         return filas
 
