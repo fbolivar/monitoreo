@@ -2,7 +2,7 @@
 from datetime import datetime, timezone
 
 from monitor.reportes import (
-    generar_csv, generar_pdf, kpis, rango_segundos, reporte_due,
+    alcance_texto, generar_csv, generar_pdf, kpis, rango_segundos, reporte_due,
 )
 
 
@@ -73,3 +73,23 @@ def test_pdf_genera_bytes_o_none():
     if out is not None:
         assert isinstance(out, (bytes, bytearray))
         assert out[:4] == b"%PDF"
+
+
+# ── Alcance del informe (filtro tipo/sitio) ───────────────────────────
+def test_alcance_sin_filtro_es_todos():
+    assert alcance_texto([{"tipo_nombre": "Servidor"}], None, None) == "Todos los recursos"
+
+
+def test_alcance_por_tipo_usa_el_nombre_de_las_filas():
+    filas = [{"tipo_nombre": "Enlace satelital Starlink", "sitio_nombre": "PNN Gorgona"}]
+    assert alcance_texto(filas, 5, None) == "Enlace satelital Starlink"
+
+
+def test_alcance_por_tipo_y_sitio():
+    filas = [{"tipo_nombre": "Enlace satelital Starlink", "sitio_nombre": "PNN Gorgona"}]
+    assert alcance_texto(filas, 5, 3) == "Enlace satelital Starlink · PNN Gorgona"
+
+
+def test_alcance_con_filtro_y_sin_filas_no_revienta():
+    # El filtro no devolvió nada: debe describirse sin fallar (no se enviará igual).
+    assert alcance_texto([], 5, None) == "tipo filtrado"

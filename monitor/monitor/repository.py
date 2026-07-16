@@ -917,9 +917,15 @@ def guardar_pronostico(db: Database, recurso_id: int, metrica: str, valor_actual
 
 
 # ── Reportes programados (SLA por correo) ─────────────────────────────
-def disponibilidad(db: Database, rango_seg: int) -> list[dict[str, Any]]:
+def disponibilidad(db: Database, rango_seg: int, tipo_id: int | None = None,
+                   sitio_id: int | None = None) -> list[dict[str, Any]]:
     """Disponibilidad por recurso en el periodo (réplica del ReporteController).
-    disponibilidad = (up+degraded)/(up+degraded+down) sobre chequeos evaluables."""
+    disponibilidad = (up+degraded)/(up+degraded+down) sobre chequeos evaluables.
+
+    `tipo_id`/`sitio_id` acotan el informe (None = todos). Permite dirigir un
+    reporte a una audiencia concreta sin exponer el resto de la infraestructura
+    (p. ej. enviar al proveedor solo la disponibilidad de sus enlaces).
+    """
     with db.connection() as conn, conn.cursor() as cur:
         cur.execute(
             """
@@ -938,10 +944,12 @@ def disponibilidad(db: Database, rango_seg: int) -> list[dict[str, Any]]:
             LEFT JOIN chequeos c ON c.recurso_id = r.id
                  AND c.ts >= now() - make_interval(secs => %s)
             WHERE r.activo = true
+              AND (%s::smallint IS NULL OR r.tipo_id  = %s::smallint)
+              AND (%s::integer  IS NULL OR r.sitio_id = %s::integer)
             GROUP BY r.id, t.nombre, s.nombre
             ORDER BY r.nombre
             """,
-            (rango_seg, rango_seg),
+            (rango_seg, rango_seg, tipo_id, tipo_id, sitio_id, sitio_id),
         )
         filas = []
         for r in cur.fetchall():
@@ -955,7 +963,8 @@ def disponibilidad(db: Database, rango_seg: int) -> list[dict[str, Any]]:
 def reportes_activos(db: Database) -> list[dict[str, Any]]:
     with db.connection() as conn, conn.cursor() as cur:
         cur.execute(
-            "SELECT id, nombre, periodo, rango, destinatarios, formato, ultimo_envio_at "
+            "SELECT id, nombre, periodo, rango, destinatarios, formato, ultimo_envio_at, "
+            "       tipo_id, sitio_id "
             "FROM reportes_programados WHERE activo = true ORDER BY id"
         )
         return cur.fetchall()

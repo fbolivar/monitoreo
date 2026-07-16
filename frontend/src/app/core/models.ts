@@ -212,6 +212,9 @@ export interface ReporteProgramado {
   formato: 'pdf' | 'csv';
   activo: boolean;
   ultimo_envio_at?: string | null;
+  /** Filtro opcional del informe (null = todos los recursos). */
+  tipo_id?: number | null;
+  sitio_id?: number | null;
 }
 
 export interface Pronostico {

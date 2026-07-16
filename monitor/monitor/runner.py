@@ -420,9 +420,16 @@ def enviar_reportes_programados(db: Database, settings: Settings) -> None:
         if not destinatarios:
             continue
 
-        filas = repo.disponibilidad(db, rep.rango_segundos(r["rango"]))
+        filas = repo.disponibilidad(db, rep.rango_segundos(r["rango"]),
+                                    r.get("tipo_id"), r.get("sitio_id"))
+        if not filas:
+            log.warning("Reporte '%s': el filtro no devolvió recursos; no se envía.", r["nombre"])
+            continue
         resumen = rep.kpis(filas)
-        periodo_txt = rep.RANGO_ETIQUETA.get(r["rango"], r["rango"])
+        # El informe debe declarar SU ALCANCE en el encabezado: si va acotado (p. ej.
+        # al proveedor, solo sus enlaces), quien lo recibe tiene que ver qué cubre.
+        periodo_txt = (f"{rep.RANGO_ETIQUETA.get(r['rango'], r['rango'])} · "
+                       f"{rep.alcance_texto(filas, r.get('tipo_id'), r.get('sitio_id'))}")
         generado = ahora.strftime("%Y-%m-%d %H:%M UTC")
         titulo = f"Reporte de disponibilidad — {r['nombre']}"
 

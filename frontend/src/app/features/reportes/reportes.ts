@@ -162,7 +162,18 @@ export class Reportes implements OnInit {
       nombre: '', periodo: 'mensual' as 'diario' | 'semanal' | 'mensual',
       rango: '30d' as '24h' | '7d' | '30d', destinatarios: '',
       formato: 'pdf' as 'pdf' | 'csv', activo: true,
+      // Filtro del informe ('' = todos). Permite acotarlo a una audiencia
+      // (p. ej. enviar al proveedor solo sus enlaces, sin el resto de la red).
+      tipo_id: '' as number | '', sitio_id: '' as number | '',
     };
+  }
+
+  /** Alcance legible de un reporte programado (para la tabla). */
+  alcanceProg(r: ReporteProgramado): string {
+    const partes: string[] = [];
+    if (r.tipo_id) { partes.push(this.tiposEnDatos().find((t) => t.id === r.tipo_id)?.nombre ?? 'tipo'); }
+    if (r.sitio_id) { partes.push(this.sitiosLista().find((s) => s.id === r.sitio_id)?.nombre ?? 'sitio'); }
+    return partes.length ? partes.join(' · ') : 'Todos';
   }
   private cargarProgramados(): void {
     this.svc.programados().subscribe((p) => this.programados.set(p.data));
@@ -173,6 +184,7 @@ export class Reportes implements OnInit {
     this.fProg = {
       nombre: r.nombre, periodo: r.periodo, rango: r.rango,
       destinatarios: r.destinatarios, formato: r.formato, activo: r.activo,
+      tipo_id: r.tipo_id ?? '', sitio_id: r.sitio_id ?? '',
     };
   }
   cancelarProg(): void { this.creando.set(false); this.editId.set(null); this.errorProg.set(null); }
@@ -181,8 +193,13 @@ export class Reportes implements OnInit {
     this.errorProg.set(null);
     if (!f.nombre.trim()) { this.errorProg.set('Indica un nombre.'); return; }
     if (!f.destinatarios.trim()) { this.errorProg.set('Indica al menos un correo.'); return; }
+    // '' (todos) viaja como null; la API espera int|null.
+    const cuerpo: Partial<ReporteProgramado> = {
+      ...f, tipo_id: f.tipo_id === '' ? null : f.tipo_id,
+      sitio_id: f.sitio_id === '' ? null : f.sitio_id,
+    };
     const id = this.editId();
-    const obs = id ? this.svc.actualizarProgramado(id, f) : this.svc.crearProgramado(f);
+    const obs = id ? this.svc.actualizarProgramado(id, cuerpo) : this.svc.crearProgramado(cuerpo);
     obs.subscribe({
       next: () => { this.cancelarProg(); this.cargarProgramados(); },
       error: (e) => this.errorProg.set((e as { error?: { message?: string } })?.error?.message ?? 'Error al guardar.'),

@@ -64,6 +64,9 @@ class ReporteProgramadoController extends Controller
             'destinatarios' => [$req, 'string', 'max:1000'],
             'formato'       => ['nullable', Rule::in(['pdf', 'csv'])],
             'activo'        => ['boolean'],
+            // Filtro opcional del informe (null = todos los recursos).
+            'tipo_id'       => ['nullable', 'integer', 'exists:tipos_recurso,id'],
+            'sitio_id'      => ['nullable', 'integer', 'exists:sitios,id'],
         ];
     }
 

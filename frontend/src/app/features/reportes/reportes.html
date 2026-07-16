@@ -207,6 +207,18 @@
             <option value="csv">CSV</option>
           </select>
         </label>
+        <label>Alcance · Tipo de recurso
+          <select name="tipo_id" [(ngModel)]="fProg.tipo_id">
+            <option [ngValue]="''">Todos los recursos</option>
+            @for (t of tiposEnDatos(); track t.id) { <option [ngValue]="t.id">{{ t.nombre }}</option> }
+          </select>
+        </label>
+        <label>Alcance · Sitio
+          <select name="sitio_id" [(ngModel)]="fProg.sitio_id">
+            <option [ngValue]="''">Todos los sitios</option>
+            @for (s of sitiosLista(); track s.id) { <option [ngValue]="s.id">{{ s.nombre }}</option> }
+          </select>
+        </label>
         <label class="check"><input type="checkbox" name="activo" [(ngModel)]="fProg.activo" /> Activo</label>
         <label class="wide">Destinatarios (correos separados por coma)
           <input name="dest" [(ngModel)]="fProg.destinatarios"
@@ -223,7 +235,7 @@
   @if (programados().length > 0) {
     <table>
       <thead><tr>
-        <th>Nombre</th><th>Periodicidad</th><th>Ventana</th><th>Formato</th>
+        <th>Nombre</th><th>Periodicidad</th><th>Ventana</th><th>Alcance</th><th>Formato</th>
         <th>Destinatarios</th><th>Activo</th><th>Último envío</th><th></th>
       </tr></thead>
       <tbody>
@@ -232,6 +244,7 @@
             <td><b>{{ r.nombre }}</b></td>
             <td>{{ r.periodo }}</td>
             <td>{{ r.rango }}</td>
+            <td [class.text-dim]="!r.tipo_id && !r.sitio_id">{{ alcanceProg(r) }}</td>
             <td>{{ r.formato }}</td>
             <td class="text-dim">{{ r.destinatarios }}</td>
             <td>{{ r.activo ? 'Sí' : 'No' }}</td>

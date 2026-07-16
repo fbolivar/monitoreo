@@ -31,6 +31,25 @@ def reporte_due(periodo: str, ultimo_envio: datetime | None, ahora: datetime) ->
     return (ahora.year, ahora.month) != (ultimo_envio.year, ultimo_envio.month)
 
 
+def alcance_texto(filas: list[dict], tipo_id: int | None, sitio_id: int | None) -> str:
+    """Describe el ALCANCE del informe para su encabezado (función pura).
+
+    Un informe acotado (p. ej. el que se manda al proveedor con solo sus enlaces)
+    debe decir qué cubre, si no el destinatario asume que son todos los recursos.
+    Sin filtros -> 'Todos los recursos'. Con filtro, el nombre sale de las propias
+    filas (todas comparten tipo/sitio porque la query ya vino filtrada).
+    """
+    if not tipo_id and not sitio_id:
+        return "Todos los recursos"
+    primera = filas[0] if filas else {}
+    partes: list[str] = []
+    if tipo_id:
+        partes.append(str(primera.get("tipo_nombre") or "tipo filtrado"))
+    if sitio_id:
+        partes.append(str(primera.get("sitio_nombre") or "sitio filtrado"))
+    return " · ".join(partes)
+
+
 def kpis(filas: list[dict]) -> dict:
     """Resumen: nº de recursos, disponibilidad promedio y total de incidencias."""
     disp = [f["disponibilidad"] for f in filas if f.get("disponibilidad") is not None]
