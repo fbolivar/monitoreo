@@ -31,6 +31,7 @@ class TopologiaController extends Controller
 
         // 1) Todos los recursos activos como nodos (haya o no LLDP).
         $recursos = DB::table('recursos as r')
+            ->tap(fn ($q) => Alcance::filtrarPorSitio($q, 'r.sitio_id'))
             ->leftJoin('sitios as s', 's.id', '=', 'r.sitio_id')
             ->leftJoin('tipos_recurso as t', 't.id', '=', 'r.tipo_id')
             ->where('r.activo', true)
@@ -61,6 +62,16 @@ class TopologiaController extends Controller
             ->tap(fn ($q) => Alcance::filtrarPorRecurso($q, 'v.recurso_id'))
             ->leftJoin('recursos as rr', 'rr.id', '=', 'v.recurso_remoto_id')
             ->where('r.activo', true)
+            // El extremo REMOTO tambien se acota: si el vecino es un recurso gestionado
+            // de otra territorial, se descarta el enlace entero (su nombre se filtraria).
+            // Los vecinos NO gestionados (recurso_remoto_id NULL) si se conservan.
+            ->tap(function ($q) {
+                $ids = Alcance::idsParaSql();
+                if ($ids !== null) {
+                    $q->where(fn ($w) => $w->whereNull('v.recurso_remoto_id')
+                                           ->orWhereIn('v.recurso_remoto_id', $ids));
+                }
+            })
             ->select(
                 'v.recurso_id', 'r.nombre as local_nombre', 'r.estado_actual as local_estado',
                 'v.local_port', 'v.remote_sysname', 'v.remote_port', 'v.remote_chassis',

@@ -12,7 +12,11 @@ class CorrelacionController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
+        // Alcance: la correlacion vive en un sitio -> se filtra por el propio sitio.
+        // (Antes solo se filtraban las incidencias adjuntas y el listado se filtraba
+        //  igual, dejando ver grupos de otras territoriales.)
         $corr = DB::table('correlaciones as c')
+            ->tap(fn ($q) => Alcance::filtrarPorSitio($q, 'c.sitio_id'))
             ->leftJoin('sitios as s', 's.id', '=', 'c.sitio_id')
             ->select('c.*', 's.nombre as sitio_nombre')
             ->orderByDesc('c.creada_at')
