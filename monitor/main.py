@@ -30,6 +30,13 @@ def configurar_logging(nivel: str) -> None:
         level=getattr(logging, nivel.upper(), logging.INFO),
         format="%(asctime)s %(levelname)-7s %(name)s | %(message)s",
     )
+    # APScheduler loguea en INFO CADA ejecución de job ("Running job…" + "executed
+    # successfully"): con ~155 recursos son ~150k líneas/día, que llenaron 4 GB de
+    # journal y ahogaban los errores reales. A WARNING sigue avisando de lo que sí
+    # importa (misfires, skips por max_instances y excepciones de job) y calla el resto.
+    # En DEBUG se respeta el nivel global para poder diagnosticar el scheduler.
+    if nivel.upper() != "DEBUG":
+        logging.getLogger("apscheduler").setLevel(logging.WARNING)
 
 
 def main() -> int:
