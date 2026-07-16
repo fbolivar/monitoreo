@@ -916,6 +916,59 @@ def guardar_pronostico(db: Database, recurso_id: int, metrica: str, valor_actual
         )
 
 
+def rollup_disponibilidad_diaria(db: Database, dias: int = 2) -> int:
+    """Consolida la disponibilidad por recurso y día en `disponibilidad_diaria`.
+
+    Se ejecuta cada noche ANTES de la purga: `chequeos` solo guarda 30 días, así
+    que sin esto el histórico de SLA se perdía a diario y era imposible comparar
+    meses o sostener un reclamo contractual con evidencia.
+
+    Es IDEMPOTENTE (UPSERT): se puede reprocesar sin duplicar. `dias` es cuánto
+    recalcular hacia atrás — 2 en la corrida diaria (por si llegaron chequeos
+    tarde) y hasta 31 para rellenar de golpe lo que aún quede en `chequeos`.
+    Devuelve el nº de filas (recurso-día) consolidadas.
+    """
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            WITH chq AS (
+                SELECT recurso_id, ts::date AS dia,
+                       count(*) FILTER (WHERE estado = 'up')          AS up,
+                       count(*) FILTER (WHERE estado = 'degraded')    AS degraded,
+                       count(*) FILTER (WHERE estado = 'down')        AS down,
+                       count(*) FILTER (WHERE estado = 'unknown')     AS unknown,
+                       count(*) FILTER (WHERE estado = 'maintenance') AS mantenimiento
+                FROM chequeos
+                WHERE ts >= (current_date - make_interval(days => %s))
+                GROUP BY 1, 2
+            ), inc AS (
+                SELECT recurso_id, abierta_at::date AS dia, count(*) AS incidencias
+                FROM incidencias
+                WHERE abierta_at >= (current_date - make_interval(days => %s))
+                GROUP BY 1, 2
+            )
+            INSERT INTO disponibilidad_diaria AS d
+                (recurso_id, dia, up, degraded, down, unknown, mantenimiento,
+                 disponibilidad, incidencias)
+            SELECT c.recurso_id, c.dia, c.up, c.degraded, c.down, c.unknown, c.mantenimiento,
+                   -- Sin evaluables -> NULL (sin datos), nunca 0%.
+                   CASE WHEN (c.up + c.degraded + c.down) > 0
+                        THEN round((c.up + c.degraded)::numeric
+                                   / (c.up + c.degraded + c.down) * 100, 3)
+                   END,
+                   COALESCE(i.incidencias, 0)
+            FROM chq c
+            LEFT JOIN inc i ON i.recurso_id = c.recurso_id AND i.dia = c.dia
+            ON CONFLICT (recurso_id, dia) DO UPDATE SET
+                up = EXCLUDED.up, degraded = EXCLUDED.degraded, down = EXCLUDED.down,
+                unknown = EXCLUDED.unknown, mantenimiento = EXCLUDED.mantenimiento,
+                disponibilidad = EXCLUDED.disponibilidad, incidencias = EXCLUDED.incidencias
+            """,
+            (dias, dias),
+        )
+        return cur.rowcount
+
+
 # ── Reportes programados (SLA por correo) ─────────────────────────────
 def disponibilidad(db: Database, rango_seg: int, tipo_id: int | None = None,
                    sitio_id: int | None = None) -> list[dict[str, Any]]:

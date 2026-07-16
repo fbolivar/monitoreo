@@ -249,6 +249,11 @@ def registrar_tareas_internas(scheduler: BackgroundScheduler, db: Database, sett
                       id="rollup-horario", replace_existing=True)
     scheduler.add_job(repo.rollup_diario, CronTrigger(hour=0, minute=15), args=[db],
                       id="rollup-diario", replace_existing=True)
+    # Histórico de disponibilidad (00:20). CRÍTICO que corra ANTES de la purga
+    # (03:30): consolida desde `chequeos`, que solo guarda 30 días. Sin esto el
+    # histórico de SLA se perdía a diario y no había con qué sostener un reclamo.
+    scheduler.add_job(_rollup_disponibilidad, CronTrigger(hour=0, minute=20), args=[db],
+                      id="rollup-disponibilidad", replace_existing=True)
     # Forecasting de capacidad (00:30, tras el rollup diario). Usa el rollup diario.
     if settings.forecast_enabled:
         scheduler.add_job(pronosticar_capacidad, CronTrigger(hour=0, minute=30), args=[db, settings],
@@ -269,6 +274,13 @@ def registrar_tareas_internas(scheduler: BackgroundScheduler, db: Database, sett
     scheduler.add_job(_asegurar_particion_proximo_mes, CronTrigger(day=25, hour=1), args=[db],
                       id="particion-mes", replace_existing=True)
     log.info("Tareas de mantenimiento de datos registradas (rollup/purga/particiones).")
+
+
+def _rollup_disponibilidad(db: Database) -> None:
+    """Consolida el histórico de disponibilidad del día anterior (y el previo, por
+    si llegaron chequeos tarde). Ver repo.rollup_disponibilidad_diaria."""
+    filas = repo.rollup_disponibilidad_diaria(db, dias=2)
+    log.info("Histórico de disponibilidad consolidado: %s recurso-día.", filas)
 
 
 def _asegurar_particion_proximo_mes(db: Database) -> None:
