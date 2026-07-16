@@ -30,13 +30,16 @@ def configurar_logging(nivel: str) -> None:
         level=getattr(logging, nivel.upper(), logging.INFO),
         format="%(asctime)s %(levelname)-7s %(name)s | %(message)s",
     )
-    # APScheduler loguea en INFO CADA ejecución de job ("Running job…" + "executed
-    # successfully"): con ~155 recursos son ~150k líneas/día, que llenaron 4 GB de
-    # journal y ahogaban los errores reales. A WARNING sigue avisando de lo que sí
-    # importa (misfires, skips por max_instances y excepciones de job) y calla el resto.
-    # En DEBUG se respeta el nivel global para poder diagnosticar el scheduler.
+    # Librerías de terceros que loguean en INFO CADA operación y ahogan el log (los
+    # errores reales se pierden entre el ruido; llenaron 4 GB de journal):
+    #   - apscheduler: "Running job…" + "executed successfully" por job (~150k líneas/día
+    #     con ~155 recursos). A WARNING sigue avisando de misfires, skips por
+    #     max_instances y excepciones de job — que es justo lo que interesa.
+    #   - httpx/httpcore: una línea por cada request (probes web, FortiGate, dead-man…).
+    # En DEBUG se respeta el nivel global para poder diagnosticar.
     if nivel.upper() != "DEBUG":
-        logging.getLogger("apscheduler").setLevel(logging.WARNING)
+        for ruidoso in ("apscheduler", "httpx", "httpcore"):
+            logging.getLogger(ruidoso).setLevel(logging.WARNING)
 
 
 def main() -> int:
