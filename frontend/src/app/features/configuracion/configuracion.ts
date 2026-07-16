@@ -260,6 +260,15 @@ export class Configuracion implements OnInit {
   }
 
   // ── CANALES ───────────────────────────────────────────────────────
+  // Ejemplos de enrutamiento para la ayuda. Van en el TS porque un JSON literal
+  // en la plantilla rompe el parser de Angular ('{' = bloque/ICU) y escaparlo
+  // con {{ '{' }} queda ilegible.
+  readonly EJ_TIPOS = '["servidor","switch_lan"]';
+  readonly EJ_SITIOS = '[1,7]';
+  readonly EJ_HORARIO = '{"dias":[1,2,3,4,5],"desde":"08:00","hasta":"18:00"}';
+  readonly EJ_RUTEO =
+    '{"min_severidad":"critical","tipos":["servidor"],"horario":{"dias":[1,2,3,4,5],"desde":"08:00","hasta":"18:00"}}';
+
   private canalVacio() {
     return { tipo: 'email', nombre: '', configTexto: '{}', secretosTexto: '', activo: true };
   }

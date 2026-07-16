@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
 import { AuthService } from '../../core/auth.service';
-import { EstadoIncidencia, Incidencia, Severidad } from '../../core/models';
+import { EstadoIncidencia, Incidencia, NotaIncidencia, Severidad } from '../../core/models';
 import { TelemetriaService } from '../../core/telemetria.service';
 import { duracion, fecha } from '../../shared/tiempo';
 
@@ -54,6 +54,43 @@ export class Incidencias implements OnInit {
 
   estadoLabel(e: EstadoIncidencia): string {
     return { abierta: 'Abierta', reconocida: 'Reconocida', resuelta: 'Resuelta' }[e];
+  }
+
+  // ── Bitácora: qué se vio y qué se hizo (relevo de turno / post-mortem) ──
+  notasDe = signal<number | null>(null);           // incidencia con el panel abierto
+  notas = signal<NotaIncidencia[]>([]);
+  cargandoNotas = signal(false);
+  guardandoNota = signal(false);
+  nuevaNota = '';
+
+  verNotas(i: Incidencia): void {
+    if (this.notasDe() === i.id) { this.notasDe.set(null); return; }   // toggle
+    this.notasDe.set(i.id);
+    this.notas.set([]);
+    this.nuevaNota = '';
+    this.cargandoNotas.set(true);
+    this.tele.notasIncidencia(i.id).subscribe({
+      next: (r) => { this.notas.set(r.data); this.cargandoNotas.set(false); },
+      error: () => this.cargandoNotas.set(false),
+    });
+  }
+
+  guardarNota(i: Incidencia): void {
+    const texto = this.nuevaNota.trim();
+    if (!texto) { return; }
+    this.error.set(null);
+    this.guardandoNota.set(true);
+    this.tele.agregarNotaIncidencia(i.id, texto).subscribe({
+      next: (n) => {
+        this.notas.update((ns) => [...ns, n]);
+        this.nuevaNota = '';
+        this.guardandoNota.set(false);
+      },
+      error: (e) => {
+        this.guardandoNota.set(false);
+        this.error.set((e as { error?: { message?: string } })?.error?.message ?? 'No se pudo guardar la nota.');
+      },
+    });
   }
 
   reconocer(i: Incidencia): void {

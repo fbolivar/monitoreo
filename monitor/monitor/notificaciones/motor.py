@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from ..models import Recurso
@@ -36,6 +37,51 @@ _ENCABEZADOS = {
 def severidad_alcanza(min_severidad: str, severidad: str) -> bool:
     """True si `severidad` es >= al mínimo exigido por el canal."""
     return SEV_ORDEN.get(severidad, 0) >= SEV_ORDEN.get(min_severidad, 1)
+
+
+def canal_aplica(config: dict | None, severidad: str, tipo_codigo: str | None,
+                 sitio_id: int | None, ahora_local: datetime) -> bool:
+    """¿Este canal debe recibir este evento? ENRUTAMIENTO (función pura, testeable).
+
+    Sin esto, todos los canales reciben todo y un solo buzón acaba con las alertas
+    de toda la entidad. Cada filtro es OPCIONAL (ausente o vacío = no filtra):
+
+      - min_severidad : info|warning|critical
+      - tipos         : ["servidor","switch_lan"]  -> solo esos tipos de recurso
+      - sitios        : [1, 7]                     -> solo esos sitios
+      - horario       : {"dias":[1..7] (1=lunes), "desde":"08:00", "hasta":"18:00"}
+                        en hora LOCAL. Si `desde` > `hasta` la ventana cruza la
+                        medianoche (p.ej. 22:00-06:00), que es el caso de guardia.
+
+    Así el equipo de servidores recibe servidores, cada territorial lo suyo, y el
+    canal de guardia solo fuera de horario.
+    """
+    cfg = config or {}
+    if not severidad_alcanza(cfg.get("min_severidad", "info"), severidad):
+        return False
+
+    tipos = cfg.get("tipos") or []
+    if tipos and tipo_codigo not in tipos:
+        return False
+
+    sitios = cfg.get("sitios") or []
+    if sitios and sitio_id not in sitios:
+        return False
+
+    horario = cfg.get("horario") or {}
+    if horario:
+        dias = horario.get("dias") or []
+        if dias and ahora_local.isoweekday() not in dias:
+            return False
+        desde, hasta = horario.get("desde"), horario.get("hasta")
+        if desde and hasta:
+            ahora_hhmm = ahora_local.strftime("%H:%M")
+            dentro = ((desde <= ahora_hhmm < hasta) if desde <= hasta
+                      else (ahora_hhmm >= desde or ahora_hhmm < hasta))
+            if not dentro:
+                return False
+
+    return True
 
 
 def construir_mensaje(evento: str, recurso: Recurso, severidad: str,
@@ -95,10 +141,14 @@ def notificar(db: Database, settings: Settings, *, incidencia_id: int, recurso: 
             return
 
         msg = construir_mensaje(evento, recurso, severidad, titulo, descripcion)
+        # Hora LOCAL del servidor: el horario de un canal (guardia, jornada) lo
+        # define el operador en su hora, no en UTC.
+        ahora_local = datetime.now().astimezone()
 
         for canal in canales:
-            min_sev = (canal.config or {}).get("min_severidad", "info")
-            if not severidad_alcanza(min_sev, severidad):
+            # Enrutamiento: cada canal recibe solo lo suyo (tipo/sitio/horario/severidad).
+            if not canal_aplica(canal.config, severidad, recurso.tipo_codigo,
+                                recurso.sitio_id, ahora_local):
                 continue
             if repo.ya_notificado(db, incidencia_id, canal.id, evento):
                 continue
@@ -137,6 +187,9 @@ def notificar_simple(db: Database, settings: Settings, asunto: str, texto: str,
         canales = repo.canales_activos(db, settings.app_crypto_key)
         msg = {"asunto": asunto, "texto": texto, "severidad": severidad, "evento": "evento"}
         for canal in canales:
+            # Aquí NO se enruta por tipo/sitio: este aviso no viene ligado a un recurso
+            # (cambios de config, pronósticos…), así que no hay con qué filtrar. Se usa
+            # solo la severidad: mejor que llegue de más a tragárselo en silencio.
             min_sev = (canal.config or {}).get("min_severidad", "info")
             if not severidad_alcanza(min_sev, severidad):
                 continue

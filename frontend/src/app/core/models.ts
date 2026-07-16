@@ -581,3 +581,11 @@ export interface Backup {
   nota: string | null;
   app_version: string | null;
 }
+
+/** Nota de la bitácora del operador sobre una incidencia. */
+export interface NotaIncidencia {
+  id: number;
+  autor_email: string | null;
+  nota: string;
+  created_at: string;
+}

@@ -79,6 +79,20 @@ class CanalNotificacionController extends Controller
             'config'   => ['nullable', 'array'],
             'activo'   => ['boolean'],
             'secretos' => ['nullable', 'array'],
+
+            // Enrutamiento del canal (todo opcional; vacío = sin filtro). Se valida
+            // porque un typo aquí NO da error visible: simplemente el canal dejaría
+            // de recibir alertas en silencio.
+            'config.min_severidad'  => ['nullable', Rule::in(['info', 'warning', 'critical'])],
+            'config.tipos'          => ['nullable', 'array'],
+            'config.tipos.*'        => ['string', 'exists:tipos_recurso,codigo'],
+            'config.sitios'         => ['nullable', 'array'],
+            'config.sitios.*'       => ['integer', 'exists:sitios,id'],
+            'config.horario'        => ['nullable', 'array'],
+            'config.horario.dias'   => ['nullable', 'array'],
+            'config.horario.dias.*' => ['integer', 'between:1,7'],
+            'config.horario.desde'  => ['nullable', 'date_format:H:i'],
+            'config.horario.hasta'  => ['nullable', 'date_format:H:i'],
         ];
     }
 }

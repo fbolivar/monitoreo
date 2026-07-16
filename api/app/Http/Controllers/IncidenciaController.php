@@ -3,12 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\Incidencia;
+use App\Support\Auditoria;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 /**
- * Solo lectura en esta fase. Filtros: recurso_id, estado, severidad,
- * desde, hasta (sobre `abierta_at`).
+ * Lectura (filtros: recurso_id, estado, severidad, desde, hasta sobre `abierta_at`),
+ * gestión (reconocer/resolver) y bitácora de notas del operador.
  */
 class IncidenciaController extends Controller
 {
@@ -80,5 +82,47 @@ class IncidenciaController extends Controller
         $inc->update(['estado' => 'resuelta', 'resuelta_at' => now()]);
 
         return response()->json($inc->load(['recurso:id,nombre', 'reconocidaPor:id,nombre,email']));
+    }
+
+    /** Bitácora de la incidencia: notas del operador, en orden cronológico (lectura). */
+    public function notas(int $id): JsonResponse
+    {
+        Incidencia::findOrFail($id);   // 404 si la incidencia no existe
+
+        $notas = DB::table('incidencia_notas')
+            ->where('incidencia_id', $id)
+            ->orderBy('created_at')
+            ->get(['id', 'autor_email', 'nota', 'created_at']);
+
+        return response()->json(['data' => $notas]);
+    }
+
+    /**
+     * Añade una nota (admin/operador). Es lo que convierte una incidencia en
+     * historia útil: qué se vio, qué se hizo, qué queda pendiente para el relevo.
+     */
+    public function agregarNota(Request $request, int $id): JsonResponse
+    {
+        $inc = Incidencia::findOrFail($id);
+        $data = $request->validate([
+            'nota' => ['required', 'string', 'min:1', 'max:4000'],
+        ]);
+
+        $perfil = $request->attributes->get('perfil');
+        $nota = DB::table('incidencia_notas')->insertGetId([
+            'incidencia_id' => $inc->id,
+            'perfil_id'     => optional($perfil)->id,
+            'autor_email'   => optional($perfil)->email,
+            'nota'          => trim($data['nota']),
+            'created_at'    => now(),
+        ]);
+
+        Auditoria::registrar('crear', 'incidencia_nota', $nota, 'Nota en incidencia '.$inc->id);
+
+        return response()->json(
+            DB::table('incidencia_notas')->where('id', $nota)
+                ->first(['id', 'autor_email', 'nota', 'created_at']),
+            201
+        );
     }
 }

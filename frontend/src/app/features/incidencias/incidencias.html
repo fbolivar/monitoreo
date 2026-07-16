@@ -27,7 +27,7 @@
     <thead>
       <tr>
         <th>Sev.</th><th>Recurso</th><th>Título</th><th>Estado</th>
-        <th>Abierta</th><th>Resuelta</th><th>Duración</th>
+        <th>Abierta</th><th>Resuelta</th><th>Duración</th><th>Bitácora</th>
         @if (auth.puedeEditar()) { <th>Acciones</th> }
       </tr>
     </thead>
@@ -46,6 +46,11 @@
           <td class="text-dim">{{ fecha(i.abierta_at) }}</td>
           <td class="text-dim">{{ i.resuelta_at ? fecha(i.resuelta_at) : '—' }}</td>
           <td>{{ duracion(i.abierta_at, i.resuelta_at) }}</td>
+          <td>
+            <button class="lnk" (click)="verNotas(i)">
+              {{ notasDe() === i.id ? 'Ocultar' : 'Notas' }}
+            </button>
+          </td>
           @if (auth.puedeEditar()) {
             <td class="acc">
               @if (i.estado === 'abierta') {
@@ -57,6 +62,39 @@
             </td>
           }
         </tr>
+
+        <!-- Bitácora: qué se vio y qué se hizo (relevo de turno / post-mortem) -->
+        @if (notasDe() === i.id) {
+          <tr class="notas-fila">
+            <td [attr.colspan]="auth.puedeEditar() ? 9 : 8">
+              <div class="notas">
+                @if (cargandoNotas()) {
+                  <p class="text-dim">Cargando bitácora…</p>
+                } @else if (notas().length === 0) {
+                  <p class="text-dim">Sin notas todavía. Registra qué se vio y qué se hizo: es lo que verá el siguiente turno.</p>
+                } @else {
+                  <ul class="lista-notas">
+                    @for (n of notas(); track n.id) {
+                      <li>
+                        <div class="meta"><b>{{ n.autor_email ?? 'sistema' }}</b> · <span class="text-dim">{{ fecha(n.created_at) }}</span></div>
+                        <div class="txt">{{ n.nota }}</div>
+                      </li>
+                    }
+                  </ul>
+                }
+                @if (auth.puedeEditar()) {
+                  <div class="add-nota">
+                    <textarea rows="2" [(ngModel)]="nuevaNota" name="nota{{ i.id }}"
+                              placeholder="Diagnóstico, acción tomada, pendientes para el relevo…"></textarea>
+                    <button class="btn btn-primary" [disabled]="guardandoNota()" (click)="guardarNota(i)">
+                      {{ guardandoNota() ? 'Guardando…' : 'Añadir nota' }}
+                    </button>
+                  </div>
+                }
+              </div>
+            </td>
+          </tr>
+        }
       }
     </tbody>
   </table>

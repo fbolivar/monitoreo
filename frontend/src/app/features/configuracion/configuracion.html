@@ -238,8 +238,18 @@
         <label class="check"><input type="checkbox" name="act" [(ngModel)]="fCanal.activo" /> Activo</label>
       </div>
       <label>Config (JSON, no sensible)
-        <textarea name="config" rows="3" [(ngModel)]="fCanal.configTexto"></textarea>
+        <textarea name="config" rows="5" [(ngModel)]="fCanal.configTexto"></textarea>
       </label>
+      <p class="text-dim hint">
+        <b>Enrutamiento</b> (todo opcional; ausente = sin filtro) — así cada equipo/territorial recibe
+        solo lo suyo en vez de todo a un buzón:
+        <code>"min_severidad"</code>: info|warning|critical ·
+        <code>"tipos"</code>: {{ EJ_TIPOS }} ·
+        <code>"sitios"</code>: {{ EJ_SITIOS }} ·
+        <code>"horario"</code>: {{ EJ_HORARIO }} en hora local (1=lunes).
+        Si <i>desde &gt; hasta</i> la ventana cruza medianoche (guardia: 22:00 → 06:00).<br>
+        Ej. equipo de servidores solo en jornada: <code>{{ EJ_RUTEO }}</code>
+      </p>
       <label>Secretos (JSON, cifrado — nunca se muestra)
         <textarea name="secretos" rows="2" [(ngModel)]="fCanal.secretosTexto"
                   placeholder='{ "token": "..." }  (vacío = sin cambios)'></textarea>

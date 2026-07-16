@@ -165,6 +165,8 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
     Route::get('metricas', [MetricaController::class, 'index']);          // sin show (PK compuesta)
     Route::get('incidencias', [IncidenciaController::class, 'index']);
     Route::get('incidencias/{id}', [IncidenciaController::class, 'show'])->whereNumber('id');
+    // Bitácora del operador sobre la incidencia (lectura para cualquier rol).
+    Route::get('incidencias/{id}/notas', [IncidenciaController::class, 'notas'])->whereNumber('id');
 
     // ── ESCRITURA de configuración: admin + operador ─────────────────
     Route::middleware('role:admin,operador')->group(function () use ($crud) {
@@ -188,6 +190,7 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
         // Gestión de incidencias (reconocer / resolver).
         Route::post('incidencias/{id}/reconocer', [IncidenciaController::class, 'reconocer'])->whereNumber('id');
         Route::post('incidencias/{id}/resolver', [IncidenciaController::class, 'resolver'])->whereNumber('id');
+        Route::post('incidencias/{id}/notas', [IncidenciaController::class, 'agregarNota'])->whereNumber('id');
 
         // Auto-descubrimiento: encolar barrido, alta/descartar candidatos.
         Route::post('descubrimiento', [DescubrimientoController::class, 'store']);
