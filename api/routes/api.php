@@ -38,6 +38,7 @@ use App\Http\Controllers\ServicioController;
 use App\Http\Controllers\SitioController;
 use App\Http\Controllers\TopologiaController;
 use App\Http\Controllers\SyslogController;
+use App\Http\Controllers\SyslogReglaController;
 use App\Http\Controllers\TrapController;
 use App\Http\Controllers\TipoRecursoController;
 use App\Http\Controllers\UmbralController;
@@ -151,6 +152,8 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
     Route::get('traps', [TrapController::class, 'index']);
     // Eventos syslog recibidos (lectura).
     Route::get('syslog', [SyslogController::class, 'index']);
+    // Reglas syslog→incidencia (lectura).
+    Route::get('syslog-reglas', [SyslogReglaController::class, 'index']);
     // Dashboards personalizables del usuario (CRUD propio).
     Route::get('dashboards', [DashboardController::class, 'index']);
     Route::post('dashboards', [DashboardController::class, 'store']);
@@ -232,6 +235,10 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
         Route::post('incidencias/acciones', [IncidenciaController::class, 'acciones']);
         // Registrar relevo de turno (handover).
         Route::post('relevos', [RelevoController::class, 'store']);
+        // Reglas syslog→incidencia (gestión).
+        Route::post('syslog-reglas', [SyslogReglaController::class, 'store']);
+        Route::match(['put', 'patch'], 'syslog-reglas/{id}', [SyslogReglaController::class, 'update'])->whereNumber('id');
+        Route::delete('syslog-reglas/{id}', [SyslogReglaController::class, 'destroy'])->whereNumber('id');
         // On-call / escalado multinivel (gestión).
         Route::post('turnos-oncall', [TurnoOncallController::class, 'store']);
         Route::match(['put', 'patch'], 'turnos-oncall/{id}', [TurnoOncallController::class, 'update'])->whereNumber('id');

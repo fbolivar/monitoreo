@@ -770,6 +770,16 @@ def recurso_id_por_host(db: Database, ip: str) -> int | None:
         return row["id"] if row else None
 
 
+def cargar_syslog_reglas(db: Database) -> list[dict[str, Any]]:
+    """Reglas syslog→incidencia activas (patrón, acción, severidad, clave…)."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT id, nombre, activo, campo, patron, accion, severidad, clave, notificar "
+            "FROM syslog_reglas WHERE activo = true ORDER BY id"
+        )
+        return [dict(r) for r in cur.fetchall()]
+
+
 def guardar_syslog(db: Database, source_ip: str | None, recurso_id: int | None,
                    datos: dict) -> None:
     """Inserta un evento syslog ya parseado (dict de syslog_parse.parse_syslog)."""

@@ -127,6 +127,18 @@ export interface ImpactoTopologia {
   impacto: number;
 }
 
+export interface SyslogRegla {
+  id?: number;
+  nombre: string;
+  activo: boolean;
+  campo: 'mensaje' | 'app' | 'hostname';
+  patron: string;
+  accion: 'abrir' | 'cerrar';
+  severidad?: 'warning' | 'critical' | null;
+  clave: string;
+  notificar: boolean;
+}
+
 export interface SyslogEvento {
   id: number;
   ts: string;

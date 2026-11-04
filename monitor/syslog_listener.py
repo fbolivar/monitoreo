@@ -13,13 +13,17 @@ import asyncio
 import logging
 import time
 
+from datetime import datetime, timezone
+
 from monitor import repository as repo
+from monitor import syslog_reglas as sreglas
 from monitor.config import cargar_settings
 from monitor.db import Database
-from monitor.notificaciones import notificar_simple
+from monitor.notificaciones import notificar, notificar_simple
 from monitor.syslog_parse import parse_syslog
 
 log = logging.getLogger("monitor.syslog")
+_REGLAS_REFRESCO_SEG = 60
 
 
 class _SyslogProtocol(asyncio.DatagramProtocol):
@@ -27,6 +31,18 @@ class _SyslogProtocol(asyncio.DatagramProtocol):
         self.db = db
         self.settings = settings
         self._ultimo_aviso: dict[int, float] = {}  # recurso_id -> epoch del último aviso
+        self._reglas: list[dict] = []
+        self._reglas_ts = 0.0
+
+    def _reglas_vigentes(self) -> list[dict]:
+        ahora = time.time()
+        if ahora - self._reglas_ts >= _REGLAS_REFRESCO_SEG or not self._reglas_ts:
+            try:
+                self._reglas = sreglas.compilar(repo.cargar_syslog_reglas(self.db))
+            except Exception:
+                log.exception("No se pudieron cargar las reglas de syslog")
+            self._reglas_ts = ahora
+        return self._reglas
 
     def datagram_received(self, data: bytes, addr) -> None:
         try:
@@ -42,9 +58,47 @@ class _SyslogProtocol(asyncio.DatagramProtocol):
         log.debug("syslog %s de %s (recurso=%s): %s",
                   datos["severidad"], ip, recurso_id, (datos.get("mensaje") or "")[:80])
 
+        # Reglas patrón→incidencia (abrir/cerrar), solo si el evento mapeó a un recurso.
+        if recurso_id:
+            matches = sreglas.evaluar(datos, self._reglas_vigentes())
+            for regla in matches:
+                self._aplicar_regla(recurso_id, regla, datos)
+
         if (self.settings.syslog_alert_enabled and recurso_id
                 and datos.get("severidad") == "critical"):
             self._avisar(recurso_id, datos)
+
+    def _aplicar_regla(self, recurso_id: int, regla: dict, datos: dict) -> None:
+        componente = "syslog:" + str(regla["clave"])
+        ahora = datetime.now(timezone.utc)
+        recurso = repo.cargar_recurso(self.db, recurso_id)
+        if recurso is None:
+            return
+        try:
+            if regla["accion"] == "abrir":
+                sev = regla.get("severidad") or "warning"
+                titulo = f"{recurso.nombre}: {regla['nombre']}"
+                descr = (datos.get("mensaje") or "")[:500]
+                nueva = repo.abrir_incidencia_componente(self.db, recurso_id, componente, sev,
+                                                         titulo, descr, ahora)
+                if nueva:
+                    log.warning("Incidencia %s ABIERTA por regla syslog '%s' (recurso %s)",
+                                nueva, regla["nombre"], recurso_id)
+                    if regla.get("notificar"):
+                        notificar(self.db, self.settings, incidencia_id=nueva, recurso=recurso,
+                                  severidad=sev, evento="apertura", titulo=titulo)
+            else:  # cerrar
+                ab = repo.incidencia_componente_abierta(self.db, recurso_id, componente)
+                if ab:
+                    repo.cerrar_incidencia(self.db, ab["id"], ahora)
+                    log.info("Incidencia %s cerrada por regla syslog '%s' (recurso %s)",
+                             ab["id"], regla["nombre"], recurso_id)
+                    if regla.get("notificar"):
+                        notificar(self.db, self.settings, incidencia_id=ab["id"], recurso=recurso,
+                                  severidad=ab.get("severidad", "warning"), evento="cierre",
+                                  titulo=f"{recurso.nombre}: {regla['nombre']} (resuelto)")
+        except Exception:
+            log.exception("Error aplicando regla syslog '%s' a recurso %s", regla.get("nombre"), recurso_id)
 
     def _avisar(self, recurso_id: int, datos: dict) -> None:
         ahora = time.time()

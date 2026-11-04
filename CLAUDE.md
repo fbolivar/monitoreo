@@ -643,6 +643,18 @@ hardware Redfish (Dell R640 en id 24), sintéticos (transacción 2 pasos), backu
     params por tipo; guardar; múltiples tableros por usuario con uno predeterminado. Reusa los servicios
     existentes (recursos/incidencias/metricas/syslog), sin endpoints de datos nuevos.
 
+- ✅ SYSLOG PATRÓN→INCIDENCIA (cierra P0-3) (2026-11-03) [migr. 0050] — worker 274 tests + `ng build` OK.
+  Reglas que convierten syslog de 'visor' en 'detector': una regla casa un regex contra mensaje/app/host
+  y ABRE o CIERRA una incidencia formal en el recurso mapeado (como linkDown/linkUp de traps).
+  - **BD** migr. 0050: `syslog_reglas` (campo, patron regex, accion abrir|cerrar, severidad, clave,
+    notificar). La `clave` liga abrir↔cerrar vía `componente='syslog:'||clave` (reusa incidencias por
+    componente + índice único). Owner/grant defensivo.
+  - **Worker**: `syslog_reglas.py` puro (compilar+evaluar regex; 5 tests). El receptor `simon-syslog`
+    cachea las reglas (refresco 60s) y, por cada evento mapeado, abre/cierra incidencia por componente
+    (`abrir_incidencia_componente`/`incidencia_componente_abierta`/`cerrar_incidencia`) y notifica.
+  - **API**: `SyslogReglaController` CRUD (admin/operador, valida regex con preg_match).
+  - **UI**: panel 'Reglas →incidencia' en la pantalla Syslog (lista + editor inline).
+
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.
 

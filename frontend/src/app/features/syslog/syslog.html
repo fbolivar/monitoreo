@@ -11,8 +11,55 @@
     </select>
     <button class="btn" (click)="cargar()">Buscar</button>
     <label class="check"><input type="checkbox" [ngModel]="auto()" (ngModelChange)="auto.set($event)" /> Auto 15s</label>
+    @if (auth.puedeEditar()) {
+      <button class="btn" [class.btn-primary]="mostrarReglas()" (click)="toggleReglas()">Reglas →incidencia</button>
+    }
   </div>
 </div>
+
+@if (mostrarReglas()) {
+  <div class="reglas card">
+    <div class="rh"><b>Reglas patrón → incidencia</b>
+      <button class="btn btn-sm" (click)="nuevaRegla()">+ Nueva regla</button>
+      <span class="text-dim">Un patrón (regex) que casa el mensaje/app/host ABRE o CIERRA una incidencia en el recurso. La <i>clave</i> liga abrir↔cerrar.</span>
+    </div>
+
+    @if (reglaEdit(); as r) {
+      <div class="regla-form">
+        <input [(ngModel)]="r.nombre" placeholder="Nombre (ej. BGP caído)" />
+        <select [(ngModel)]="r.campo"><option value="mensaje">mensaje</option><option value="app">app</option><option value="hostname">host</option></select>
+        <input [(ngModel)]="r.patron" placeholder="regex (ej. bgp.*down)" class="pat" />
+        <select [(ngModel)]="r.accion"><option value="abrir">abrir</option><option value="cerrar">cerrar</option></select>
+        @if (r.accion === 'abrir') {
+          <select [(ngModel)]="r.severidad"><option value="critical">crítica</option><option value="warning">warning</option></select>
+        }
+        <input [(ngModel)]="r.clave" placeholder="clave (ej. bgp)" class="clv" />
+        <label class="check"><input type="checkbox" [(ngModel)]="r.activo" /> activa</label>
+        <label class="check"><input type="checkbox" [(ngModel)]="r.notificar" /> notificar</label>
+        <button class="btn btn-sm btn-primary" (click)="guardarRegla()">Guardar</button>
+        <button class="btn btn-sm" (click)="reglaEdit.set(null)">Cancelar</button>
+        @if (errorRegla()) { <span class="err">{{ errorRegla() }}</span> }
+      </div>
+    }
+
+    @if (reglas().length) {
+      <table class="rtab">
+        <thead><tr><th>Nombre</th><th>Campo</th><th>Patrón</th><th>Acción</th><th>Sev.</th><th>Clave</th><th>Notif.</th><th>Activa</th><th></th></tr></thead>
+        <tbody>
+          @for (r of reglas(); track r.id) {
+            <tr>
+              <td><b>{{ r.nombre }}</b></td><td>{{ r.campo }}</td>
+              <td class="mono">{{ r.patron }}</td><td>{{ r.accion }}</td>
+              <td>{{ r.severidad || '—' }}</td><td>{{ r.clave }}</td>
+              <td>{{ r.notificar ? 'sí' : 'no' }}</td><td>{{ r.activo ? 'sí' : 'no' }}</td>
+              <td class="acc"><button class="btn btn-xs" (click)="editarRegla(r)">Editar</button><button class="btn btn-xs" (click)="eliminarRegla(r)">✕</button></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    } @else { <p class="text-dim">Sin reglas. Crea una para que ciertos mensajes abran/cierren incidencias.</p> }
+  </div>
+}
 
 @if (cargando()) {
   <p class="text-dim">Cargando…</p>
