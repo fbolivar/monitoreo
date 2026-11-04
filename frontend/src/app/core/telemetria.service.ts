@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { Chequeo, Incidencia, Metrica, NotaIncidencia, Paginated } from './models';
+import { Chequeo, Incidencia, Metrica, NotaIncidencia, Paginated, RelevoTurno } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class TelemetriaService {
@@ -34,5 +34,25 @@ export class TelemetriaService {
 
   agregarNotaIncidencia(id: number, nota: string): Observable<NotaIncidencia> {
     return this.api.post<NotaIncidencia>(`/incidencias/${id}/notas`, { nota });
+  }
+
+  // ── Consola de alarmas ──
+  asignarIncidencia(id: number, body: { mi?: boolean; perfil_id?: string | null }): Observable<Incidencia> {
+    return this.api.post<Incidencia>(`/incidencias/${id}/asignar`, body);
+  }
+  silenciarIncidencia(id: number, minutos: number): Observable<Incidencia> {
+    return this.api.post<Incidencia>(`/incidencias/${id}/silenciar`, { minutos });
+  }
+  accionesIncidencias(ids: number[], accion: 'reconocer' | 'tomar' | 'silenciar' | 'resolver',
+                      minutos?: number): Observable<{ afectadas: number; solicitadas: number }> {
+    return this.api.post(`/incidencias/acciones`, { ids, accion, minutos });
+  }
+
+  // ── Relevo de turno (handover) ──
+  relevos(limite = 20): Observable<{ data: RelevoTurno[] }> {
+    return this.api.get<{ data: RelevoTurno[] }>('/relevos', { limite });
+  }
+  crearRelevo(resumen: string): Observable<RelevoTurno> {
+    return this.api.post<RelevoTurno>('/relevos', { resumen });
   }
 }

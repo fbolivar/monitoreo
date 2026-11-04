@@ -581,6 +581,19 @@ hardware Redfish (Dell R640 en id 24), sintéticos (transacción 2 pasos), backu
     peor estado (semáforo), clic en un clúster acerca. Marcadores y textos escalan por k=view.w/W para
     conservar tamaño visual; strokes con vector-effect non-scaling-stroke. Maneja los 1200 puntos densos.
 
+- ✅ CONSOLA DE ALARMAS + RELEVO DE TURNO (NOC P0-1) (2026-11-03) [migr. 0045] — `ng build` OK.
+  Brecha #1 vs Zabbix/SolarWinds: capa de flujo del operador sobre las incidencias.
+  - **BD** migr. 0045: `incidencias.asignado_a` (uuid→perfiles) y `silenciado_hasta` (snooze);
+    tabla `relevos_turno` (handover: resumen del turno saliente→entrante).
+  - **API**: `IncidenciaController` gana `asignar` (mi/perfil/null), `silenciar` (snooze N min, 0=quita)
+    y `acciones` (lote: reconocer/tomar/silenciar/resolver, respeta alcance); el `index` acepta
+    `activas=true` y `asignado=mi|sin`; relación `operador` (clave JSON distinta de la columna uuid).
+    `RelevoController` (GET últimos / POST). Worker: `incidencias_para_escalar` ignora las silenciadas.
+  - **UI**: pantalla **Consola** (`/consola`, nav) con autorefresco 15s, KPIs, filtros (mías/sin asignar/
+    severidad), selección múltiple + acciones en lote, acciones por fila (reconocer/tomar/liberar/
+    silenciar/resolver/ver) y panel de **relevo de turno** (registrar + historial). Incidencias sigue
+    como vista de registro/histórico.
+
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.
 

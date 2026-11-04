@@ -81,7 +81,19 @@ export interface Incidencia {
   abierta_at: string;
   reconocida_at?: string | null;
   resuelta_at?: string | null;
+  asignado_a?: string | null;
+  silenciado_hasta?: string | null;
+  componente?: string | null;
+  if_nombre?: string | null;
   recurso?: { id: number; nombre: string };
+  operador?: { id: string; nombre: string; email: string } | null;
+}
+
+export interface RelevoTurno {
+  id: number;
+  actor_email: string;
+  resumen: string;
+  creado_at: string;
 }
 
 export interface Interfaz {

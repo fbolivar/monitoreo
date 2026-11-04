@@ -36,6 +36,10 @@ export const routes: Routes = [
           import('./features/recurso-detalle/recurso-detalle').then((m) => m.RecursoDetalle),
       },
       {
+        path: 'consola',
+        loadComponent: () => import('./features/consola/consola').then((m) => m.Consola),
+      },
+      {
         path: 'incidencias',
         loadComponent: () => import('./features/incidencias/incidencias').then((m) => m.Incidencias),
       },

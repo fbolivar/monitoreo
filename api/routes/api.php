@@ -22,6 +22,7 @@ use App\Http\Controllers\ImportacionController;
 use App\Http\Controllers\IncidenciaController;
 use App\Http\Controllers\MapaController;
 use App\Http\Controllers\MantenimientoController;
+use App\Http\Controllers\RelevoController;
 use App\Http\Controllers\MetricaController;
 use App\Http\Controllers\PerfilController;
 use App\Http\Controllers\PronosticoController;
@@ -179,6 +180,8 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
     Route::get('incidencias/{id}', [IncidenciaController::class, 'show'])->whereNumber('id');
     // Bitácora del operador sobre la incidencia (lectura para cualquier rol).
     Route::get('incidencias/{id}/notas', [IncidenciaController::class, 'notas'])->whereNumber('id');
+    // Relevo de turno del NOC (lectura).
+    Route::get('relevos', [RelevoController::class, 'index']);
 
     // ── ESCRITURA de configuración: admin + operador ─────────────────
     Route::middleware('role:admin,operador')->group(function () use ($crud) {
@@ -206,6 +209,12 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
         Route::post('incidencias/{id}/reconocer', [IncidenciaController::class, 'reconocer'])->whereNumber('id');
         Route::post('incidencias/{id}/resolver', [IncidenciaController::class, 'resolver'])->whereNumber('id');
         Route::post('incidencias/{id}/notas', [IncidenciaController::class, 'agregarNota'])->whereNumber('id');
+        // Consola de alarmas: asignar / silenciar (snooze) / acciones en lote.
+        Route::post('incidencias/{id}/asignar', [IncidenciaController::class, 'asignar'])->whereNumber('id');
+        Route::post('incidencias/{id}/silenciar', [IncidenciaController::class, 'silenciar'])->whereNumber('id');
+        Route::post('incidencias/acciones', [IncidenciaController::class, 'acciones']);
+        // Registrar relevo de turno (handover).
+        Route::post('relevos', [RelevoController::class, 'store']);
 
         // Auto-descubrimiento: encolar barrido, alta/descartar candidatos.
         Route::post('descubrimiento', [DescubrimientoController::class, 'store']);

@@ -621,6 +621,7 @@ def incidencias_para_escalar(db: Database, minutos: int) -> list[dict[str, Any]]
             JOIN tipos_recurso t ON t.id = r.tipo_id
             WHERE i.estado = 'abierta'
               AND i.escalada_at IS NULL
+              AND (i.silenciado_hasta IS NULL OR i.silenciado_hasta < now())
               AND i.abierta_at < now() - make_interval(mins => %s)
             """,
             (minutos,),

@@ -1,0 +1,133 @@
+<div class="head">
+  <h1>Consola de alarmas</h1>
+  <div class="kpis">
+    <div class="kpi" [class.alerta]="criticas() > 0"><b>{{ criticas() }}</b><span>Críticas</span></div>
+    <div class="kpi"><b>{{ sinReconocer() }}</b><span>Sin reconocer</span></div>
+    <div class="kpi"><b>{{ sinAsignar() }}</b><span>Sin asignar</span></div>
+    <div class="kpi"><b>{{ alarmas().length }}</b><span>Activas</span></div>
+  </div>
+  <span class="refresco">↻ cada 15 s</span>
+</div>
+
+<!-- Relevo de turno (handover) -->
+<div class="relevo card">
+  <div class="relevo-h">
+    <b>Relevo de turno</b>
+    @if (relevos().length) {
+      <span class="text-dim">· último: {{ relevos()[0].actor_email }} · {{ fecha(relevos()[0].creado_at) }}</span>
+    }
+    @if (auth.puedeEditar()) {
+      <button class="btn btn-sm" (click)="mostrarRelevo.set(!mostrarRelevo())">
+        {{ mostrarRelevo() ? 'Cancelar' : '+ Registrar relevo' }}
+      </button>
+    }
+  </div>
+  @if (mostrarRelevo()) {
+    <textarea rows="3" [ngModel]="resumenRelevo()" (ngModelChange)="resumenRelevo.set($event)"
+              placeholder="Pendientes, en curso, ojo con… — lo que el siguiente turno debe saber."></textarea>
+    <button class="btn btn-primary btn-sm" [disabled]="procesando() || !resumenRelevo().trim()"
+            (click)="guardarRelevo()">Guardar relevo</button>
+  } @else if (relevos().length) {
+    <p class="relevo-txt">{{ relevos()[0].resumen }}</p>
+    @if (relevos().length > 1) {
+      <details>
+        <summary>Relevos anteriores ({{ relevos().length - 1 }})</summary>
+        @for (r of relevos().slice(1); track r.id) {
+          <div class="relevo-old">
+            <span class="text-dim">{{ r.actor_email }} · {{ fecha(r.creado_at) }}</span>
+            <p>{{ r.resumen }}</p>
+          </div>
+        }
+      </details>
+    }
+  } @else {
+    <p class="text-dim">Sin relevos registrados.</p>
+  }
+</div>
+
+<!-- Filtros + acciones en lote -->
+<div class="barra">
+  <div class="filtros">
+    <select [ngModel]="filtroAsignado()" (ngModelChange)="filtroAsignado.set($event)">
+      <option value="todas">Todas</option>
+      <option value="mias">Mías</option>
+      <option value="sin">Sin asignar</option>
+    </select>
+    <select [ngModel]="filtroSev()" (ngModelChange)="filtroSev.set($event)">
+      <option value="">Toda severidad</option>
+      <option value="critical">Crítica</option>
+      <option value="warning">Warning</option>
+      <option value="info">Info</option>
+    </select>
+  </div>
+  @if (seleccion().size > 0 && auth.puedeEditar()) {
+    <div class="lote">
+      <b>{{ seleccion().size }} seleccionada(s):</b>
+      <button class="btn btn-sm" [disabled]="procesando()" (click)="lote('reconocer')">Reconocer</button>
+      <button class="btn btn-sm" [disabled]="procesando()" (click)="lote('tomar')">Tomar</button>
+      <button class="btn btn-sm" [disabled]="procesando()" (click)="lote('silenciar', 30)">Silenciar 30m</button>
+      <button class="btn btn-sm" [disabled]="procesando()" (click)="lote('resolver')">Resolver</button>
+      <button class="btn btn-sm" (click)="limpiarSel()">Limpiar</button>
+    </div>
+  }
+</div>
+
+@if (error()) { <p class="err">{{ error() }}</p> }
+@if (cargando()) { <p class="text-dim">Cargando…</p> }
+
+@if (!cargando() && filtradas().length === 0) {
+  <p class="text-dim vacio">🟢 Sin alarmas activas con estos filtros.</p>
+} @else if (!cargando()) {
+  <table class="alarmas">
+    <thead>
+      <tr>
+        @if (auth.puedeEditar()) { <th class="chk"><input type="checkbox" (change)="toggleTodas()" /></th> }
+        <th>Sev</th><th>Recurso</th><th>Alarma</th><th>Estado</th><th>Operador</th><th>Edad</th>
+        <th class="acc">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for (a of filtradas(); track a.id) {
+        <tr [class.fila-sel]="sel(a.id)" [class.fila-sil]="silenciada(a)" [class.fila-mia]="mia(a)">
+          @if (auth.puedeEditar()) {
+            <td class="chk"><input type="checkbox" [checked]="sel(a.id)" (change)="toggleSel(a.id)" /></td>
+          }
+          <td><span class="sevdot" [style.background]="colorSev(a.severidad)" [title]="a.severidad"></span></td>
+          <td>
+            @if (a.recurso) { <a [routerLink]="['/recursos', a.recurso.id]">{{ a.recurso.nombre }}</a> }
+            @else { <span class="text-dim">—</span> }
+          </td>
+          <td>
+            <b>{{ a.titulo }}</b>
+            @if (a.componente || a.if_nombre) { <span class="text-dim"> · {{ a.componente || a.if_nombre }}</span> }
+          </td>
+          <td>
+            <span class="estado" [class.rec]="a.estado === 'reconocida'">{{ a.estado }}</span>
+            @if (silenciada(a)) { <span class="sil" title="Silenciada">🔕</span> }
+          </td>
+          <td>
+            @if (a.operador) { <span [class.yo]="mia(a)">{{ nombreOperador(a) }}</span> }
+            @else { <span class="text-dim">—</span> }
+          </td>
+          <td class="edad">{{ duracion(a.abierta_at) }}</td>
+          <td class="acc" (click)="$event.stopPropagation()">
+            @if (auth.puedeEditar()) {
+              @if (a.estado === 'abierta') { <button class="btn btn-xs" [disabled]="procesando()" (click)="reconocer(a)">Reconocer</button> }
+              @if (mia(a)) { <button class="btn btn-xs" [disabled]="procesando()" (click)="liberar(a)">Liberar</button> }
+              @else { <button class="btn btn-xs" [disabled]="procesando()" (click)="tomar(a)">Tomar</button> }
+              <select class="sil-sel" (change)="silenciar(a, +$any($event.target).value); $any($event.target).value=''">
+                <option value="">Silenciar…</option>
+                <option value="15">15 min</option>
+                <option value="30">30 min</option>
+                <option value="60">1 h</option>
+                <option value="0">Quitar silencio</option>
+              </select>
+              <button class="btn btn-xs" [disabled]="procesando()" (click)="resolver(a)">Resolver</button>
+            }
+            <a class="btn btn-xs" [routerLink]="['/recursos', a.recurso?.id]">Ver</a>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}
