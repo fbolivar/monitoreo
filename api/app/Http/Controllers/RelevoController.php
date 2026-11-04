@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Auditoria;
+use App\Support\Auditoria;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
