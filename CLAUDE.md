@@ -632,6 +632,17 @@ hardware Redfish (Dell R640 en id 24), sintéticos (transacción 2 pasos), backu
   - **UI**: checkbox 'Nodo núcleo' en el form de recursos; panel 'causa raíz / impacto' en el detalle
     (padre efectivo con origen manual/topología + nº aguas abajo).
 
+- ✅ DASHBOARDS PERSONALIZABLES (NOC #5, parte 1) (2026-11-03) [migr. 0049] — `ng build` OK.
+  Cada usuario arma sus tableros a partir de widgets. (Multi-tenant = parte 2, pendiente de decisión de
+  modelo de negocio producto-propio vs MSP.)
+  - **BD** migr. 0049: `dashboards(perfil_id, nombre, es_default, widgets jsonb)` (layout completo en jsonb).
+  - **API**: `DashboardController` CRUD acotado al usuario actual (cada quien ve/edita solo los suyos).
+  - **UI**: pantalla **Mis tableros** (`/tableros`, nav, cualquier rol). Widgets: KPIs, semáforo por sitio,
+    incidencias activas, métrica de recurso (line-chart, componente `widget-metrica` autogestionado) y
+    syslog reciente (`widget-syslog`). Editor: añadir/quitar/reordenar (↑↓)/ancho (1-3 col), título,
+    params por tipo; guardar; múltiples tableros por usuario con uno predeterminado. Reusa los servicios
+    existentes (recursos/incidencias/metricas/syslog), sin endpoints de datos nuevos.
+
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.
 

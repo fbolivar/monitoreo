@@ -1,0 +1,125 @@
+<div class="head">
+  <h1>Mis tableros</h1>
+  <div class="toolbar">
+    @if (dashboards().length) {
+      <select [ngModel]="activo()?.id" (ngModelChange)="seleccionarPorId(+$event)">
+        @for (d of dashboards(); track d.id) {
+          <option [ngValue]="d.id">{{ d.nombre }}{{ d.es_default ? ' ★' : '' }}</option>
+        }
+      </select>
+    }
+    <button class="btn btn-sm" (click)="nuevoTablero()">+ Tablero</button>
+    @if (activo()) {
+      <button class="btn btn-sm" [class.btn-primary]="editando()" (click)="editando.set(!editando())">
+        {{ editando() ? 'Listo' : 'Editar' }}
+      </button>
+      @if (editando()) {
+        <button class="btn btn-sm" (click)="renombrar()">Renombrar</button>
+        @if (!activo()!.es_default) { <button class="btn btn-sm" (click)="marcarDefault()">Hacer predeterminado</button> }
+        <button class="btn btn-sm" (click)="eliminarTablero()">Eliminar</button>
+      }
+    }
+  </div>
+</div>
+
+@if (cargando()) {
+  <p class="text-dim">Cargando…</p>
+} @else if (!activo()) {
+  <p class="text-dim vacio">No tienes tableros. Crea uno con "+ Tablero" y añádele widgets.</p>
+} @else {
+  @if (editando()) {
+    <div class="editor card">
+      <b>Añadir widget:</b>
+      @for (t of tiposWidget; track t.id) {
+        <button class="btn btn-sm" (click)="addWidget(t.id)">{{ t.label }}</button>
+      }
+      <button class="btn btn-primary btn-sm guardar" (click)="guardar()">Guardar tablero</button>
+    </div>
+  }
+
+  <div class="grid">
+    @for (w of activo()!.widgets; track $index; let i = $index) {
+      <div class="widget card" [class]="anchoClase(w)">
+        <div class="w-h">
+          <b>{{ w.titulo || labelTipo(w.tipo) }}</b>
+          @if (editando()) {
+            <span class="w-acc">
+              <select [(ngModel)]="w.ancho" title="Ancho"><option [ngValue]="1">1</option><option [ngValue]="2">2</option><option [ngValue]="3">3</option></select>
+              <button class="btn btn-xs" (click)="mover(i,-1)" [disabled]="i===0">↑</button>
+              <button class="btn btn-xs" (click)="mover(i,1)" [disabled]="i===activo()!.widgets.length-1">↓</button>
+              <button class="btn btn-xs" (click)="quitarWidget(i)">✕</button>
+            </span>
+          }
+        </div>
+
+        @if (editando()) {
+          <div class="w-cfg">
+            <input [(ngModel)]="w.titulo" placeholder="Título (opcional)" />
+            @if (w.tipo === 'incidencias' || w.tipo === 'syslog') {
+              <input type="number" [(ngModel)]="w.limite" min="1" max="50" placeholder="límite" class="mini" />
+              <select [(ngModel)]="w.severidad"><option value="">toda sev.</option><option value="critical">crítica</option><option value="warning">warning</option><option value="info">info</option></select>
+            }
+            @if (w.tipo === 'metrica') {
+              <select [(ngModel)]="w.recurso_id">
+                <option [ngValue]="undefined">— recurso —</option>
+                @for (r of recursosConMetricas(); track r.id) { <option [ngValue]="r.id">{{ r.nombre }}</option> }
+              </select>
+              <input [(ngModel)]="w.metrica" placeholder="métrica (cpu, mem, latency…)" class="mini" />
+              <select [(ngModel)]="w.rango"><option value="1h">1h</option><option value="24h">24h</option><option value="7d">7d</option></select>
+            }
+          </div>
+        }
+
+        <div class="w-body">
+          @switch (w.tipo) {
+            @case ('kpis') {
+              <div class="kpis">
+                <div class="k"><b>{{ kpis().total }}</b><span>Recursos</span></div>
+                <div class="k ok"><b>{{ kpis().up }}</b><span>Operativos</span></div>
+                <div class="k warn"><b>{{ kpis().degraded }}</b><span>Degradados</span></div>
+                <div class="k crit"><b>{{ kpis().down }}</b><span>Caídos</span></div>
+                <div class="k"><b>{{ kpis().inc }}</b><span>Incidencias</span></div>
+                <div class="k crit"><b>{{ kpis().crit }}</b><span>Críticas</span></div>
+              </div>
+            }
+            @case ('estado_sitio') {
+              <div class="sitios">
+                @for (g of gruposSitio(); track g.nombre) {
+                  <div class="sitio" [style.border-left-color]="color(g.estado)">
+                    <b>{{ g.nombre }}</b>
+                    <span class="text-dim">{{ g.total }} rec.{{ g.down ? ' · ' + g.down + ' caído(s)' : '' }}</span>
+                  </div>
+                }
+              </div>
+            }
+            @case ('incidencias') {
+              @if (incidenciasW(w).length === 0) { <p class="text-dim">Sin incidencias.</p> }
+              @else {
+                <ul class="inc">
+                  @for (i of incidenciasW(w); track i.id) {
+                    <li>
+                      <span class="d" [style.background]="colorSev(i.severidad)"></span>
+                      <span class="ti">{{ i.titulo }}</span>
+                      <span class="text-dim ed">{{ duracion(i.abierta_at) }}</span>
+                    </li>
+                  }
+                </ul>
+              }
+            }
+            @case ('metrica') {
+              @if (w.recurso_id && w.metrica) {
+                <app-widget-metrica [recursoId]="w.recurso_id" [metrica]="w.metrica" [rango]="w.rango || '24h'" />
+              } @else { <p class="text-dim">Configura recurso y métrica (modo Editar).</p> }
+            }
+            @case ('syslog') {
+              <app-widget-syslog [limite]="w.limite || 10" [severidad]="w.severidad || ''" />
+            }
+          }
+        </div>
+      </div>
+    }
+    @if (activo()!.widgets.length === 0) {
+      <p class="text-dim">Tablero vacío. Pulsa "Editar" y añade widgets.</p>
+    }
+  </div>
+}

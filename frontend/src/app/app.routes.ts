@@ -36,6 +36,10 @@ export const routes: Routes = [
           import('./features/recurso-detalle/recurso-detalle').then((m) => m.RecursoDetalle),
       },
       {
+        path: 'tableros',
+        loadComponent: () => import('./features/tableros/tableros').then((m) => m.Tableros),
+      },
+      {
         path: 'consola',
         loadComponent: () => import('./features/consola/consola').then((m) => m.Consola),
       },

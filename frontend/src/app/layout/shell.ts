@@ -21,6 +21,7 @@ import { PushService } from '../core/push.service';
         </div>
         <nav>
           <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Dashboard</a>
+          <a routerLink="/tableros" routerLinkActive="active">Mis tableros</a>
           <a routerLink="/recursos" routerLinkActive="active">Recursos</a>
           @if (auth.puedeEditar()) {
             <a routerLink="/descubrimiento" routerLinkActive="active">Descubrimiento</a>

@@ -1,0 +1,36 @@
+.head { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 8px 0 12px; flex-wrap: wrap; }
+.toolbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.btn-sm { padding: 3px 9px; font-size: 12px; }
+.btn-xs { padding: 1px 6px; font-size: 11px; margin-left: 2px; }
+.vacio { padding: 20px; font-size: 15px; }
+
+.editor { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; padding: 8px 12px; margin-bottom: 12px; }
+.editor .guardar { margin-left: auto; }
+
+.grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; align-items: start; }
+.card { background: var(--bg-1, #fff); border: 1px solid var(--border, #cfe3d4); border-radius: 10px; padding: 10px 12px; }
+.widget.w1 { grid-column: span 1; }
+.widget.w2 { grid-column: span 2; }
+.widget.w3 { grid-column: span 3; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } .widget.w1, .widget.w2, .widget.w3 { grid-column: span 1; } }
+
+.w-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.w-acc { display: flex; align-items: center; gap: 2px; }
+.w-acc select { font-size: 11px; padding: 1px 3px; }
+.w-cfg { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.w-cfg .mini { width: 120px; }
+
+.kpis { display: flex; gap: 10px; flex-wrap: wrap; }
+.kpis .k { background: var(--bg-2, #eef3ef); border-radius: 8px; padding: 6px 12px; text-align: center; min-width: 78px; }
+.kpis .k b { display: block; font-size: 20px; }
+.kpis .k span { font-size: 10px; text-transform: uppercase; color: var(--text-dim); }
+.kpis .k.ok b { color: #1b8a3a; } .kpis .k.warn b { color: #e0a400; } .kpis .k.crit b { color: #d11d1d; }
+
+.sitios { display: flex; flex-direction: column; gap: 4px; max-height: 320px; overflow: auto; }
+.sitio { display: flex; justify-content: space-between; gap: 8px; border-left: 4px solid #ccc; padding: 3px 8px; font-size: 13px; background: var(--bg-2, #f4f7f4); border-radius: 0 6px 6px 0; }
+
+ul.inc { list-style: none; margin: 0; padding: 0; font-size: 13px; }
+ul.inc li { display: flex; gap: 6px; align-items: center; padding: 3px 0; border-bottom: 1px solid var(--border, #eee); }
+ul.inc .d { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+ul.inc .ti { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+ul.inc .ed { white-space: nowrap; font-variant-numeric: tabular-nums; }

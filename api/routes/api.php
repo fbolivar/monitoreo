@@ -18,6 +18,7 @@ use App\Http\Controllers\PushController;
 use App\Http\Controllers\RumController;
 use App\Http\Controllers\RunbookController;
 use App\Http\Controllers\VmController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ImportacionController;
 use App\Http\Controllers\IncidenciaController;
 use App\Http\Controllers\MapaController;
@@ -150,6 +151,11 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
     Route::get('traps', [TrapController::class, 'index']);
     // Eventos syslog recibidos (lectura).
     Route::get('syslog', [SyslogController::class, 'index']);
+    // Dashboards personalizables del usuario (CRUD propio).
+    Route::get('dashboards', [DashboardController::class, 'index']);
+    Route::post('dashboards', [DashboardController::class, 'store']);
+    Route::match(['put', 'patch'], 'dashboards/{id}', [DashboardController::class, 'update'])->whereNumber('id');
+    Route::delete('dashboards/{id}', [DashboardController::class, 'destroy'])->whereNumber('id');
 
     // Flujos de tráfico (NetFlow/IPFIX): top hablantes/destinos/apps/conversaciones.
     Route::get('flujos', [FlujoController::class, 'index']);

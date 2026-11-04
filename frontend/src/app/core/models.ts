@@ -100,6 +100,27 @@ export interface RelevoTurno {
   creado_at: string;
 }
 
+export type TipoWidget = 'kpis' | 'estado_sitio' | 'incidencias' | 'metrica' | 'syslog';
+export interface Widget {
+  tipo: TipoWidget;
+  titulo?: string;
+  ancho?: 1 | 2 | 3;
+  // metrica
+  recurso_id?: number;
+  metrica?: string;
+  rango?: '1h' | '24h' | '7d';
+  // incidencias / syslog
+  limite?: number;
+  severidad?: Severidad | '';
+}
+export interface Dashboard {
+  id: number;
+  nombre: string;
+  es_default: boolean;
+  widgets: Widget[];
+  updated_at?: string;
+}
+
 export interface ImpactoTopologia {
   es_nucleo: boolean;
   padre: { id: number; nombre: string; estado_actual: Estado; origen: 'manual' | 'topologia' } | null;
