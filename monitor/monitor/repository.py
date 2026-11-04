@@ -634,6 +634,76 @@ def marcar_escalada(db: Database, incidencia_id: int, ahora: datetime) -> None:
         cur.execute("UPDATE incidencias SET escalada_at = %s WHERE id = %s", (ahora, incidencia_id))
 
 
+# ── On-call / escalado multinivel (P0-2) ──────────────────────────────
+def politicas_escalado_activas(db: Database) -> list[dict[str, Any]]:
+    """Políticas activas con sus niveles (ordenados). [] si no hay (→ escalado simple)."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT id, nombre, severidad_min FROM politicas_escalado WHERE activo ORDER BY id")
+        pols = cur.fetchall()
+        if not pols:
+            return []
+        cur.execute(
+            "SELECT politica_id, orden, espera_min, destino_tipo, canal_id, turno_id, perfil_id "
+            "FROM escalado_niveles ORDER BY politica_id, orden"
+        )
+        niveles: dict[int, list] = {}
+        for n in cur.fetchall():
+            niveles.setdefault(n["politica_id"], []).append(dict(n))
+        return [{**dict(p), "niveles": niveles.get(p["id"], [])} for p in pols]
+
+
+def incidencias_abiertas_sin_reconocer(db: Database) -> list[dict[str, Any]]:
+    """Incidencias 'abierta' (no reconocidas) y no silenciadas, con su nivel_escalado,
+    para el motor multinivel (él decide qué nivel toca según el tiempo)."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            SELECT i.id, i.severidad, i.titulo, i.abierta_at, i.nivel_escalado,
+                   r.id AS rid, r.nombre, r.hostname, t.codigo AS tipo_codigo
+            FROM incidencias i
+            JOIN recursos r ON r.id = i.recurso_id
+            JOIN tipos_recurso t ON t.id = r.tipo_id
+            WHERE i.estado = 'abierta'
+              AND (i.silenciado_hasta IS NULL OR i.silenciado_hasta < now())
+            """,
+        )
+        return cur.fetchall()
+
+
+def marcar_nivel_escalado(db: Database, incidencia_id: int, nivel: int) -> None:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute("UPDATE incidencias SET nivel_escalado = %s, escalada_at = now() WHERE id = %s",
+                    (nivel, incidencia_id))
+
+
+def turno_guardia_email(db: Database, turno_id: int, ahora: datetime) -> tuple[str, str] | None:
+    """(email, nombre) del participante de guardia AHORA en el turno, o None."""
+    from .oncall import indice_guardia
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT rotacion_dias, inicio_at FROM turnos_oncall WHERE id = %s AND activo", (turno_id,))
+        t = cur.fetchone()
+        if not t:
+            return None
+        cur.execute(
+            "SELECT p.email, COALESCE(p.nombre, p.email) AS nombre "
+            "FROM turno_participantes tp JOIN perfiles p ON p.id = tp.perfil_id "
+            "WHERE tp.turno_id = %s ORDER BY tp.orden",
+            (turno_id,),
+        )
+        parts = cur.fetchall()
+        idx = indice_guardia(len(parts), int(t["rotacion_dias"]), t["inicio_at"], ahora)
+        if idx is None:
+            return None
+        return parts[idx]["email"], parts[idx]["nombre"]
+
+
+def perfil_email(db: Database, perfil_id: str) -> tuple[str, str] | None:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT email, COALESCE(nombre, email) AS nombre FROM perfiles WHERE id = %s", (perfil_id,))
+        r = cur.fetchone()
+        return (r["email"], r["nombre"]) if r else None
+
+
 # ── SNMP traps ────────────────────────────────────────────────────────
 def recurso_id_por_host(db: Database, ip: str) -> int | None:
     # Empareja por la IP ignorando el puerto del hostname (p.ej. '192.168.50.1:25443'

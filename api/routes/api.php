@@ -22,7 +22,9 @@ use App\Http\Controllers\ImportacionController;
 use App\Http\Controllers\IncidenciaController;
 use App\Http\Controllers\MapaController;
 use App\Http\Controllers\MantenimientoController;
+use App\Http\Controllers\PoliticaEscaladoController;
 use App\Http\Controllers\RelevoController;
+use App\Http\Controllers\TurnoOncallController;
 use App\Http\Controllers\MetricaController;
 use App\Http\Controllers\PerfilController;
 use App\Http\Controllers\PronosticoController;
@@ -182,6 +184,10 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
     Route::get('incidencias/{id}/notas', [IncidenciaController::class, 'notas'])->whereNumber('id');
     // Relevo de turno del NOC (lectura).
     Route::get('relevos', [RelevoController::class, 'index']);
+    // On-call / escalado (lectura).
+    Route::get('turnos-oncall', [TurnoOncallController::class, 'index']);
+    Route::get('turnos-oncall/{id}/guardia', [TurnoOncallController::class, 'guardia'])->whereNumber('id');
+    Route::get('politicas-escalado', [PoliticaEscaladoController::class, 'index']);
 
     // ── ESCRITURA de configuración: admin + operador ─────────────────
     Route::middleware('role:admin,operador')->group(function () use ($crud) {
@@ -215,6 +221,13 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
         Route::post('incidencias/acciones', [IncidenciaController::class, 'acciones']);
         // Registrar relevo de turno (handover).
         Route::post('relevos', [RelevoController::class, 'store']);
+        // On-call / escalado multinivel (gestión).
+        Route::post('turnos-oncall', [TurnoOncallController::class, 'store']);
+        Route::match(['put', 'patch'], 'turnos-oncall/{id}', [TurnoOncallController::class, 'update'])->whereNumber('id');
+        Route::delete('turnos-oncall/{id}', [TurnoOncallController::class, 'destroy'])->whereNumber('id');
+        Route::post('politicas-escalado', [PoliticaEscaladoController::class, 'store']);
+        Route::match(['put', 'patch'], 'politicas-escalado/{id}', [PoliticaEscaladoController::class, 'update'])->whereNumber('id');
+        Route::delete('politicas-escalado/{id}', [PoliticaEscaladoController::class, 'destroy'])->whereNumber('id');
 
         // Auto-descubrimiento: encolar barrido, alta/descartar candidatos.
         Route::post('descubrimiento', [DescubrimientoController::class, 'store']);

@@ -1,0 +1,150 @@
+<div class="head"><h1>Guardias y escalado</h1></div>
+@if (error()) { <p class="err">{{ error() }}</p> }
+
+<!-- ════════ TURNOS DE GUARDIA ════════ -->
+<section>
+  <div class="sec-h">
+    <h2>Turnos de guardia (on-call)</h2>
+    <button class="btn btn-primary btn-sm" (click)="nuevoTurno()">+ Nuevo turno</button>
+  </div>
+  <p class="text-dim nota">Rotación: cada N días pasa al siguiente participante. "De guardia" = a quién avisan los niveles tipo <i>turno</i>.</p>
+
+  @if (turnoEdit(); as t) {
+    <div class="card form">
+      <div class="grid">
+        <label>Nombre <input [(ngModel)]="t.nombre" name="tn" /></label>
+        <label>Rotación (días) <input type="number" min="1" [(ngModel)]="t.rotacion_dias" name="trd" /></label>
+        <label>Inicio de la rotación <input type="date" [(ngModel)]="t.inicio_at" name="tia" /></label>
+        <label class="check"><input type="checkbox" [(ngModel)]="t.activo" name="tac" /> Activo</label>
+      </div>
+      <div class="parts">
+        <b>Participantes (orden de rotación):</b>
+        <ol>
+          @for (p of t.participantes; track p.perfil_id; let i = $index) {
+            <li>
+              {{ nombrePerfil(p.perfil_id) }}
+              <span class="row-acc">
+                <button class="btn btn-xs" (click)="moverParticipante(i,-1)" [disabled]="i===0">↑</button>
+                <button class="btn btn-xs" (click)="moverParticipante(i,1)" [disabled]="i===(t.participantes!.length-1)">↓</button>
+                <button class="btn btn-xs" (click)="quitarParticipante(i)">✕</button>
+              </span>
+            </li>
+          }
+        </ol>
+        <div class="add">
+          <select [ngModel]="nuevoPerfil()" (ngModelChange)="nuevoPerfil.set($event)" name="np">
+            <option value="">Agregar participante…</option>
+            @for (u of usuarios(); track u.id) { <option [value]="u.id">{{ u.nombre || u.email }}</option> }
+          </select>
+          <button class="btn btn-sm" (click)="addParticipante()" [disabled]="!nuevoPerfil()">Agregar</button>
+        </div>
+      </div>
+      <div class="acciones">
+        <button class="btn btn-primary" (click)="guardarTurno()">Guardar</button>
+        <button class="btn" (click)="turnoEdit.set(null)">Cancelar</button>
+      </div>
+    </div>
+  }
+
+  @if (turnos().length) {
+    <table>
+      <thead><tr><th>Turno</th><th>Rotación</th><th>De guardia ahora</th><th>Participantes</th><th>Activo</th><th></th></tr></thead>
+      <tbody>
+        @for (t of turnos(); track t.id) {
+          <tr>
+            <td><b>{{ t.nombre }}</b></td>
+            <td>cada {{ t.rotacion_dias }} d</td>
+            <td>@if (t.guardia) { <span class="guardia">🟢 {{ t.guardia.nombre || t.guardia.email }}</span> } @else { <span class="text-dim">—</span> }</td>
+            <td class="text-dim">{{ (t.participantes || []).length }}</td>
+            <td>{{ t.activo ? 'Sí' : 'No' }}</td>
+            <td class="acc">
+              <button class="btn btn-xs" (click)="editarTurno(t)">Editar</button>
+              <button class="btn btn-xs" (click)="eliminarTurno(t)">Eliminar</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  } @else { <p class="text-dim">Sin turnos definidos.</p> }
+</section>
+
+<!-- ════════ POLÍTICAS DE ESCALADO ════════ -->
+<section>
+  <div class="sec-h">
+    <h2>Políticas de escalado multinivel</h2>
+    <button class="btn btn-primary btn-sm" (click)="nuevaPolitica()">+ Nueva política</button>
+  </div>
+  <p class="text-dim nota">Si una alarma (de la severidad indicada o mayor) no se reconoce, se avisa por niveles: a los X min al destino 1; si sigue sin reconocer, al destino 2; y así.</p>
+
+  @if (polEdit(); as p) {
+    <div class="card form">
+      <div class="grid">
+        <label>Nombre <input [(ngModel)]="p.nombre" name="pn" /></label>
+        <label>Severidad mínima
+          <select [(ngModel)]="p.severidad_min" name="psev">
+            <option value="info">Info</option><option value="warning">Warning</option><option value="critical">Crítica</option>
+          </select>
+        </label>
+        <label class="check"><input type="checkbox" [(ngModel)]="p.activo" name="pac" /> Activa</label>
+      </div>
+      <div class="niveles">
+        <b>Niveles:</b>
+        @for (n of p.niveles; track $index; let i = $index) {
+          <div class="nivel">
+            <span class="nlbl">Nivel {{ i + 1 }}</span>
+            <label>a los <input type="number" min="0" class="mini" [(ngModel)]="n.espera_min" [name]="'ne'+i" /> min</label>
+            <select [(ngModel)]="n.destino_tipo" [name]="'nd'+i">
+              <option value="canal">Canal</option><option value="turno">Turno de guardia</option><option value="usuario">Usuario</option>
+            </select>
+            @if (n.destino_tipo === 'canal') {
+              <select [(ngModel)]="n.canal_id" [name]="'nc'+i">
+                <option [ngValue]="null">— canal —</option>
+                @for (c of canales(); track c.id) { <option [ngValue]="c.id">{{ c.nombre }} ({{ c.tipo }})</option> }
+              </select>
+            } @else if (n.destino_tipo === 'turno') {
+              <select [(ngModel)]="n.turno_id" [name]="'nt'+i">
+                <option [ngValue]="null">— turno —</option>
+                @for (t of turnos(); track t.id) { <option [ngValue]="t.id">{{ t.nombre }}</option> }
+              </select>
+            } @else {
+              <select [(ngModel)]="n.perfil_id" [name]="'nu'+i">
+                <option [ngValue]="null">— usuario —</option>
+                @for (u of usuarios(); track u.id) { <option [ngValue]="u.id">{{ u.nombre || u.email }}</option> }
+              </select>
+            }
+            <button class="btn btn-xs" (click)="quitarNivel(i)">✕</button>
+          </div>
+        }
+        <button class="btn btn-sm" (click)="addNivel()">+ Nivel</button>
+      </div>
+      <div class="acciones">
+        <button class="btn btn-primary" (click)="guardarPolitica()">Guardar</button>
+        <button class="btn" (click)="polEdit.set(null)">Cancelar</button>
+      </div>
+    </div>
+  }
+
+  @if (politicas().length) {
+    <table>
+      <thead><tr><th>Política</th><th>Severidad ≥</th><th>Niveles</th><th>Activa</th><th></th></tr></thead>
+      <tbody>
+        @for (p of politicas(); track p.id) {
+          <tr>
+            <td><b>{{ p.nombre }}</b></td>
+            <td>{{ sevLabel(p.severidad_min) }}</td>
+            <td class="niv-resumen">
+              @for (n of p.niveles; track $index) {
+                <span class="chip">{{ n.espera_min }}m → {{ destinoTexto(n) }}</span>
+              }
+            </td>
+            <td>{{ p.activo ? 'Sí' : 'No' }}</td>
+            <td class="acc">
+              <button class="btn btn-xs" (click)="editarPolitica(p)">Editar</button>
+              <button class="btn btn-xs" (click)="eliminarPolitica(p)">Eliminar</button>
+            </td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  } @else { <p class="text-dim">Sin políticas. Mientras no haya ninguna, el escalado usa el recordatorio simple por tiempo.</p> }
+</section>

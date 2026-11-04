@@ -96,6 +96,37 @@ export interface RelevoTurno {
   creado_at: string;
 }
 
+export interface TurnoParticipante { perfil_id: string; orden?: number; nombre?: string | null; email?: string; }
+export interface TurnoOncall {
+  id: number;
+  nombre: string;
+  activo: boolean;
+  rotacion_dias: number;
+  inicio_at: string;
+  participantes?: TurnoParticipante[];
+  guardia?: { perfil_id: string; nombre?: string | null; email?: string } | null;
+}
+export interface NivelEscalado {
+  orden?: number;
+  espera_min: number;
+  destino_tipo: 'canal' | 'turno' | 'usuario';
+  canal_id?: number | null;
+  turno_id?: number | null;
+  perfil_id?: string | null;
+  canal_nombre?: string | null;
+  turno_nombre?: string | null;
+  usuario_nombre?: string | null;
+  usuario_email?: string | null;
+}
+export interface PoliticaEscalado {
+  id: number;
+  nombre: string;
+  activo: boolean;
+  severidad_min: Severidad;
+  descripcion?: string | null;
+  niveles: NivelEscalado[];
+}
+
 export interface Interfaz {
   recurso_id: number;
   if_index: number;

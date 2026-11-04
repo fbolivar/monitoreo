@@ -837,8 +837,94 @@ def _ejecutar_escaneo(db: Database, settings: Settings, e: dict) -> None:
     log.info("Descubrimiento %s: %d vivos, %d candidatos en %s", e["id"], len(vivos), candidatos, e["subred"])
 
 
+_SEV_ORDEN = {"info": 1, "warning": 2, "critical": 3}
+
+
 def escalar_incidencias(db: Database, settings: Settings) -> None:
-    """Job periódico: escala incidencias 'abierta' no reconocidas a tiempo (on-call)."""
+    """Job periódico de escalado (on-call). Si hay políticas de escalado activas usa
+    el motor MULTINIVEL; si no, cae al escalado simple por ESCALATION_MIN."""
+    politicas = repo.politicas_escalado_activas(db)
+    if not politicas:
+        return _escalado_simple(db, settings)
+    _escalado_multinivel(db, settings, politicas)
+
+
+def _politica_para(politicas: list[dict], severidad: str) -> dict | None:
+    """La política aplicable: la más específica (mayor severidad_min) que cubra
+    esta severidad (severidad >= severidad_min)."""
+    sev = _SEV_ORDEN.get(severidad, 0)
+    candidatas = [p for p in politicas if _SEV_ORDEN.get(p["severidad_min"], 0) <= sev]
+    if not candidatas:
+        return None
+    return max(candidatas, key=lambda p: _SEV_ORDEN.get(p["severidad_min"], 0))
+
+
+def _escalado_multinivel(db: Database, settings: Settings, politicas: list[dict]) -> None:
+    from . import oncall
+    from .notificaciones import motor, senders
+
+    ahora = datetime.now(timezone.utc)
+    canal_email = None
+    if settings.app_crypto_key:
+        canal_email = next((c for c in repo.canales_activos(db, settings.app_crypto_key)
+                            if c.tipo == "email"), None)
+
+    for inc in repo.incidencias_abiertas_sin_reconocer(db):
+        pol = _politica_para(politicas, inc["severidad"])
+        if not pol or not pol["niveles"]:
+            continue
+        elapsed_min = (ahora - inc["abierta_at"]).total_seconds() / 60.0
+        nivel = oncall.nivel_a_disparar(pol["niveles"], elapsed_min, inc["nivel_escalado"])
+        if not nivel:
+            continue
+
+        recurso = Recurso(id=inc["rid"], nombre=inc["nombre"], hostname=inc["hostname"],
+                          tipo_codigo=inc["tipo_codigo"], protocolo_default="")
+        titulo = (f"Escalado nivel {nivel['orden']} (sin reconocer {int(elapsed_min)} min): "
+                  f"{inc['titulo']}")
+        msg = motor.construir_mensaje("escalada_tiempo", recurso, inc["severidad"], titulo)
+        enviado = _entregar_nivel(db, settings, inc["id"], nivel, msg, ahora, canal_email, senders)
+        if enviado:
+            log.warning("Incidencia %s escalada a nivel %s (%s)", inc["id"], nivel["orden"],
+                        nivel["destino_tipo"])
+        repo.marcar_nivel_escalado(db, inc["id"], nivel["orden"])
+
+
+def _entregar_nivel(db, settings, incidencia_id, nivel, msg, ahora, canal_email, senders) -> bool:
+    """Entrega el aviso del nivel según su destino (canal / turno de guardia / usuario)."""
+    tipo = nivel["destino_tipo"]
+    if tipo == "canal" and nivel.get("canal_id"):
+        canal = repo.canal_por_id(db, nivel["canal_id"], settings.app_crypto_key)
+        if not canal:
+            return False
+        ok, error, destino = senders.enviar(canal, msg)
+        repo.registrar_notificacion(db, incidencia_id, canal.id,
+                                    "enviada" if ok else "fallida", destino, msg, 1, error)
+        return ok
+
+    # turno / usuario -> correo a la persona (de guardia o indicada).
+    objetivo = None
+    if tipo == "turno" and nivel.get("turno_id"):
+        objetivo = repo.turno_guardia_email(db, nivel["turno_id"], ahora)
+    elif tipo == "usuario" and nivel.get("perfil_id"):
+        objetivo = repo.perfil_email(db, nivel["perfil_id"])
+    if not objetivo or not canal_email:
+        if not canal_email:
+            log.warning("Escalado a %s sin canal email activo; no se puede avisar.", tipo)
+        return False
+
+    email, _nombre = objetivo
+    import copy
+    canal = copy.copy(canal_email)
+    canal.config = {**(canal_email.config or {}), "destinatarios": [email]}
+    ok, error, destino = senders.enviar(canal, msg)
+    repo.registrar_notificacion(db, incidencia_id, canal_email.id,
+                                "enviada" if ok else "fallida", destino, msg, 1, error)
+    return ok
+
+
+def _escalado_simple(db: Database, settings: Settings) -> None:
+    """Escalado de un solo nivel por ESCALATION_MIN (comportamiento histórico)."""
     if not settings.escalation_min or settings.escalation_min <= 0:
         return
     ahora = datetime.now(timezone.utc)

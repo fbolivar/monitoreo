@@ -40,6 +40,11 @@ export const routes: Routes = [
         loadComponent: () => import('./features/consola/consola').then((m) => m.Consola),
       },
       {
+        path: 'guardias',
+        canActivate: [adminGuard],
+        loadComponent: () => import('./features/guardias/guardias').then((m) => m.Guardias),
+      },
+      {
         path: 'incidencias',
         loadComponent: () => import('./features/incidencias/incidencias').then((m) => m.Incidencias),
       },

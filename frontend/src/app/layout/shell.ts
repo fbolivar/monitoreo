@@ -44,6 +44,7 @@ import { PushService } from '../core/push.service';
           <a routerLink="/wallboard">Tablero NOC ↗</a>
           <a routerLink="/configuracion" routerLinkActive="active">Configuración</a>
           @if (auth.esAdmin()) {
+            <a routerLink="/guardias" routerLinkActive="active">Guardias</a>
             <a routerLink="/agentes" routerLinkActive="active">Agentes</a>
             <a routerLink="/usuarios" routerLinkActive="active">Usuarios</a>
             <a routerLink="/auditoria" routerLinkActive="active">Auditoría</a>

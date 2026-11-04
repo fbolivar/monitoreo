@@ -594,6 +594,20 @@ hardware Redfish (Dell R640 en id 24), sintéticos (transacción 2 pasos), backu
     silenciar/resolver/ver) y panel de **relevo de turno** (registrar + historial). Incidencias sigue
     como vista de registro/histórico.
 
+- ✅ ON-CALL / ESCALADO MULTINIVEL (NOC P0-2) (2026-11-03) [migr. 0046] — worker 258 tests + `ng build` OK.
+  Escalado tipo PagerDuty/Opsgenie sobre el motor existente.
+  - **BD** migr. 0046: `turnos_oncall` + `turno_participantes` (rotación de N días), `politicas_escalado`
+    + `escalado_niveles` (nivel = espera_min + destino canal|turno|usuario), `incidencias.nivel_escalado`.
+  - **Worker**: `oncall.py` puro (`indice_guardia` rotación, `nivel_a_disparar`). El job `escalar_incidencias`
+    pasa a MULTINIVEL si hay políticas activas (si no, mantiene el recordatorio simple por ESCALATION_MIN).
+    Elige política por severidad, calcula el nivel por minutos sin reconocer, y entrega al destino: canal
+    (sender directo), turno (correo al de guardia ahora) o usuario (correo). Respeta reconocida/silenciada.
+  - **API**: `TurnoOncallController` (CRUD + participantes + `/guardia` = quién está de guardia) y
+    `PoliticaEscaladoController` (CRUD + niveles, valida destino↔id). Lectura auth, escritura admin/operador.
+  - **UI**: pantalla **Guardias** (`/guardias`, admin): turnos con rotación/participantes y 'de guardia ahora';
+    políticas con editor de niveles (espera + destino). MVP: overrides de turno y contactos multicanal por
+    usuario = follow-up (hoy turno/usuario avisan por correo).
+
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.
 
