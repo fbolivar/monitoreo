@@ -278,7 +278,7 @@ def registrar_tareas_internas(scheduler: BackgroundScheduler, db: Database, sett
 
     # Purga según retención (03:30).
     scheduler.add_job(repo.purgar_datos, CronTrigger(hour=3, minute=30),
-                      args=[db, settings.interfaces_hist_retencion_dias],
+                      args=[db, settings.interfaces_hist_retencion_dias, settings.syslog_retencion_dias],
                       id="purga", replace_existing=True)
     # Respaldo de configuración de firewalls (02:00). Guarda solo si cambió.
     scheduler.add_job(respaldar_configuraciones, CronTrigger(hour=2, minute=0), args=[db, settings],

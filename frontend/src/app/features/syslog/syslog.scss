@@ -1,0 +1,11 @@
+.head { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 8px 0 12px; flex-wrap: wrap; }
+.filtros { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.filtros input[type=search] { min-width: 240px; }
+.filtros .check { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--text-dim); }
+
+table.syslog { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+table.syslog th, table.syslog td { padding: 4px 8px; border-bottom: 1px solid var(--border, #e4ece6); text-align: left; vertical-align: top; }
+table.syslog th { font-size: 11px; text-transform: uppercase; color: var(--text-dim); }
+.mono { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sevdot { display: inline-block; width: 11px; height: 11px; border-radius: 50%; }
+.msg { font-family: ui-monospace, Consolas, monospace; font-size: 12px; word-break: break-word; }

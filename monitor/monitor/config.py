@@ -153,6 +153,17 @@ class Settings:
     trap_port: int = _int("TRAP_PORT", 162)
     trap_community: str = os.getenv("TRAP_COMMUNITY", "public")
 
+    # Receptor de SYSLOG (servicio aparte: syslog_listener.py). UDP/514.
+    syslog_enabled: bool = _bool("SYSLOG_ENABLED", True)
+    syslog_bind: str = os.getenv("SYSLOG_BIND", "0.0.0.0")
+    syslog_port: int = _int("SYSLOG_PORT", 514)
+    syslog_retencion_dias: int = _int("SYSLOG_RETENCION_DIAS", 15)
+    # Aviso opcional por syslog (OFF por defecto: el syslog inunda). Si se activa,
+    # un mensaje 'critical' de un recurso mapeado dispara un aviso (notificar_simple)
+    # con un cooldown por recurso para no spamear.
+    syslog_alert_enabled: bool = _bool("SYSLOG_ALERT_ENABLED", False)
+    syslog_alert_cooldown_seg: int = _int("SYSLOG_ALERT_COOLDOWN_SEG", 900)
+
     # Colector NetFlow/IPFIX (servicio aparte: netflow_listener.py). Recibe los
     # flujos exportados por el FortiGate/switches y guarda el TOP-N por ventana.
     netflow_enabled: bool = _bool("NETFLOW_ENABLED", True)

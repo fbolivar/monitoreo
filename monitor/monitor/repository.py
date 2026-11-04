@@ -717,6 +717,22 @@ def recurso_id_por_host(db: Database, ip: str) -> int | None:
         return row["id"] if row else None
 
 
+def guardar_syslog(db: Database, source_ip: str | None, recurso_id: int | None,
+                   datos: dict) -> None:
+    """Inserta un evento syslog ya parseado (dict de syslog_parse.parse_syslog)."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            INSERT INTO syslog_eventos
+                (source_ip, recurso_id, facility, severidad_syslog, severidad, hostname, app, mensaje)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (source_ip, recurso_id, datos.get("facility"), datos.get("severidad_syslog"),
+             datos.get("severidad", "info"), datos.get("hostname"), datos.get("app"),
+             (datos.get("mensaje") or "")[:8000]),
+        )
+
+
 def guardar_trap(db: Database, source_ip: str | None, recurso_id: int | None, trap_oid: str | None,
                  nombre: str | None, severidad: str, descripcion: str | None,
                  varbinds: dict) -> None:
@@ -1250,7 +1266,7 @@ def rollup_diario(db: Database) -> None:
 RET_METRICAS_DIAS = 15
 
 
-def purgar_datos(db: Database, interfaces_hist_dias: int = 35) -> dict[str, Any]:
+def purgar_datos(db: Database, interfaces_hist_dias: int = 35, syslog_dias: int = 15) -> dict[str, Any]:
     with db.connection() as conn, conn.cursor() as cur:
         cur.execute("SELECT fn_purgar_datos() AS r")
         r = cur.fetchone()["r"]
@@ -1267,6 +1283,9 @@ def purgar_datos(db: Database, interfaces_hist_dias: int = 35) -> dict[str, Any]
         cur.execute("DELETE FROM flujo_totales WHERE ventana_fin < now() - interval '7 days'")
         # Calidad WAN: retención media (30 días).
         cur.execute("DELETE FROM wan_calidad WHERE ts < now() - interval '30 days'")
+        # Syslog: alta rotación -> retención corta y configurable.
+        cur.execute("DELETE FROM syslog_eventos WHERE ts < now() - make_interval(days => %s)",
+                    (max(1, int(syslog_dias)),))
 
         # Particiones de métricas ya fuera de retención: DROP.
         # Ojo: borrar filas NO devuelve el espacio al disco (quedan páginas muertas);

@@ -53,6 +53,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/traps/traps').then((m) => m.Traps),
       },
       {
+        path: 'syslog',
+        loadComponent: () => import('./features/syslog/syslog').then((m) => m.Syslog),
+      },
+      {
         path: 'descubrimiento',
         canActivate: [editorGuard],
         loadComponent: () =>

@@ -96,6 +96,20 @@ export interface RelevoTurno {
   creado_at: string;
 }
 
+export interface SyslogEvento {
+  id: number;
+  ts: string;
+  source_ip: string | null;
+  recurso_id: number | null;
+  recurso_nombre?: string | null;
+  facility: number | null;
+  severidad_syslog: number | null;
+  severidad: Severidad;
+  hostname: string | null;
+  app: string | null;
+  mensaje: string | null;
+}
+
 export interface TurnoParticipante { perfil_id: string; orden?: number; nombre?: string | null; email?: string; }
 export interface TurnoOncall {
   id: number;

@@ -1,0 +1,40 @@
+<div class="head">
+  <h1>Syslog <span class="text-dim">({{ total() }})</span></h1>
+  <div class="filtros">
+    <input type="search" placeholder="Buscar en mensaje/host/app…" [ngModel]="fTexto()"
+           (ngModelChange)="fTexto.set($event)" (keyup.enter)="cargar()" />
+    <select [ngModel]="fSeveridad()" (ngModelChange)="fSeveridad.set($event); cargar()">
+      <option value="">Toda severidad</option>
+      <option value="critical">Crítica</option>
+      <option value="warning">Warning</option>
+      <option value="info">Info</option>
+    </select>
+    <button class="btn" (click)="cargar()">Buscar</button>
+    <label class="check"><input type="checkbox" [ngModel]="auto()" (ngModelChange)="auto.set($event)" /> Auto 15s</label>
+  </div>
+</div>
+
+@if (cargando()) {
+  <p class="text-dim">Cargando…</p>
+} @else if (eventos().length === 0) {
+  <p class="text-dim">Sin eventos syslog. (El servicio simon-syslog escucha en UDP/514; apunta tus equipos a este servidor.)</p>
+} @else {
+  <table class="syslog">
+    <thead><tr><th>Hora</th><th>Sev</th><th>Origen</th><th>Host</th><th>App</th><th>Mensaje</th></tr></thead>
+    <tbody>
+      @for (e of eventos(); track e.id) {
+        <tr>
+          <td class="mono">{{ fecha(e.ts) }}</td>
+          <td><span class="sevdot" [style.background]="colorSev(e.severidad)" [title]="e.severidad"></span></td>
+          <td>
+            @if (e.recurso_id) { <a [routerLink]="['/recursos', e.recurso_id]">{{ e.recurso_nombre }}</a> }
+            @else { <span class="text-dim">{{ e.source_ip || '—' }}</span> }
+          </td>
+          <td class="text-dim">{{ e.hostname || '—' }}</td>
+          <td>{{ e.app || '—' }}</td>
+          <td class="msg">{{ e.mensaje }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

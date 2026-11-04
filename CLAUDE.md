@@ -608,6 +608,16 @@ hardware Redfish (Dell R640 en id 24), sintéticos (transacción 2 pasos), backu
     políticas con editor de niveles (espera + destino). MVP: overrides de turno y contactos multicanal por
     usuario = follow-up (hoy turno/usuario avisan por correo).
 
+- ✅ INGESTA DE SYSLOG (NOC P0-3) (2026-11-03) [migr. 0047] — worker 264 tests + `ng build` OK.
+  Servicio systemd aparte **simon-syslog** (`monitor/syslog_listener.py`, asyncio UDP/514) que parsea
+  RFC3164/5424 (parser PURO `monitor/syslog_parse.py`), mapea IP→recurso (`recurso_id_por_host`),
+  clasifica severidad (syslog 0-7 → info/warning/critical) y persiste en `syslog_eventos` [migr. 0047,
+  retención `SYSLOG_RETENCION_DIAS`=15 vía purga]. Aviso opcional OFF por defecto (`SYSLOG_ALERT_ENABLED`):
+  un msg 'critical' de recurso mapeado dispara `notificar_simple` con cooldown por recurso.
+  API `GET /syslog` (filtros recurso/severidad/texto/desde, alcance). UI pantalla **Syslog** (`/syslog`,
+  nav) con búsqueda + autorrefresco 15s. Deploy: `infra/deploy/simon-syslog.service` + ufw 514/udp.
+  Pendiente (follow-up): reglas patrón→incidencia (como linkDown de traps).
+
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.
 

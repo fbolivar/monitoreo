@@ -36,6 +36,7 @@ use App\Http\Controllers\ReporteProgramadoController;
 use App\Http\Controllers\ServicioController;
 use App\Http\Controllers\SitioController;
 use App\Http\Controllers\TopologiaController;
+use App\Http\Controllers\SyslogController;
 use App\Http\Controllers\TrapController;
 use App\Http\Controllers\TipoRecursoController;
 use App\Http\Controllers\UmbralController;
@@ -145,6 +146,8 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
 
     // SNMP traps recibidos (lectura).
     Route::get('traps', [TrapController::class, 'index']);
+    // Eventos syslog recibidos (lectura).
+    Route::get('syslog', [SyslogController::class, 'index']);
 
     // Flujos de tráfico (NetFlow/IPFIX): top hablantes/destinos/apps/conversaciones.
     Route::get('flujos', [FlujoController::class, 'index']);
