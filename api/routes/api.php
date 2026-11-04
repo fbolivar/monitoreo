@@ -22,6 +22,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ImportacionController;
 use App\Http\Controllers\IncidenciaController;
 use App\Http\Controllers\MapaController;
+use App\Http\Controllers\MapaPersonalizadoController;
 use App\Http\Controllers\MantenimientoController;
 use App\Http\Controllers\PoliticaEscaladoController;
 use App\Http\Controllers\RelevoController;
@@ -121,6 +122,9 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
     Route::get('recursos/{id}/impacto', [RecursoController::class, 'impacto'])->whereNumber('id');
     // Mapa geográfico: enlaces (con coords y estado) + sedes. Ligero, para miles de puntos.
     Route::get('mapa', [MapaController::class, 'index']);
+    // Mapas personalizados (lienzos): lectura.
+    Route::get('mapas', [MapaPersonalizadoController::class, 'index']);
+    Route::get('mapas/{id}', [MapaPersonalizadoController::class, 'show'])->whereNumber('id');
 
     // Reportes (lectura): disponibilidad/SLA por recurso en un periodo.
     Route::get('reportes/disponibilidad', [ReporteController::class, 'disponibilidad']);
@@ -239,6 +243,10 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
         Route::post('syslog-reglas', [SyslogReglaController::class, 'store']);
         Route::match(['put', 'patch'], 'syslog-reglas/{id}', [SyslogReglaController::class, 'update'])->whereNumber('id');
         Route::delete('syslog-reglas/{id}', [SyslogReglaController::class, 'destroy'])->whereNumber('id');
+        // Mapas personalizados (gestión).
+        Route::post('mapas', [MapaPersonalizadoController::class, 'store']);
+        Route::match(['put', 'patch'], 'mapas/{id}', [MapaPersonalizadoController::class, 'update'])->whereNumber('id');
+        Route::delete('mapas/{id}', [MapaPersonalizadoController::class, 'destroy'])->whereNumber('id');
         // On-call / escalado multinivel (gestión).
         Route::post('turnos-oncall', [TurnoOncallController::class, 'store']);
         Route::match(['put', 'patch'], 'turnos-oncall/{id}', [TurnoOncallController::class, 'update'])->whereNumber('id');

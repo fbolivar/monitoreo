@@ -1,0 +1,24 @@
+.head { display: flex; align-items: center; gap: 18px; margin: 8px 0 12px; flex-wrap: wrap; }
+.toolbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.leyenda { display: flex; gap: 12px; font-size: 12px; color: var(--text-dim); margin-left: auto; }
+.leyenda i { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+.btn-sm { padding: 3px 9px; font-size: 12px; }
+.vacio { padding: 20px; font-size: 15px; }
+
+.editor { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 8px 12px; margin-bottom: 8px; }
+.editor label { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-dim); }
+.editor .mini { width: 70px; } .editor .url { width: 220px; }
+.editor .sep { width: 1px; height: 22px; background: var(--border, #cfe3d4); margin: 0 4px; }
+.hint { font-size: 12px; margin: 2px 0 8px; }
+
+.lienzo { padding: 0; overflow: hidden; }
+.lienzo svg { width: 100%; height: auto; display: block; background: var(--bg-2, #f4f7f4); touch-action: none; }
+.lienzo svg.editando { cursor: default; }
+.enlace { stroke: #8aa; stroke-width: 2; }
+.nodo { stroke: #fff; stroke-width: 2; }
+g.editable .nodo { cursor: grab; }
+g.sel .nodo { stroke: #111; stroke-width: 3; }
+.pulso { opacity: .3; transform-origin: center; transform-box: fill-box; animation: pm 1.6s ease-out infinite; }
+@keyframes pm { from { transform: scale(.7); opacity: .5; } to { transform: scale(1.5); opacity: 0; } }
+.etq { font-size: 13px; text-anchor: middle; fill: var(--text, #1a2b21); paint-order: stroke; stroke: #fff; stroke-width: 3px; }
+.etq.texto { font-weight: 700; font-size: 15px; }

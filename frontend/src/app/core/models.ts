@@ -100,6 +100,27 @@ export interface RelevoTurno {
   creado_at: string;
 }
 
+export interface NodoMapa {
+  id: string;
+  tipo: 'recurso' | 'texto';
+  recurso_id?: number | null;
+  etiqueta?: string;
+  x: number;
+  y: number;
+}
+export interface EnlaceMapaCustom { a: string; b: string; }
+export interface MapaLayout { nodos: NodoMapa[]; enlaces: EnlaceMapaCustom[]; }
+export interface MapaResumen { id: number; nombre: string; updated_at?: string; }
+export interface MapaPersonalizado {
+  id: number;
+  nombre: string;
+  fondo_url?: string | null;
+  ancho: number;
+  alto: number;
+  layout: MapaLayout;
+  updated_at?: string;
+}
+
 export type TipoWidget = 'kpis' | 'estado_sitio' | 'incidencias' | 'metrica' | 'syslog';
 export interface Widget {
   tipo: TipoWidget;

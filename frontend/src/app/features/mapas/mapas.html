@@ -1,0 +1,87 @@
+<div class="head">
+  <h1>Mapas</h1>
+  <div class="toolbar">
+    @if (lista().length) {
+      <select [ngModel]="mapa()?.id" (ngModelChange)="abrir(+$event)">
+        @for (m of lista(); track m.id) { <option [ngValue]="m.id">{{ m.nombre }}</option> }
+      </select>
+    }
+    @if (auth.puedeEditar()) {
+      <button class="btn btn-sm" (click)="nuevoMapa()">+ Mapa</button>
+      @if (mapa()) {
+        <button class="btn btn-sm" [class.btn-primary]="editando()" (click)="editando.set(!editando()); seleccion.set(null)">
+          {{ editando() ? 'Ver' : 'Editar' }}
+        </button>
+      }
+    }
+  </div>
+  <div class="leyenda">
+    <span><i style="background:#1b8a3a"></i>Operativo</span>
+    <span><i style="background:#e0a400"></i>Degradado</span>
+    <span><i style="background:#d11d1d"></i>Caído</span>
+    <span><i style="background:#9aa0a6"></i>Sin datos</span>
+  </div>
+</div>
+
+@if (!mapa()) {
+  <p class="text-dim vacio">No hay mapas. @if (auth.puedeEditar()) { Crea uno con "+ Mapa". }</p>
+} @else {
+  @if (mapa(); as m) {
+    @if (editando()) {
+      <div class="editor card">
+        <label>Nombre <input [(ngModel)]="m.nombre" /></label>
+        <label>Fondo (URL) <input [(ngModel)]="m.fondo_url" placeholder="https://… (opcional)" class="url" /></label>
+        <label>Ancho <input type="number" [(ngModel)]="m.ancho" min="200" max="8000" class="mini" /></label>
+        <label>Alto <input type="number" [(ngModel)]="m.alto" min="200" max="8000" class="mini" /></label>
+        <span class="sep"></span>
+        <select [ngModel]="nuevoRecurso()" (ngModelChange)="nuevoRecurso.set($event)">
+          <option value="">+ recurso…</option>
+          @for (r of recursosOrdenados(); track r.id) { <option [ngValue]="r.id">{{ r.nombre }}</option> }
+        </select>
+        <button class="btn btn-sm" (click)="addRecurso()" [disabled]="nuevoRecurso()===''">Añadir</button>
+        <button class="btn btn-sm" (click)="addTexto()">+ texto</button>
+        <button class="btn btn-sm" [class.btn-primary]="modo()==='conectar'"
+                (click)="modo.set(modo()==='conectar'?'mover':'conectar'); conectarDesde.set(null)">
+          {{ modo()==='conectar' ? 'Conectando…' : 'Conectar' }}
+        </button>
+        @if (seleccion()) { <button class="btn btn-sm" (click)="eliminarNodo()">Eliminar nodo</button> }
+        <span class="sep"></span>
+        <button class="btn btn-sm btn-primary" (click)="guardar()">Guardar</button>
+        <button class="btn btn-sm" (click)="eliminarMapa()">Eliminar mapa</button>
+      </div>
+      @if (modo()==='conectar') { <p class="text-dim hint">Clic en dos nodos para unirlos. En modo mover, arrastra los nodos; clic para seleccionar.</p> }
+    }
+
+    <div class="lienzo card">
+      <svg [attr.viewBox]="'0 0 ' + m.ancho + ' ' + m.alto" preserveAspectRatio="xMidYMid meet"
+           (pointermove)="pMove($event)" [class.editando]="editando()">
+        @if (m.fondo_url) {
+          <image [attr.href]="m.fondo_url" x="0" y="0" [attr.width]="m.ancho" [attr.height]="m.alto"
+                 preserveAspectRatio="xMidYMid meet" opacity="0.9" />
+        }
+        <!-- Enlaces -->
+        @for (e of m.layout.enlaces; track $index) {
+          @if (nodo(e.a); as a) { @if (nodo(e.b); as b) {
+            <line [attr.x1]="a.x" [attr.y1]="a.y" [attr.x2]="b.x" [attr.y2]="b.y" class="enlace" />
+          } }
+        }
+        <!-- Nodos -->
+        @for (n of m.layout.nodos; track n.id) {
+          <g [class.sel]="seleccion()===n.id" [class.editable]="editando()"
+             (pointerdown)="pDown($event, n)" (pointerup)="pUp($event, n)">
+            @if (n.tipo === 'recurso') {
+              @if (estadoNodo(n)==='down' || estadoNodo(n)==='degraded') {
+                <circle [attr.cx]="n.x" [attr.cy]="n.y" r="20" [attr.fill]="color(estadoNodo(n))" class="pulso" />
+              }
+              <circle [attr.cx]="n.x" [attr.cy]="n.y" r="13" [attr.fill]="color(estadoNodo(n))" class="nodo" />
+            } @else {
+              <rect [attr.x]="n.x - 4" [attr.y]="n.y - 10" width="8" height="8" fill="transparent" />
+            }
+            <text [attr.x]="n.x" [attr.y]="n.tipo==='recurso' ? n.y + 28 : n.y" class="etq"
+                  [class.texto]="n.tipo==='texto'">{{ etiquetaNodo(n) }}</text>
+          </g>
+        }
+      </svg>
+    </div>
+  }
+}

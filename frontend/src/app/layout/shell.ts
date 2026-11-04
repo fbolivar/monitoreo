@@ -28,6 +28,7 @@ import { PushService } from '../core/push.service';
           }
           <a routerLink="/sitios" routerLinkActive="active">Sitios</a>
           <a routerLink="/topologia" routerLinkActive="active">Topología</a>
+          <a routerLink="/mapas" routerLinkActive="active">Mapas</a>
           <a routerLink="/flujos" routerLinkActive="active">Flujos</a>
           <a routerLink="/servicios" routerLinkActive="active">Servicios</a>
           <a routerLink="/consola" routerLinkActive="active">Consola</a>

@@ -112,6 +112,10 @@ export const routes: Routes = [
         redirectTo: 'topologia',
       },
       {
+        path: 'mapas',
+        loadComponent: () => import('./features/mapas/mapas').then((m) => m.Mapas),
+      },
+      {
         path: 'servicios',
         loadComponent: () => import('./features/servicios/servicios').then((m) => m.Servicios),
       },

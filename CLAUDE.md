@@ -655,6 +655,16 @@ hardware Redfish (Dell R640 en id 24), sintéticos (transacción 2 pasos), backu
   - **API**: `SyslogReglaController` CRUD (admin/operador, valida regex con preg_match).
   - **UI**: panel 'Reglas →incidencia' en la pantalla Syslog (lista + editor inline).
 
+- ✅ MAPAS PERSONALIZADOS (2026-11-03) [migr. 0051] — `ng build` OK. Estilo Network Atlas / PRTG maps:
+  lienzos con nodos (recursos/texto) + enlaces y fondo opcional, con **semáforo en vivo** por nodo.
+  - **BD** migr. 0051: `mapas(nombre, fondo_url, ancho, alto, layout jsonb)` (nodos+enlaces en jsonb).
+  - **API**: `MapaPersonalizadoController` CRUD (lectura cualquier rol, gestión admin/operador). Distinto
+    del mapa geo (`/mapa`): rutas `/mapas`.
+  - **UI**: pantalla **Mapas** (`/mapas`, nav). Visor: SVG con nodos coloreados por estado (reusa
+    `GET /mapa` para los estados, polling 15s), enlaces y fondo; clic en nodo→detalle. Editor
+    (admin/operador): añadir recurso/texto, **arrastrar nodos** (pointer), **conectar** dos nodos,
+    eliminar, fondo por URL + tamaño del lienzo, guardar. Follow-up: subida de imagen de fondo (hoy URL).
+
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.
 
