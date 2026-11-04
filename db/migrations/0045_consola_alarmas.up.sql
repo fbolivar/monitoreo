@@ -28,4 +28,15 @@ CREATE TABLE IF NOT EXISTS relevos_turno (
 CREATE INDEX IF NOT EXISTS ix_relevos_turno_ts ON relevos_turno (creado_at DESC);
 COMMENT ON TABLE relevos_turno IS 'Entrega de turno del NOC: estado que el operador saliente deja al entrante.';
 
+-- Dueño = rol de la app y lectura para Grafana (defensivo si se aplica como 'postgres').
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'monitoreo') THEN
+    EXECUTE 'ALTER TABLE relevos_turno OWNER TO monitoreo';
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'grafana_ro') THEN
+    EXECUTE 'GRANT SELECT ON relevos_turno TO grafana_ro';
+  END IF;
+END $$;
+
 COMMIT;
