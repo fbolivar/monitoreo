@@ -100,6 +100,9 @@ class Settings:
     # Topología L2 por LLDP: camina la LLDP-MIB de los switches y registra vecinos.
     topologia_enabled: bool = _bool("TOPOLOGIA_ENABLED", True)
     topologia_check_seg: int = _int("TOPOLOGIA_CHECK_SEG", 600)
+    # Causa raíz por topología: deriva la dependencia desde el LLDP (padre_topologia_id)
+    # y la usa en supresión/correlación. false = no la calcula (solo dependencia manual).
+    topologia_dependencia_enabled: bool = _bool("TOPOLOGIA_DEPENDENCIA_ENABLED", True)
 
     # Auto-descubrimiento de red: barrido de subred (ping + SNMP sysDescr/sysObjectID)
     # que propone equipos candidatos. El worker toma los escaneos 'pendiente' en cola.

@@ -59,12 +59,15 @@ def ancestro_caido(db: Database, recurso_id: int) -> str | None:
         cur.execute(
             """
             WITH RECURSIVE cadena AS (
-                SELECT id, depende_de_id, estado_actual, nombre, 1 AS nivel
+                SELECT id, COALESCE(depende_de_id, padre_topologia_id) AS padre,
+                       estado_actual, nombre, 1 AS nivel
                 FROM recursos
-                WHERE id = (SELECT depende_de_id FROM recursos WHERE id = %s)
+                WHERE id = (SELECT COALESCE(depende_de_id, padre_topologia_id)
+                            FROM recursos WHERE id = %s)
                 UNION ALL
-                SELECT r.id, r.depende_de_id, r.estado_actual, r.nombre, c.nivel + 1
-                FROM recursos r JOIN cadena c ON r.id = c.depende_de_id
+                SELECT r.id, COALESCE(r.depende_de_id, r.padre_topologia_id),
+                       r.estado_actual, r.nombre, c.nivel + 1
+                FROM recursos r JOIN cadena c ON r.id = c.padre
                 WHERE c.nivel < 20
             )
             SELECT nombre FROM cadena WHERE estado_actual = 'down' ORDER BY nivel LIMIT 1
@@ -73,6 +76,56 @@ def ancestro_caido(db: Database, recurso_id: int) -> str | None:
         )
         row = cur.fetchone()
         return row["nombre"] if row else None
+
+
+def aristas_lldp_gestionadas(db: Database) -> list[tuple[int, int]]:
+    """Aristas (recurso_id, recurso_remoto_id) del LLDP donde AMBOS extremos son
+    recursos gestionados — base del árbol de dependencia topológico."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT DISTINCT recurso_id, recurso_remoto_id FROM lldp_vecinos "
+            "WHERE recurso_remoto_id IS NOT NULL AND recurso_id <> recurso_remoto_id"
+        )
+        return [(r["recurso_id"], r["recurso_remoto_id"]) for r in cur.fetchall()]
+
+
+def raices_nucleo(db: Database) -> set[int]:
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute("SELECT id FROM recursos WHERE es_nucleo = true")
+        return {r["id"] for r in cur.fetchall()}
+
+
+def guardar_padres_topologia(db: Database, padres: dict[int, int | None]) -> int:
+    """Reemplaza padre_topologia_id de TODOS los recursos: primero a NULL, luego
+    fija los calculados (!= None). Devuelve cuántos quedaron con padre."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute("UPDATE recursos SET padre_topologia_id = NULL WHERE padre_topologia_id IS NOT NULL")
+        n = 0
+        for hijo, padre in padres.items():
+            if padre is not None:
+                cur.execute("UPDATE recursos SET padre_topologia_id = %s WHERE id = %s", (padre, hijo))
+                n += 1
+        return n
+
+
+def impacto_aguas_abajo(db: Database, recurso_id: int) -> int:
+    """Cuántos recursos cuelgan (directa o indirectamente) de este, según el padre
+    efectivo COALESCE(depende_de_id, padre_topologia_id). Es el 'blast radius'."""
+    with db.connection() as conn, conn.cursor() as cur:
+        cur.execute(
+            """
+            WITH RECURSIVE abajo AS (
+                SELECT id FROM recursos
+                WHERE COALESCE(depende_de_id, padre_topologia_id) = %s
+                UNION ALL
+                SELECT r.id FROM recursos r
+                JOIN abajo a ON COALESCE(r.depende_de_id, r.padre_topologia_id) = a.id
+            )
+            SELECT count(*) AS n FROM abajo
+            """,
+            (recurso_id,),
+        )
+        return cur.fetchone()["n"]
 
 
 def cargar_recursos_activos(db: Database) -> list[Recurso]:
@@ -1498,7 +1551,7 @@ def incidencias_abiertas_correlacion(db: Database) -> list[dict]:
     with db.connection() as conn, conn.cursor() as cur:
         cur.execute(
             "SELECT i.id, i.abierta_at AS inicio, i.correlacion_id, r.sitio_id, r.id AS recurso_id, "
-            "r.depende_de_id "
+            "COALESCE(r.depende_de_id, r.padre_topologia_id) AS depende_de_id "
             "FROM incidencias i JOIN recursos r ON r.id = i.recurso_id "
             "WHERE i.estado = 'abierta' ORDER BY i.abierta_at"
         )

@@ -138,6 +138,9 @@
           }
         </select>
       </label>
+      <label class="check" title="Raíz de la topología: desde aquí se deriva la dependencia automática (causa raíz) con el LLDP.">
+        <input type="checkbox" name="es_nucleo" [(ngModel)]="form.es_nucleo" /> Nodo núcleo (raíz de topología)
+      </label>
       <label class="check">
         <input type="checkbox" name="activo" [(ngModel)]="form.activo" /> Activo
       </label>

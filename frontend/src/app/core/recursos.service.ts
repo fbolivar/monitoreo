@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
-import { Baseline, FlujoOverview, FlujosResp, HardwareResp, ImportacionResultado, Interfaz, MapaResp, MuestraInterfaz, Paginated, PercentilBanda, Recurso, Respaldo, RespaldoDetalle, SaltoRuta, Sitio, TipoRecurso, TopologiaResp, VecinoLldp, WanCalidadResp } from './models';
+import { Baseline, FlujoOverview, FlujosResp, HardwareResp, ImpactoTopologia, ImportacionResultado, Interfaz, MapaResp, MuestraInterfaz, Paginated, PercentilBanda, Recurso, Respaldo, RespaldoDetalle, SaltoRuta, Sitio, TipoRecurso, TopologiaResp, VecinoLldp, WanCalidadResp } from './models';
 
 @Injectable({ providedIn: 'root' })
 export class RecursosService {
@@ -53,6 +53,10 @@ export class RecursosService {
   /** Última ruta de red (traceroute por salto) del recurso. */
   ruta(id: number): Observable<SaltoRuta[]> {
     return this.api.get<SaltoRuta[]>(`/recursos/${id}/ruta`);
+  }
+  /** Causa raíz / impacto topológico (padre efectivo + blast radius). */
+  impacto(id: number): Observable<ImpactoTopologia> {
+    return this.api.get<ImpactoTopologia>(`/recursos/${id}/impacto`);
   }
 
   baselines(id: number): Observable<Baseline[]> {

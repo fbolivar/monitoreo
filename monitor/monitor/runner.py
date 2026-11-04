@@ -78,9 +78,11 @@ def chequear(db: Database, settings: Settings, recurso: Recurso) -> str:
         estado_hard = conf.estado_hard
 
     # 5b. Dependencia: ¿un ancestro (enlace/firewall aguas arriba) está caído?
-    #     Se evalúa sobre el estado HARD (no por un blip puntual).
+    #     Se evalúa sobre el estado HARD (no por un blip puntual). El ancestro puede
+    #     venir de la dependencia MANUAL o de la TOPOLÓGICA (LLDP) — ancestro_caido
+    #     usa COALESCE(depende_de_id, padre_topologia_id), así que basta con el estado.
     dep_caida = None
-    if recurso.depende_de_id and estado_hard in ("down", "degraded", "unknown"):
+    if estado_hard in ("down", "degraded", "unknown"):
         dep_caida = repo.ancestro_caido(db, recurso.id)
 
     # 6. Persistencia. En `chequeos` va el estado CRUDO (verdad histórica); en
@@ -621,6 +623,29 @@ def recolectar_topologia(db: Database, settings: Settings) -> None:
             v["recurso_remoto_id"] = rid if rid and rid != recurso.id else None
         repo.guardar_vecinos_lldp(db, recurso.id, vecinos)
         log.info("LLDP %s (%s): %d vecino(s).", recurso.id, recurso.nombre, len(vecinos))
+
+    # Tras refrescar los vecinos, recalcula la dependencia TOPOLÓGICA (causa raíz).
+    _recalcular_dependencia_topologia(db, settings)
+
+
+def _recalcular_dependencia_topologia(db: Database, settings: Settings) -> None:
+    """Deriva padre_topologia_id de cada recurso desde el grafo LLDP (BFS desde las
+    raíces 'es_nucleo'). Alimenta la supresión/correlación por COALESCE con la
+    dependencia manual. Si está deshabilitado, limpia los padres topológicos."""
+    if not settings.topologia_dependencia_enabled:
+        repo.guardar_padres_topologia(db, {})   # limpia
+        return
+    from . import topologia_arbol
+
+    aristas = repo.aristas_lldp_gestionadas(db)
+    if not aristas:
+        repo.guardar_padres_topologia(db, {})
+        return
+    raices = repo.raices_nucleo(db)
+    padres = topologia_arbol.construir_arbol(aristas, raices)
+    n = repo.guardar_padres_topologia(db, padres)
+    log.info("Dependencia topológica recalculada: %d recurso(s) con padre (raíces=%d).",
+             n, len(raices))
 
 
 def medir_calidad_wan(db: Database, settings: Settings) -> None:

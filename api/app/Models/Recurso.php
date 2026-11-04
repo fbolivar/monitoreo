@@ -23,6 +23,8 @@ class Recurso extends Model
         'sla_objetivo',
         // Georreferenciación propia del recurso (NULL = usa la de su sede).
         'latitud', 'longitud',
+        // Nodo raíz de la topología (causa raíz automática).
+        'es_nucleo',
     ];
 
     // La columna binaria cifrada nunca se serializa.
@@ -37,6 +39,7 @@ class Recurso extends Model
         'intentos_estado'    => 'integer',
         'latitud'            => 'float',
         'longitud'           => 'float',
+        'es_nucleo'          => 'boolean',
     ];
 
     protected $attributes = [

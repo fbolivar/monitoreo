@@ -235,6 +235,34 @@ class RecursoController extends Controller
         ]);
     }
 
+    /**
+     * Causa raíz / impacto topológico de un recurso: su padre EFECTIVO
+     * (manual o derivado del LLDP) y cuántos recursos cuelgan de él (blast radius).
+     */
+    public function impacto(int $id): JsonResponse
+    {
+        $this->exigirAlcance($id);
+        $r = Recurso::findOrFail($id);
+        $padreId = $r->depende_de_id ?? $r->padre_topologia_id;
+        $padre = $padreId ? Recurso::find($padreId) : null;
+
+        $n = DB::selectOne(
+            'WITH RECURSIVE abajo AS (
+                SELECT id FROM recursos WHERE COALESCE(depende_de_id, padre_topologia_id) = ?
+                UNION ALL
+                SELECT x.id FROM recursos x JOIN abajo a ON COALESCE(x.depende_de_id, x.padre_topologia_id) = a.id
+             ) SELECT count(*) AS n FROM abajo', [$id]
+        );
+
+        return response()->json([
+            'es_nucleo'   => (bool) $r->es_nucleo,
+            'padre'       => $padre ? ['id' => $padre->id, 'nombre' => $padre->nombre,
+                                       'estado_actual' => $padre->estado_actual,
+                                       'origen' => $r->depende_de_id ? 'manual' : 'topologia'] : null,
+            'impacto'     => (int) ($n->n ?? 0),
+        ]);
+    }
+
     /** Última ruta de red (traceroute por salto) de un recurso opt-in. */
     public function ruta(int $id): JsonResponse
     {
@@ -317,6 +345,8 @@ class RecursoController extends Controller
             // Georreferenciación propia (NULL = usa la de su sede en el mapa).
             'latitud'            => ['nullable', 'numeric', 'between:-90,90'],
             'longitud'           => ['nullable', 'numeric', 'between:-180,180'],
+            // Nodo raíz de la topología (causa raíz automática).
+            'es_nucleo'          => ['boolean'],
             // Secretos en claro (jsonb). Se cifran de forma transparente. Nunca se devuelven.
             'secretos'           => ['nullable', 'array'],
         ];

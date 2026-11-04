@@ -35,8 +35,12 @@ export interface Recurso {
   ultimo_chequeo_at?: string | null;
   parametros?: Record<string, unknown>;
   depende_de_id?: number | null;
+  padre_topologia_id?: number | null;
+  es_nucleo?: boolean;
   max_check_attempts?: number | null;
   sla_objetivo?: number | null;
+  latitud?: number | null;
+  longitud?: number | null;
   tipo?: TipoRecurso;
   sitio?: Sitio;
   depende_de?: { id: number; nombre: string } | null;
@@ -94,6 +98,12 @@ export interface RelevoTurno {
   actor_email: string;
   resumen: string;
   creado_at: string;
+}
+
+export interface ImpactoTopologia {
+  es_nucleo: boolean;
+  padre: { id: number; nombre: string; estado_actual: Estado; origen: 'manual' | 'topologia' } | null;
+  impacto: number;
 }
 
 export interface SyslogEvento {

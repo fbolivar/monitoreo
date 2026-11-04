@@ -115,6 +115,8 @@ Route::middleware('auth.jwt')->group(function () use ($crud) {
         [RecursoController::class, 'interfazPercentil'])->whereNumber('id')->whereNumber('ifIndex');
     // Ruta de red (traceroute por salto) de un recurso.
     Route::get('recursos/{id}/ruta', [RecursoController::class, 'ruta'])->whereNumber('id');
+    // Causa raíz / impacto topológico (padre efectivo + blast radius).
+    Route::get('recursos/{id}/impacto', [RecursoController::class, 'impacto'])->whereNumber('id');
     // Mapa geográfico: enlaces (con coords y estado) + sedes. Ligero, para miles de puntos.
     Route::get('mapa', [MapaController::class, 'index']);
 

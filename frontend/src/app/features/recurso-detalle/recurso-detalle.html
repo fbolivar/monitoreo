@@ -24,6 +24,27 @@
     <p class="aviso-dep">⚠ Alertas silenciadas: depende de <b>{{ dep }}</b>, que está caído (causa raíz).</p>
   }
 
+  <!-- Causa raíz / impacto topológico -->
+  @if (impacto(); as imp) {
+    <div class="topo card">
+      @if (imp.es_nucleo) { <span class="chip nucleo">★ Nodo núcleo (raíz)</span> }
+      @if (imp.padre) {
+        <span>Depende de
+          <a [routerLink]="['/recursos', imp.padre.id]"><b>{{ imp.padre.nombre }}</b></a>
+          <span class="text-dim">({{ imp.padre.origen === 'manual' ? 'manual' : 'topología LLDP' }})</span>
+          <app-estado-badge [estado]="imp.padre.estado_actual" />
+        </span>
+      } @else if (!imp.es_nucleo) {
+        <span class="text-dim">Sin dependencia aguas arriba.</span>
+      }
+      @if (imp.impacto > 0) {
+        <span class="chip impacto" title="Recursos que cuelgan de este (blast radius)">
+          Impacto: {{ imp.impacto }} aguas abajo
+        </span>
+      }
+    </div>
+  }
+
   <!-- Último chequeo -->
   @if (ultimoChequeo(); as c) {
     <section>

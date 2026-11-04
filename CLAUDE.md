@@ -618,6 +618,20 @@ hardware Redfish (Dell R640 en id 24), sintéticos (transacción 2 pasos), backu
   nav) con búsqueda + autorrefresco 15s. Deploy: `infra/deploy/simon-syslog.service` + ufw 514/udp.
   Pendiente (follow-up): reglas patrón→incidencia (como linkDown de traps).
 
+- ✅ CAUSA RAÍZ POR TOPOLOGÍA (NOC P1-4) (2026-11-03) [migr. 0048] — worker 269 tests + `ng build` OK.
+  Convierte el LLDP ya recolectado en DEPENDENCIA AUTOMÁTICA (sin configurarla a mano).
+  - **BD** migr. 0048: `recursos.es_nucleo` (marca raíz core/gateway) y `recursos.padre_topologia_id`
+    (lo calcula el worker). La supresión/correlación usan `COALESCE(depende_de_id, padre_topologia_id)`:
+    la dependencia MANUAL pisa a la topológica.
+  - **Worker**: `topologia_arbol.construir_arbol` (BFS puro desde las raíces; sin raíz marcada en un
+    componente, raíz = nodo de mayor grado). `_recalcular_dependencia_topologia` corre tras
+    `recolectar_topologia` y persiste `padre_topologia_id`. `ancestro_caido` y la correlación ahora
+    usan el padre efectivo → supresión anti-tormenta + causa raíz SIN config manual. Flag
+    `TOPOLOGIA_DEPENDENCIA_ENABLED` (def true; false limpia los padres). 10 tests nuevos.
+  - **API**: `es_nucleo` editable en recursos; `GET /recursos/{id}/impacto` (padre efectivo + blast radius).
+  - **UI**: checkbox 'Nodo núcleo' en el form de recursos; panel 'causa raíz / impacto' en el detalle
+    (padre efectivo con origen manual/topología + nº aguas abajo).
+
 Nota de numeración: el usuario llamó "FASE 3" a los workers (en el plan original eran FASE 4).
 Orden real ejecutado: estructura → datos → API → workers → frontend → notificaciones → despliegue → mejoras.
 
